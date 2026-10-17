@@ -1,12 +1,13 @@
 //! WebGL2 재질 가드 — StandardMaterial의 AlphaMode::Blend 금지.
+//! (범용 렌더 정책·에러 처리는 platform/gpu — 여기는 이 게임 재질의
+//! WebGL2 특수 대응만. 아래 상세는 webgl2-fragment-uniform-limit 메모와 정합.)
 //!
 //! 이 스택(bevy 0.19 PBR)에서 alpha_blend 메시 파이프라인은 프래그먼트
 //! 유니폼 버퍼 13개를 요구하는데 WebGL2 명세 한도가 12개라 생성 즉시
-//! 검증 실패 → bevy 오류 핸들러가 앱을 종료해 버린다(관전 화면이 로드
-//! 몇 초 뒤 얼어붙고 주민이 사라지는 현상의 실체). 잎·꽃 텍스처는
-//! 0/1 알파라 컷아웃(Mask)과 위상이 같으므로 전 표준 재질을 강제 전환해
-//! alpha_blend 파이프라인이 아예 생성되지 않게 한다. 커스텀 재질(물·침전)은
-//! 가벼운 자체 레이아웃이라 한도 안 — Blend 유지.
+//! 검증 실패 → 렌더 에러 정책(기본 종료)이 관전 화면을 죽인다. 잎·꽃
+//! 텍스처는 0/1 알파라 컷아웃(Mask)과 위상이 같으므로 전 표준 재질을 강제
+//! 전환해 alpha_blend 파이프라인이 아예 생성되지 않게 한다. 커스텀 재질
+//! (물·바람)은 가벼운 자체 레이아웃이라 한도 안 — Blend 유지.
 
 use bevy::prelude::*;
 
@@ -28,14 +29,4 @@ pub fn guard_blend_materials(
             m.base.alpha_mode = AlphaMode::Mask(0.5);
         }
     }
-}
-
-/// 렌더 검증 오류를 무시하고 계속 — BLEND 재질이 가드 스캔과 추출 사이에
-/// 삽입되는 경합(에셋 비동기 로드)에서 앱이 종료되지 않게 한다. 실패한
-/// alpha_blend 파이프라인 키는 다시 요청되지 않고(가드가 다음 스캔에서
-/// Mask로 전환) alpha_mask 파이프라인으로 자가 치유된다.
-pub fn nonfatal_render_errors(app: &mut App) {
-    app.insert_resource(bevy::render::error_handler::RenderErrorHandler(
-        |_err, _main, _render| bevy::render::error_handler::RenderErrorPolicy::Ignore,
-    ));
 }

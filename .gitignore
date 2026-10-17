@@ -12,3 +12,5 @@ dist/
 !.env.example
 Terrafolk.apk
 Terrafolk.apk.idsig
+terrafolk-*.apk
+terrafolk-*.apk.idsig
