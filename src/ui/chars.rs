@@ -53,6 +53,7 @@ pub fn spawn(mut commands: Commands, theme: Res<UiTheme>, safe: Res<crate::platf
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
             Visibility::Hidden,
         ))
+        .observe(super::close_on_backdrop)
         .with_children(|m| {
             m.spawn((
                 Node {

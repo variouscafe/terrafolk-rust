@@ -1,6 +1,7 @@
 //! ☰ 게임 메뉴 — 레거시 TopBar 드롭다운 직역(주민·설정. 나머지 항목은
 //! 라이브 서버 연동 기능이 구현될 때 추가) + 설정 팝업(시간 배속).
 
+use bevy::input::keyboard::KeyboardInput;
 use bevy::prelude::*;
 
 use super::theme::{self, UiTheme};
@@ -67,7 +68,7 @@ pub fn spawn_menu(mut commands: Commands, theme: Res<UiTheme>, safe: Res<crate::
             menu_item(d, &theme, "주민", Popup::Chars);
             menu_item(d, &theme, "설정", Popup::Settings);
         });
-    // ── 설정 팝업(중앙 모달 셸)
+    // ── 설정 팝업(중앙 모달 셸) — 백드롭 탭으로도 닫힌다
     commands
         .spawn((
             SettingsPopup,
@@ -81,6 +82,7 @@ pub fn spawn_menu(mut commands: Commands, theme: Res<UiTheme>, safe: Res<crate::
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
             Visibility::Hidden,
         ))
+        .observe(super::close_on_backdrop)
         .with_children(|m| {
             m.spawn((
                 Node {
@@ -143,9 +145,12 @@ fn menu_item(d: &mut ChildSpawnerCommands, theme: &UiTheme, label: &str, popup: 
 /// 메뉴 상호작용 — ☰ 토글, 항목 → 팝업, 닫기, 시간 배속 토글.
 /// 버튼 종류별 쿼리 대신 하나의 통합 쿼리(충돌 필터 지옥 회피).
 #[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)] // Bevy 시스템 파라미터 — 입력·시간·UI 상태를 한 프레임 안에서 순서 보정
 pub fn interact(
     mut state: ResMut<UiState>,
     mut day: ResMut<DayTime>,
+    keys: Res<ButtonInput<KeyCode>>,
+    mut key_msgs: MessageReader<KeyboardInput>,
     q_btns: Query<
         (
             &Interaction,
@@ -160,6 +165,14 @@ pub fn interact(
     mut q_settings: Query<&mut Visibility, (With<SettingsPopup>, Without<MenuDropdown>)>,
     mut q_label: Query<&mut Text, With<TimeScaleLabel>>,
 ) {
+    // Escape/안드로이드 뒤로가기 — 열린 UI부터 닫는다(표준: 팝업→메뉴→선택 해제).
+    if crate::platform::back_pressed(&keys) || crate::platform::back_in_messages(&mut key_msgs) {
+        if state.popup.take().is_some() {
+            // 팝업만 닫고 끝
+        } else {
+            state.menu_open = false;
+        }
+    }
     for (i, popup, close, timescale, menu_btn) in q_btns.iter() {
         if *i != Interaction::Pressed {
             continue;
