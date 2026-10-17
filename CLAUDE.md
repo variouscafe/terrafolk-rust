@@ -35,7 +35,9 @@
 - **UI 이중 구현 금지**: 안드로이드·iOS·PC는 **bevy_ui 단일 구현**으로
   공유한다(플랫폼별 분기 금지 — 해상도·세이프에어리어만 반응형 대응).
   웹만 기존 DOM UI(tf-*.js)를 유지한다. 신규 화면은 native UI 모듈에
-  feature 단위 파일로 추가.
+  feature 단위 파일로 추가. 현재 `src/ui/`: theme(토큰)·hud(상단 바)·
+  menu(☰·설정)·chars(주민 목록·선택 패널). 버튼은 Pointer<Click> 옵저버로
+  (Interaction 폴링은 빠른 탭 유실 — 상세 native-ui-bevyui-recipe 메모).
 - **⚠️ GPU 전처리 클램프 금지**: `GpuPreprocessingSupport.max_supported_mode`를
   매 프레임 Prepare에서 None으로 뒤집으면 배칭이 깨져 텍스처드 메시가 통째로
   안 그려진다(2026-10-18 실측 — '파란 화면만 보임'의 원인, a23804b에서
