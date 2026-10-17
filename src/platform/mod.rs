@@ -12,8 +12,15 @@
 
 pub mod diagnostics;
 pub mod gpu;
+pub mod safe_area;
 
 use bevy::prelude::*;
+
+/// UI가 포인터를 점유 중(버튼 호버·팝업) — 월드 입력(팬·핀치·탭)이 양보.
+/// 네이티브 UI 모듈이 매 프레임 갱신. 웹은 DOM UI가 포인터를 아예 흡수하므로
+/// 항상 false.
+#[derive(Resource, Default)]
+pub struct UiHover(pub bool);
 
 /// 플랫폼 런타임 가드·진단 번들 — 게임 로직과 독립적, 어느 게임에나 적용.
 pub struct PlatformPlugin;
@@ -21,6 +28,10 @@ pub struct PlatformPlugin;
 impl Plugin for PlatformPlugin {
     fn build(&self, app: &mut App) {
         gpu::setup(app);
+        safe_area::setup(app);
+        app.add_systems(Startup, safe_area::refresh)
+            .add_systems(Update, safe_area::refresh);
+        app.init_resource::<UiHover>();
         #[cfg(not(target_arch = "wasm32"))]
         app.add_systems(
             Update,

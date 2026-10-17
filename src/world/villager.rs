@@ -26,6 +26,10 @@ pub struct Villager {
     pub moving: bool,
     pub idle: f32,
     pub target_h: f32,
+    /// 표시명(데모: 이름 풀 · 라이브: 서버 name) — UI 주민 목록·선택 패널
+    pub name: String,
+    /// 상태 코드(walk·idle·chop… 레거시 status.* 규칙) — UI가 한글로 번역
+    pub status: String,
 }
 
 #[derive(Component)]
@@ -94,6 +98,9 @@ pub fn model_path_for(id: &str, look: Option<&str>) -> &'static str {
     MODELS[(h % 2) as usize]
 }
 
+/// 데모 주민 이름 풀 — 스폰 순서대로(결정론). 라이브는 서버 name 사용.
+const DEMO_NAMES: [&str; 6] = ["아라", "두리", "세범", "나온", "모리", "바름"];
+
 pub fn spawn_legacy_villagers(
     commands: &mut Commands,
     world: &WorldData,
@@ -126,6 +133,8 @@ pub fn spawn_legacy_villagers(
                     moving: false,
                     idle: rng.range(0.0, 2.0),
                     target_h: VILLAGER_H,
+                    name: DEMO_NAMES[placed].into(),
+                    status: "idle".into(),
                 },
                 WorldAssetRoot(scene),
                 Transform::from_translation(Vec3::new(x as f32 + 0.5, ground, y as f32 + 0.5))
@@ -443,6 +452,11 @@ pub fn wander(
     mut q: Query<(&mut Villager, &mut Transform), Without<crate::net::apply::LiveAgentTag>>,
 ) {
     for (mut v, mut tr) in &mut q {
+        // 상태 코드 갱신(데모 전용 — 라이브는 sync_agents가 서버 값 반영)
+        let want = if v.moving { "walk" } else { "idle" };
+        if v.status != want {
+            v.status = want.into();
+        }
         if v.moving {
             v.t += time.delta_secs() / WALK_TIME;
             if v.t >= 1.0 {

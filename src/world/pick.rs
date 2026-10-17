@@ -119,11 +119,15 @@ pub fn pick_agent(
     buttons: Res<ButtonInput<MouseButton>>,
     touches: Res<Touches>,
     keys: Res<ButtonInput<KeyCode>>,
+    ui_hover: Res<crate::platform::UiHover>,
+    q_ui_hover: Query<&bevy::ui::Interaction>,
     window: Single<&Window>,
     q_cam: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
     q_agents: Query<(Entity, &Transform, Option<&LiveAgentTag>), With<Villager>>,
     mut sel: ResMut<Selection>,
     mut press: Local<Option<Vec2>>,
+    mut ui_press: Local<bool>,
+    mut ui_touches: Local<std::collections::HashSet<u64>>,
 ) {
     if keys.just_pressed(KeyCode::Escape) && !esc_eaten_by_ui() {
         sel.id = None;
@@ -132,24 +136,45 @@ pub fn pick_agent(
         return;
     }
 
-    // 후보 픽셀 — 마우스 클릭(눌림↔뗌 이동 6px 미만)·터치 탭(9px 미만)
+    // UI 점유 중 탭은 월드 픽킹에서 제외(버튼 클릭이 땅 찍기로 새지 않게).
+    // 단 hover는 손을 뗀 프레임엔 이미 풀려 있으므로 '누른 시점 UI 위'를
+    // 터치 id로 기억해 그 해제 프레임까지 제외한다(버튼 탭 → 선택 해제 회귀).
+    // 이 프레임의 실시간 hover — 스케줄 순서와 무관하게 직접 계산
+    // (UiHover 리소스는 UI 체인이 갱신 전이면 한 프레임 늦다 — 누름 순간 놓침)
+    let hover_now = ui_hover.0
+        || q_ui_hover
+            .iter()
+            .any(|i| matches!(i, bevy::ui::Interaction::Hovered | bevy::ui::Interaction::Pressed));
     let mut tap: Option<Vec2> = None;
+    let mut ui_press_now = false;
     if buttons.just_pressed(MouseButton::Left) {
         *press = window.cursor_position();
+        ui_press_now = hover_now;
     }
     if buttons.just_released(MouseButton::Left) {
+        let started_on_ui = *ui_press;
         if let (Some(start), Some(cur)) = (*press, window.cursor_position())
+            && !started_on_ui
             && start.distance(cur) < CLICK_PX
         {
             tap = Some(cur);
         }
         *press = None;
     }
+    for t in touches.iter_just_pressed() {
+        if hover_now {
+            ui_touches.insert(t.id());
+        } else {
+            ui_touches.remove(&t.id());
+        }
+    }
     for t in touches.iter_just_released() {
-        if t.start_position().distance(t.position()) < TAP_PX {
+        let started_on_ui = ui_touches.remove(&t.id());
+        if !started_on_ui && t.start_position().distance(t.position()) < TAP_PX {
             tap = Some(t.position());
         }
     }
+    *ui_press = ui_press_now;
     let Some(px) = tap else { return };
     let Ok((cam, gt)) = q_cam.single() else {
         return;

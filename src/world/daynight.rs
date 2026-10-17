@@ -9,6 +9,8 @@ pub struct DayTime {
     pub hour: f32,
     pub time_scale: f32,
     pub night_factor: f32,
+    /// 절대 일수(1 기반) — HUD 태양력 달력·계절 유도(§17.37)
+    pub day: u32,
     /// 현재 계절(서버 프레임 — 새 겨울 휴면 등 하늘 생명이 소비)
     pub season: String,
     /// 오늘 일출/일몰(분) — 서버 계절별 값, 데모는 6:00/18:00 고정
@@ -22,6 +24,7 @@ impl Default for DayTime {
             hour: 9.0,
             time_scale: 1.0,
             night_factor: 0.0,
+            day: 1,
             season: "summer".into(),
             sunrise_min: 360.0,
             sunset_min: 1080.0,
@@ -121,7 +124,11 @@ pub fn advance_time(time: Res<Time>, keys: Res<ButtonInput<KeyCode>>, mut day: R
     if keys.just_pressed(KeyCode::KeyT) {
         day.time_scale = if day.time_scale == 1.0 { 40.0 } else { 1.0 };
     }
-    day.hour = (day.hour + time.delta_secs() * day.time_scale / 60.0) % 24.0;
+    let next = day.hour + time.delta_secs() * day.time_scale / 60.0;
+    if next >= 24.0 {
+        day.day += 1; // 자정 통과 — 절대 일수(HUD 달력) 증가
+    }
+    day.hour = next % 24.0;
 }
 
 #[allow(clippy::type_complexity)] // 하늘 구성 쿼리 — 태양·달·별 상호 배제 접근

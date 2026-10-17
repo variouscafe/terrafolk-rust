@@ -262,6 +262,13 @@ pub fn sync_agents(
         );
         v.to = target;
         v.moving = tr.translation.distance(target) > 0.05;
+        // 표시명·상태(네이티브 UI 패널 — 웹은 DOM이 서버 값을 직접 표시)
+        if v.name != a.name {
+            v.name = a.name.clone();
+        }
+        if v.status != a.status {
+            v.status = a.status.clone();
+        }
     }
 
     // 신규 — 기존 id 사전 조회(O(1)), 프레임당 O(N×M) 순회 제거
@@ -297,6 +304,8 @@ pub fn sync_agents(
                     moving: false,
                     idle: 0.0,
                     target_h: crate::world::villager::VILLAGER_H,
+                    name: a.name.clone(),
+                    status: a.status.clone(),
                 },
                 LiveAgentTag(a.id.clone()),
                 bevy::world_serialization::WorldAssetRoot(scene),

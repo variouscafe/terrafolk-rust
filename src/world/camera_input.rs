@@ -181,6 +181,12 @@ impl PointerInput {
         self.zoom_anchor = None;
     }
 
+    /// 능동 제스처(그랩·핀치) 진행 중 — UI 가드가 진행 중 제스처는 끊지
+    /// 않게 하기 위한 판정(월드에서 시작한 드래그가 UI 위로 올라와도 유지).
+    pub fn gesture_in_progress(&self) -> bool {
+        self.mouse_grab.is_some() || self.touch_grab.is_some() || self.pinch.is_some()
+    }
+
     /// 프레임 후반 — 그랩 팬(광선 1:1 추적)·핀치 중심 팬·관성 적용.
     /// `gt`는 이번 프레임 적용될 카메라(줌 반영) — 줌과 동시에 잡은 점이 커서를 따라온다.
     #[allow(clippy::too_many_arguments)]

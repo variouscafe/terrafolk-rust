@@ -16,8 +16,8 @@ export PATH="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/darwin-x86_64/bin:$PATH"
 VERSION=$(grep -m1 '^version' "$ROOT/Cargo.toml" | sed 's/version = "\(.*\)"/\1/')
 OUT="$ROOT/terrafolk-$VERSION.apk"
 
-echo '[1/4] xbuild (rust+gradle apk)'
-x build --platform android --arch arm64 --release --format apk
+echo '[1/4] xbuild (rust+gradle apk) — 추가 플래그: $*'
+x build --platform android --arch arm64 --release --format apk "$@" 
 APK=$ROOT/target/x/release/android/mobile.apk
 
 echo '[2/4] 에셋 주입 (manifest assets는 gradle에서 무시되므로 직접)'

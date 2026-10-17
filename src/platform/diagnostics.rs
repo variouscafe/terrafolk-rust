@@ -60,6 +60,7 @@ pub fn boot_probe(
     st.0 += 1;
     st.1 = t + PROBE_INTERVAL;
     let (w, h) = (window.physical_width(), window.physical_height());
+    let (lw, lh) = (window.width(), window.height());
     let cam = cams
         .iter()
         .next()
@@ -78,7 +79,8 @@ pub fn boot_probe(
         })
         .unwrap_or_else(|| "없음(카메라 스폰 실패)".into());
     info!(
-        "[diag] t={t:.1}s window={w}x{h}(물리) mesh총={} mesh가시={} cam: {cam}",
+        "[diag] t={t:.1}s window={w}x{h}(물리) 논리={lw:.0}x{lh:.0} scale={} mesh총={} mesh가시={} cam: {cam}",
+        window.scale_factor(),
         all_meshes.iter().count(),
         visible_meshes.iter().count(),
     );

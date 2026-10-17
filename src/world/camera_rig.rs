@@ -123,6 +123,7 @@ pub fn camera_control(
     mut rig: ResMut<CameraRig>,
     mut input: ResMut<PointerInput>,
     world: Res<WorldData>,
+    ui_hover: Res<crate::platform::UiHover>,
     mut q: Query<(&Camera, &GlobalTransform, &mut Transform, &mut Projection), With<Camera3d>>,
 ) {
     let Ok((camera, gt, mut tr, mut proj)) = q.single_mut() else {
@@ -131,35 +132,41 @@ pub fn camera_control(
     let dt = time.delta_secs().max(1e-4);
     let cursor = window.cursor_position();
 
-    // ── 1) 터치 제스처 전이 + 두 손가락 핀치 비(줌 목표 반영 전에 확정)
-    let pinch_zoom = input.begin_frame(&mouse, &touches);
+    // UI 점유 중이면 신규 입력 양보 — 진행 중 제스처(월드에서 시작)는 유지.
+    // 스무딩·클램프·변환 적용은 항상 돈다(멈추면 줌 수렴·경계가 얼어붙는다).
+    let ui_block = ui_hover.0 && !input.gesture_in_progress();
 
-    // ── 2) 줌 입력 누적
-    // 휠 — 상용 체감 배율(노치당 ~1.65배). 커서가 있으면 줌투커서 앵커 지정
-    if wheel.delta.y.abs() > 1e-4 {
-        let d = (wheel.delta.y * WHEEL_ZOOM_GAIN).clamp(-4.0, 4.0);
-        rig.zoom_goal *= WHEEL_ZOOM_BASE.powf(-d);
-        input.zoom_anchor = cursor;
-    }
-    // 트랙패드 핀치 제스처(macOS/iOS) — 감도 ×5.0, 앵커는 커서
-    let mut gestured = false;
-    for g in pinch.read() {
-        rig.zoom_goal *= 1.0 / (1.0 + (g.0 * PINCH_GESTURE_GAIN).clamp(-0.9, 0.9));
-        gestured = true;
-    }
-    if gestured {
-        input.zoom_anchor = cursor;
-    }
-    // 모바일 두 손가락 핀치 비(begin_frame에서 전이 판정 완료)
-    rig.zoom_goal *= pinch_zoom;
-    // 키보드 +/- — 뷰 중심 줌(앵커 없음). 채팅 입력 타이핑 중에는 무시
-    // (winit keydown은 window 스코프 — DOM 입력 키도 여기 온다)
+    // ── 1) 터치 제스처 전이 + 두 손가락 핀치 비(줌 목표 반영 전에 확정)
+    let pinch_zoom = if ui_block { 1.0 } else { input.begin_frame(&mouse, &touches) };
+
+    // ── 2) 줌 입력 누적 — UI 점유 시 신규 입력 양보
     let typing = super::pick::ui_typing();
-    if !typing && (keys.pressed(KeyCode::Equal) || keys.pressed(KeyCode::NumpadAdd)) {
-        rig.zoom_goal *= 1.0 - KEY_ZOOM_RATE * dt;
-    }
-    if !typing && (keys.pressed(KeyCode::Minus) || keys.pressed(KeyCode::NumpadSubtract)) {
-        rig.zoom_goal *= 1.0 + KEY_ZOOM_RATE * dt;
+    if !ui_block {
+        // 휠 — 상용 체감 배율(노치당 ~1.65배). 커서가 있으면 줌투커서 앵커 지정
+        if wheel.delta.y.abs() > 1e-4 {
+            let d = (wheel.delta.y * WHEEL_ZOOM_GAIN).clamp(-4.0, 4.0);
+            rig.zoom_goal *= WHEEL_ZOOM_BASE.powf(-d);
+            input.zoom_anchor = cursor;
+        }
+        // 트랙패드 핀치 제스처(macOS/iOS) — 감도 ×5.0, 앵커는 커서
+        let mut gestured = false;
+        for g in pinch.read() {
+            rig.zoom_goal *= 1.0 / (1.0 + (g.0 * PINCH_GESTURE_GAIN).clamp(-0.9, 0.9));
+            gestured = true;
+        }
+        if gestured {
+            input.zoom_anchor = cursor;
+        }
+        // 모바일 두 손가락 핀치 비(begin_frame에서 전이 판정 완료)
+        rig.zoom_goal *= pinch_zoom;
+        // 키보드 +/- — 뷰 중심 줌(앵커 없음). 채팅 입력 타이핑 중에는 무시
+        // (winit keydown은 window 스코프 — DOM 입력 키도 여기 온다)
+        if !typing && (keys.pressed(KeyCode::Equal) || keys.pressed(KeyCode::NumpadAdd)) {
+            rig.zoom_goal *= 1.0 - KEY_ZOOM_RATE * dt;
+        }
+        if !typing && (keys.pressed(KeyCode::Minus) || keys.pressed(KeyCode::NumpadSubtract)) {
+            rig.zoom_goal *= 1.0 + KEY_ZOOM_RATE * dt;
+        }
     }
 
     // ── 3) 목표 클램프 → 지수 스무딩
@@ -173,8 +180,15 @@ pub fn camera_control(
     //    그랩 팬 델타는 카메라 평행이동 불변이므로 팬 전 좌표로 계산해도 정확하다.
     let gt_next = camera_at(gt, pan_offset(&rig));
 
-    // ── 5) 그랩 팬(마우스·한 손가락·핀치 중심) + 관성
-    let frame = input.apply_pans(camera, &gt_next, &world, &mouse, &touches, cursor, dt);
+    // ── 5) 그랩 팬(마우스·한 손가락·핀치 중심) + 관성 — UI 점유 시 양보
+    let frame = if ui_block {
+        super::camera_input::PanFrame {
+            pan: Vec2::ZERO,
+            gesture_active: false,
+        }
+    } else {
+        input.apply_pans(camera, &gt_next, &world, &mouse, &touches, cursor, dt)
+    };
     rig.target += frame.pan;
 
     // ── 6) 키보드 팬(WASD·화살표) — 줌 배율 반영 속도. 타이핑 중 무시(위 참조)
