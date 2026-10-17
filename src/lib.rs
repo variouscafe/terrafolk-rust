@@ -5,6 +5,8 @@
 pub mod net;
 pub mod platform;
 pub mod world;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod ui;
 
 use bevy::prelude::*;
 
@@ -17,5 +19,8 @@ impl Plugin for GamePlugin {
         app.add_plugins(platform::PlatformPlugin);
         app.add_plugins(world::WorldPlugin);
         app.add_plugins(net::NetPlugin);
+        // 네이티브 UI(bevy_ui) — 웹은 DOM UI(tf-*.js)가 있으므로 이중 구현 금지.
+        #[cfg(all(not(target_arch = "wasm32"), not(feature = "no-ui")))]
+        app.add_plugins(ui::UiPlugin);
     }
 }

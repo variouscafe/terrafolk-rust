@@ -32,3 +32,7 @@ target_sdk_version = 35
 [package.metadata.android.application]
 icon = "@mipmap/icon"
 label = "Terrafolk"
+
+[features]
+no-ui = ["terrafolk_bevy/no-ui"]
+ui-min = ["terrafolk_bevy/ui-min"]
