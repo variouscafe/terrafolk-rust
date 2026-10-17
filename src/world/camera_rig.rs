@@ -9,8 +9,8 @@ use bevy::core_pipeline::tonemapping::DebandDither;
 use bevy::input::gestures::PinchGesture;
 use bevy::input::mouse::AccumulatedMouseScroll;
 use bevy::post_process::bloom::Bloom;
-use bevy::prelude::*;
 use bevy::render::view::ColorGrading;
+use bevy::prelude::*;
 
 use super::camera_input::{PointerInput, ground_at};
 use super::data::WorldData;

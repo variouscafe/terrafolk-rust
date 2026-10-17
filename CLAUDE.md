@@ -15,18 +15,44 @@
 
 - **이 repo = client 담당**: Rust/Bevy 클라이언트 — **안드로이드 앱을 우선
   타겟으로 개발한다**(2026-10-17 전환). 웹(pages.dev)은 병행 유지하되
-  안드로이드와 충돌하면 앱을 먼저다.
+  안드로이드와 충돌하면 앱을 먼저다. iOS·PC(데스크톱) 네이티브도 고려
+  대상(2026-10-18) — 안드로이드 우선 순위를 유지하되, 네이티브 3플랫폼에서
+  동작하는 코드를 기본으로 짠다. 웹 최적화가 네이티브와 충돌하면
+  **네이티브를 먼저** 맞춘다.
 - **backend·룸·브레인은 `../terrafolk` repo 담당** — API·권위적 월드 틱·LLM 호출은 그쪽에서 구현하며, 데이터 계약도 그쪽 문서(`../terrafolk/docs/data-contract.md`, §17.82) 기준을 따른다.
 - 작업 중 워크스페이스의 repo를 오가면 **현재 repo의 역할에 맞게** 구현할 것.
+
+## 설계 원칙 — 재사용(2026-10-18)
+
+다른 게임을 만들 때도 컴포넌트를 그대로 재사용할 수 있게 계층을 나눈다.
+
+- **`src/platform/` = 게임 무관 런타임 계층**(어떤 Bevy 게임에나 복사해서
+  쓴다): 렌더 에러 정책(로그 남기고 생존), 스왑체인 포맷 진단, 부팅 프로브
+  (창·카메라·가시 메시 — 파란/검은 화면 3분법), 인앱 스크린샷(안드로이드
+  쓰기 가능 경로 자동 해석 + adb pull 회수). `PlatformPlugin` 하나로 구성.
+- **`src/world/` = 이 게임 콘텐츠**(지형·주민·후처리 카메라 등). 플랫폼
+  가드가 필요하면 platform으로, 재질 가드처럼 게임 고유면 world에 둔다.
+- **UI 이중 구현 금지**: 안드로이드·iOS·PC는 **bevy_ui 단일 구현**으로
+  공유한다(플랫폼별 분기 금지 — 해상도·세이프에어리어만 반응형 대응).
+  웹만 기존 DOM UI(tf-*.js)를 유지한다. 신규 화면은 native UI 모듈에
+  feature 단위 파일로 추가.
+- **⚠️ GPU 전처리 클램프 금지**: `GpuPreprocessingSupport.max_supported_mode`를
+  매 프레임 Prepare에서 None으로 뒤집으면 배칭이 깨져 텍스처드 메시가 통째로
+  안 그려진다(2026-10-18 실측 — '파란 화면만 보임'의 원인, a23804b에서
+  도입됐다가 제거). CPU 배칭이 꼭 필요하면 렌더러 초기화 전 1회만 설정.
 
 ## 개발·배포 절차
 
 실행·구조·배포 상세는 `README.md`를 참조할 것.
 
 **안드로이드 앱(우선)**: 빌드는 `./mobile/build-apk.sh` 원스텝(xbuild+에셋
-주입+서명 → `Terrafolk.apk`). 실기 전달은 file-download 스킬(마커
+주입+서명). **산출물은 버전 규칙 `terrafolk-x.y.z.apk`** — 버전의 단일
+원천은 루트 `Cargo.toml`의 `[package] version`(출시마다 bump + manifest
+`version_code` 증가). 실기 전달은 file-download 스킬(마커
 `CODE_SSH_DOWNLOAD v1`). 실물 검증은 에뮬레이터 adb 루프 — 설치·실행·
 screencap·logcat(RustStdoutStderr 라인)으로 매번 확인한다. 네이티브 앱은
-데모 월드(레거시 FE와 동일 맵, 시드 20261011)로 동작 — 라이브 접속은 웹 전용.
+데모 월드(레거시 FE와 동일 맵, 시드 20261011)로 동작 — 라이브 접속은 웹
+전용. **네이티브 앱의 기능 목표 = 레거시 FE 패리티**(주민 표시·선택·
+follow·메뉴 등 레거시 FE가 지원하는 관전 기능 전부 — bevy_ui로 구현).
 
 **웹 테스트 URL**: 자동화 테스트(헤드리스·Playwright 등)는 https://terrafolk-rust.pages.dev 로 접속할 것. 커스텀 도메인(terrafolk.suseona.com)은 Cloudflare 봇 방어가 자동화 접속을 챌린지(403)로 차단한다 — 사람 브라우저는 통과, 자동 검증은 pages.dev 사용. 단 suseona.com 존의 API(tf-api)도 헤드리스 지문을 차단할 수 있어 라이브 백엔드 연동 E2E가 필요하면 headed 모드(`headless: false` + `--disable-blink-features=AutomationControlled` + 실제 UA)로 실행할 것.

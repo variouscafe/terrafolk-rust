@@ -3,6 +3,7 @@
 //! 결정론 생성(시드 순수 함수) — Phase 2에서 Colyseus 어댑터로 교체.
 
 pub mod net;
+pub mod platform;
 pub mod world;
 
 use bevy::prelude::*;
@@ -11,6 +12,9 @@ pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
+        // 플랫폼 런타임(렌더 가드·진단)을 월드보다 먼저 — 게임 콘텐츠와
+        // 무관하게 어떤 게임에도 재사용되는 계층(다른 게임도 이 계약으로 시작).
+        app.add_plugins(platform::PlatformPlugin);
         app.add_plugins(world::WorldPlugin);
         app.add_plugins(net::NetPlugin);
     }

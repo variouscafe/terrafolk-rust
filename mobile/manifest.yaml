@@ -5,6 +5,6 @@ android:
   icon: "ios-src/Assets.xcassets/AppIcon.appiconset/icon_1024x1024.png"
   manifest:
     package: "com.terrafolk.rust"
-    version_code: 3 # Todo you should start at 1
+    version_code: 4 # Todo you should start at 1
     application:
       label: "Terrafolk" # Todo

@@ -27,17 +27,8 @@ use bevy::prelude::*;
 
 pub struct WorldPlugin;
 
-/// 안드로이드 GPU 전처리 강제 OFF — 시스템 본체(위 cfg 블록에서 등록).
-#[cfg(target_os = "android")]
-fn clamp_gpu_preprocessing(
-    mut s: bevy::prelude::ResMut<bevy::render::batching::gpu_preprocessing::GpuPreprocessingSupport>,
-) {
-    s.max_supported_mode = bevy::render::batching::gpu_preprocessing::GpuPreprocessingMode::None;
-}
-
 impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
-        materials_guard::nonfatal_render_errors(app);
         app.add_plugins(bevy::pbr::MaterialPlugin::<water::WaterMaterial>::default());
         app.init_asset::<water::WaterMaterial>();
         app.add_plugins(MaterialPlugin::<splat::TerrainMaterial>::default());
@@ -71,20 +62,6 @@ impl Plugin for WorldPlugin {
         // 웹은 prime_live_world가 라이브 맵으로 교체한다.
         #[cfg(not(target_arch = "wasm32"))]
         app.add_systems(Update, legacy_world::prime_legacy_world);
-        // 안드로이드 — GPU 전처리(버퍼 매핑 리드백) 강제 OFF. 소프트웨어 GPU
-        // (SwiftShader)와 일부 모바일 드라이버에서 DeviceLost 후 매핑 패닉으로
-        // 앱이 죽는다(2026-10-17 에뮬레이터 실측). CPU 배칭으로 돌려 안정화 —
-        // WebGL2 웹 경로도 원래 CPU 전처리라 품질 차이 없다.
-        #[cfg(target_os = "android")]
-        {
-            if let Some(render_app) = app.get_sub_app_mut(bevy::render::RenderApp) {
-                render_app.add_systems(
-                    bevy::render::Render,
-                    clamp_gpu_preprocessing
-                        .in_set(bevy::render::RenderSystems::Prepare),
-                );
-            }
-        }
         app.add_systems(Update, materials_guard::guard_blend_materials);
         app.add_systems(
             Update,
@@ -115,32 +92,7 @@ impl Plugin for WorldPlugin {
                 (pick::drain_select, pick::pick_agent, pick::follow_selection).chain(),
                 occlusion::conceal_occluders,
                 cam_follow::follow_camera,
-                debug_screenshot,
             ),
         );
     }
 }
-
-/// 검증용 스크린샷 — 부팅 6초 후 1회 또는 P키(네이티브만).
-#[cfg(not(target_arch = "wasm32"))]
-fn debug_screenshot(
-    mut commands: Commands,
-    time: Res<Time>,
-    keys: Res<ButtonInput<KeyCode>>,
-    mut done: Local<bool>,
-) {
-    if *done {
-        return;
-    }
-    if time.elapsed_secs() > 6.0 || keys.just_pressed(KeyCode::KeyP) {
-        *done = true;
-        commands
-            .spawn(bevy::render::view::screenshot::Screenshot::primary_window())
-            .observe(bevy::render::view::screenshot::save_to_disk(
-                "/tmp/tf_native_shot.png",
-            ));
-    }
-}
-
-#[cfg(target_arch = "wasm32")]
-fn debug_screenshot() {}
