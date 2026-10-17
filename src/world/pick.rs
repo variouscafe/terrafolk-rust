@@ -4,6 +4,7 @@
 //! 선택 변화는 tf.onPickAgent(id|null)로 JS에 통보하고, JS의 tf.selectAgent는
 //! SelectBridge 큐를 거쳐 프레임 시작에 반영한다(데모 주민은 demo:N 가명).
 
+use bevy::input::keyboard::KeyboardInput;
 use bevy::input::mouse::MouseButton;
 use bevy::math::primitives::Annulus;
 use bevy::prelude::*;
@@ -119,7 +120,9 @@ pub fn pick_agent(
     buttons: Res<ButtonInput<MouseButton>>,
     touches: Res<Touches>,
     keys: Res<ButtonInput<KeyCode>>,
+    mut key_msgs: MessageReader<KeyboardInput>,
     ui_hover: Res<crate::platform::UiHover>,
+    ui_modal: Res<crate::platform::UiModal>,
     q_ui_hover: Query<&bevy::ui::Interaction>,
     window: Single<&Window>,
     q_cam: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
@@ -129,7 +132,11 @@ pub fn pick_agent(
     mut ui_press: Local<bool>,
     mut ui_touches: Local<std::collections::HashSet<u64>>,
 ) {
-    if keys.just_pressed(KeyCode::Escape) && !esc_eaten_by_ui() {
+    if (crate::platform::back_pressed(&keys)
+        || crate::platform::back_in_messages(&mut key_msgs))
+        && !ui_modal.0 // 네이티브 UI(팝업·메뉴)가 뒤로가기를 먼저 소비
+        && !esc_eaten_by_ui()
+    {
         sel.id = None;
         sel.entity = None;
         notify_pick(None);

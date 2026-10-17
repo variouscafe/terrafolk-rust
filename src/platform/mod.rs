@@ -22,6 +22,31 @@ use bevy::prelude::*;
 #[derive(Resource, Default)]
 pub struct UiHover(pub bool);
 
+/// 모달 UI(팝업·메뉴 드롭다운) 열림 여부 — Escape/뒤로가기 소유권 판정에
+/// 월드 입력(pick의 선택 해제)이 참조. 웹은 DOM(tf.modalEsc) 경로.
+#[derive(Resource, Default)]
+pub struct UiModal(pub bool);
+
+/// '뒤로 가기' 계열 판정(물리 키 경로) — 데스크톱 Escape 등.
+pub fn back_pressed(keys: &bevy::input::ButtonInput<bevy::input::keyboard::KeyCode>) -> bool {
+    keys.just_pressed(bevy::input::keyboard::KeyCode::Escape)
+        || keys.just_pressed(bevy::input::keyboard::KeyCode::BrowserBack)
+}
+
+/// '뒤로 가기' 계열 판정(논리 키 경로) — 안드로이드 Back은 winit이 물리 키를
+/// 매핑하지 않고 논리 키(Key::Named(BrowserBack))로만 전달하므로 메시지로 감지.
+/// 각 시스템이 자기 MessageReader로 호출한다(프레임 내 1회 소진).
+pub fn back_in_messages(
+    reader: &mut bevy::ecs::message::MessageReader<bevy::input::keyboard::KeyboardInput>,
+) -> bool {
+    reader.read().any(|e| {
+        matches!(
+            e.logical_key,
+            bevy::input::keyboard::Key::BrowserBack | bevy::input::keyboard::Key::Escape
+        )
+    })
+}
+
 /// 플랫폼 런타임 가드·진단 번들 — 게임 로직과 독립적, 어느 게임에나 적용.
 pub struct PlatformPlugin;
 
@@ -32,6 +57,7 @@ impl Plugin for PlatformPlugin {
         app.add_systems(Startup, safe_area::refresh)
             .add_systems(Update, safe_area::refresh);
         app.init_resource::<UiHover>();
+        app.init_resource::<UiModal>();
         #[cfg(not(target_arch = "wasm32"))]
         app.add_systems(
             Update,

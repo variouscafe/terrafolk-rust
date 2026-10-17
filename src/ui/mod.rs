@@ -100,8 +100,13 @@ fn apply_safe_area(
     }
 }
 
+/// 팝업 백드롭 탭 → 팝업 닫기(모바일 표준 UX). 각 팝업 루트에 observe로 부착.
+pub fn close_on_backdrop(_: On<Pointer<Click>>, mut state: ResMut<UiState>) {
+    state.popup = None;
+}
+
 /// 폰트 로드 → 테마 리소스. HUD·팝업 스폰이 이 뒤에 오므로 스폰 시점에
-/// 핸들이 존재한다(에셋 로드는 비동기지만 핸들 자체는 즉시 생성).
+/// 핸들이 존재한다(에셋 로드는 비동기하지만 핸들 자체는 즉시 생성).
 fn load_theme(mut commands: Commands, assets: Res<AssetServer>) {
     commands.insert_resource(theme::UiTheme {
         font: assets.load("fonts/NotoSansKR-Regular.otf"),
@@ -111,12 +116,15 @@ fn load_theme(mut commands: Commands, assets: Res<AssetServer>) {
 /// 호버된 버튼이 하나라도 있으면 포인터는 UI 위 — 월드 입력 차단 근거.
 fn update_pointer_over_ui(
     interactions: Query<&Interaction>,
+    state: Res<UiState>,
     mut over: ResMut<PointerOverUi>,
     mut hover: ResMut<crate::platform::UiHover>,
+    mut modal: ResMut<crate::platform::UiModal>,
 ) {
     over.0 = interactions
         .iter()
         .any(|i| *i == Interaction::Hovered || *i == Interaction::Pressed);
     hover.0 = over.0;
+    modal.0 = state.menu_open || state.popup.is_some();
 
 }
