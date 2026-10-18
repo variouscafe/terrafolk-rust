@@ -222,6 +222,7 @@ pub fn quick_greet_key(keys: Res<ButtonInput<KeyCode>>, sel: Res<Selection>) {
     if !keys.just_pressed(KeyCode::KeyG) {
         return;
     }
+    info!("[chat] G 감지 — sel.id={:?} entity={:?}", sel.id, sel.entity);
     let chat = ChatState {
         active: true,
         buffer: "안녕! 반가워".into(),
