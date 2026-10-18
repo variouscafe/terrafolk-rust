@@ -9,7 +9,6 @@ use bevy::world_serialization::{WorldAssetRoot, WorldInstanceReady};
 use std::time::Duration;
 
 use super::data::WorldData;
-use crate::net::apply::LiveAgentTag;
 
 const WALK_TIME: f32 = 0.85;
 /// 주민 키 목표(미터)
@@ -45,7 +44,7 @@ pub struct VillagerModel(pub Handle<Gltf>, pub Option<String>);
 
 /// Kenney Mini Characters(CC0, 치비 3두신·body/head 분리 메시·7관절) —
 /// 참조 스타일(밀짚모자 파머·점 눈)과 동일 계열. 6남+6녀 변형(의상·헤어·피부).
-const MODELS_M: [&str; 6] = [
+pub(crate) const MODELS_M: [&str; 6] = [
     "models/Kenney_character-male-a.glb",
     "models/Kenney_character-male-b.glb",
     "models/Kenney_character-male-c.glb",
@@ -62,41 +61,9 @@ const MODELS_F: [&str; 6] = [
     "models/Kenney_character-female-f.glb",
 ];
 
-/// 여성 모델 헤어 변형 프리미티브(VillagerWoman Casual_Head 공존 파츠) —
-/// 룩 해시로 1택. 남성(Sam 단일 메시)엔 해당 없다.
-const HAIR_VARIANTS: [&str; 3] = ["Hair_Blond", "Hair_Brown", "Brown"];
-
-// ── 착의 팔레트 — 프리미티브 재질 베이스컬러 틴트(코지·페인터리 톤) ──
-// 슬롯 매칭: "Casual_Body.White"=셔츠 · "Casual_Legs.Orange"=바지 ·
-// "Casual_Feet.Grey"=신발(엔티티명 "메시.재질" 규칙). 피부·머리 슬롯은 불간섭.
-fn shirt_colors() -> [Color; 8] {
-    [
-        Color::srgb(0.62, 0.28, 0.22), // 벽돌
-        Color::srgb(0.36, 0.46, 0.33), // 세이지
-        Color::srgb(0.24, 0.32, 0.46), // 네이비
-        Color::srgb(0.72, 0.58, 0.26), // 머스터드
-        Color::srgb(0.66, 0.36, 0.42), // 로즈
-        Color::srgb(0.24, 0.46, 0.44), // 청록
-        Color::srgb(0.42, 0.34, 0.50), // 플럼
-        Color::srgb(0.80, 0.74, 0.62), // 크림
-    ]
-}
-fn pants_colors() -> [Color; 5] {
-    [
-        Color::srgb(0.32, 0.24, 0.18), // 갈색
-        Color::srgb(0.22, 0.28, 0.38), // 짙은 청
-        Color::srgb(0.40, 0.36, 0.26), // 카키
-        Color::srgb(0.20, 0.20, 0.22), // 차콜
-        Color::srgb(0.38, 0.24, 0.26), // 버건디
-    ]
-}
-fn shoe_colors() -> [Color; 3] {
-    [
-        Color::srgb(0.14, 0.13, 0.14), // 흑
-        Color::srgb(0.34, 0.24, 0.16), // 갈
-        Color::srgb(0.24, 0.20, 0.18), // 암갈
-    ]
-}
+// 착의 다양성은 Kenney 변형(a~f·남녀 12종)이 담당하고, 아이템 부착은
+// wear 모듈(본 앵커 레이어)이 담당한다 — 재질 틴트는 colormap 텍스처
+// 구조상 지역 분리가 안 되어 폐기(2026-10-18, Quaternius 잔코드 정리).
 
 /// 라이브 에이전트용 — lookJson.sex(있으면) 또는 id 해시로 남/녀 그룹을 고르고,
 /// 해시로 a~f 변형(의상·헤어)을 1택한다(Kenney 12종 — 슬롯 재질이 없어
@@ -140,6 +107,7 @@ pub fn spawn_legacy_villagers(commands: &mut Commands, world: &WorldData, assets
         commands
             .spawn((
                 VillagerModel(gltf, None),
+                super::wear::demo_wears_component(placed),
                 Villager {
                     from: Vec3::new(x as f32 + 0.5, ground, y as f32 + 0.5),
                     to: Vec3::new(x as f32 + 0.5, ground, y as f32 + 0.5),
@@ -179,8 +147,6 @@ pub fn villager_ready(
     mut graphs: ResMut<Assets<AnimationGraph>>,
     meshes: Res<Assets<Mesh>>,
     mut aabb_cache: ResMut<super::models::MeshAabbCache>,
-    mut std_mats: ResMut<Assets<StandardMaterial>>,
-    mat_handles: Query<&MeshMaterial3d<StandardMaterial>>,
     world: Res<super::data::WorldData>,
 ) {
     let Ok((villager, model, tr)) = q_self.get(trigger.entity) else {
@@ -199,8 +165,6 @@ pub fn villager_ready(
         &mut graphs,
         &meshes,
         &mut aabb_cache,
-        &mut std_mats,
-        &mat_handles,
         &world,
     );
     if !done {
@@ -228,8 +192,6 @@ pub fn retry_villager_setup(
     mut graphs: ResMut<Assets<AnimationGraph>>,
     meshes: Res<Assets<Mesh>>,
     mut aabb_cache: ResMut<super::models::MeshAabbCache>,
-    mut std_mats: ResMut<Assets<StandardMaterial>>,
-    mat_handles: Query<&MeshMaterial3d<StandardMaterial>>,
     world: Res<super::data::WorldData>,
 ) {
     for (entity, villager, model, tr, mut pending) in &mut q {
@@ -252,8 +214,6 @@ pub fn retry_villager_setup(
             &mut graphs,
             &meshes,
             &mut aabb_cache,
-            &mut std_mats,
-            &mat_handles,
             &world,
         );
         if done {
@@ -279,80 +239,11 @@ fn finish_villager_setup(
     graphs: &mut Assets<AnimationGraph>,
     meshes: &Assets<Mesh>,
     aabb_cache: &mut super::models::MeshAabbCache,
-    std_mats: &mut Assets<StandardMaterial>,
-    mat_handles: &Query<&MeshMaterial3d<StandardMaterial>>,
     world: &super::data::WorldData,
 ) -> bool {
     let Some(gltf) = gltfs.get(&model.0) else {
         return false; // Gltf 아직 로딩 — 재시도로 흡수
     };
-    // ── 룩 파츠 선택 — GLB는 변형 프리미티브가 '공존'한다(여성 머리 3색).
-    // 엔티티명 "Casual_Head.Hair_Blond" 규칙(bevy_gltf primitive_name)으로
-    // lookJson 해시가 고른 하나만 남기고 나머지 파기 — 주민별 외형 분리.
-    {
-        let seed = model.1.as_deref().unwrap_or("");
-        let h = seed
-            .bytes()
-            .fold(0u64, |a, b| a.wrapping_mul(31) + b as u64);
-        let pick = HAIR_VARIANTS[(h % HAIR_VARIANTS.len() as u64) as usize];
-        for child in children.iter_descendants(entity) {
-            if let Ok((Some(name), _, _, _, _)) = q_walk.get(child)
-                && let Some(mat) = name.rsplit('.').next()
-                && name.starts_with("Casual_Head.")
-                && HAIR_VARIANTS.contains(&mat)
-                && mat != pick
-            {
-                commands.entity(child).despawn();
-            }
-        }
-    }
-    // ── 착의 틴트 — 옷 슬롯 재질을 주민별 고유 복제로 교체(lookJson 해시 색).
-    // 주민별 고유 재질은 오토 인스턴싱 배칭을 의도적으로 분리한다 — 모바일
-    // WebGL2에서 다중 스키닝 메시 배칩이 조인트 행렬을 섞어 '뼈'처럼 뭉개지는
-    // 회귀의 1차 회피책(주민 수십 개 드로우콜 — 비용 무시 가능).
-    {
-        let seed = model.1.as_deref().unwrap_or("");
-        let h = seed
-            .bytes()
-            .fold(0u64, |a, b| a.wrapping_mul(31) + b as u64);
-        let slots: [(&str, Color); 3] = [
-            (
-                "Casual_Body.White",
-                shirt_colors()[(h.wrapping_mul(0x9E37) % 8) as usize],
-            ),
-            (
-                "Casual_Legs.Orange",
-                pants_colors()[(h.wrapping_mul(0x85EB) % 5) as usize],
-            ),
-            (
-                "Casual_Feet.Grey",
-                shoe_colors()[(h.wrapping_mul(0xC2B2) % 3) as usize],
-            ),
-        ];
-        for child in children.iter_descendants(entity) {
-            let Ok((Some(name), _, _, _, _)) = q_walk.get(child) else {
-                continue;
-            };
-            let Some(tint) = slots
-                .iter()
-                .find(|(slot, _)| name.as_str() == *slot)
-                .map(|(_, c)| *c)
-            else {
-                continue;
-            };
-            let Ok(handle) = mat_handles.get(child) else {
-                continue;
-            };
-            let Some(m) = std_mats.get(&handle.0) else {
-                continue;
-            };
-            let mut clone = m.clone();
-            clone.base_color = tint; // 단색 슬롯 — 직접 지정(피부·머리 불간섭)
-            commands
-                .entity(child)
-                .insert(MeshMaterial3d(std_mats.add(clone)));
-        }
-    }
     // Walk/Idle 클립 검색 — 접미 매칭(프리픽스는 모델별 상이)
     let find = |suffix: &str| {
         gltf.named_animations
@@ -429,151 +320,6 @@ fn finish_villager_setup(
         current_walk: false,
     });
     true
-}
-
-/// 진단 — 주민 렌더 상태 덤프(유령 디버깅): 스폰 8초 후 1회.
-/// 애님 연결·스킨·재질 알파 모드를 콘솔에 기록한다.
-#[allow(clippy::too_many_arguments, clippy::type_complexity)] // Bevy 시스템 파라미터·쿼리 — finish_villager_setup과 동일 계열
-pub fn villager_render_probe(
-    mut commands: Commands,
-    mut rig: ResMut<crate::world::camera_rig::CameraRig>,
-    assets: Res<AssetServer>,
-    world: Res<crate::world::data::WorldData>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    time: Res<Time>,
-    day: Res<crate::world::daynight::DayTime>,
-    q_root: Query<(Entity, Option<&LiveAgentTag>, Has<VillagerAnims>), With<Villager>>,
-    q_tr: Query<&Transform, With<Villager>>,
-    children: Query<&Children>,
-    mut players: Query<(Entity, &mut AnimationPlayer)>,
-    skinned: Query<(Entity, &bevy::mesh::skinning::SkinnedMesh)>,
-    mut mats: ResMut<Assets<StandardMaterial>>,
-    mat_handles: Query<&MeshMaterial3d<StandardMaterial>>,
-) {
-    #[allow(clippy::collapsible_if)]
-    if time.elapsed_secs() < 8.0 || time.elapsed_secs() > 8.2 {
-        return;
-    }
-    // 진단 스위치 — TF_HIDE_VILLAGERS=1이면 주민 루트를 숨긴다(A/B 차분 촬영).
-    if std::env::var("TF_HIDE_VILLAGERS").is_ok() {
-        for (e, _, _) in &q_root {
-            commands.entity(e).insert(Visibility::Hidden);
-        }
-        info!(
-            "[probe] TF_HIDE_VILLAGERS — 주민 {}명 은닉",
-            q_root.iter().count()
-        );
-        return;
-    }
-    // 진단 스위치 — TF_NOSKIN=1이면 자손 SkinnedMesh를 제거한다(스킨 렌더
-    // 경로 고립 실험: 보이면 스키닝 경로가 범인, 안 보이면 다른 원인).
-    if std::env::var("TF_NOSKIN").is_ok() {
-        let mut n = 0;
-        for (e, _, _) in &q_root {
-            for child in children.iter_descendants(e) {
-                if skinned.get(child).is_ok() {
-                    commands
-                        .entity(child)
-                        .remove::<bevy::mesh::skinning::SkinnedMesh>();
-                    n += 1;
-                }
-            }
-        }
-        info!("[probe] TF_NOSKIN — 스킨 제거 {n}개");
-        return;
-    }
-    // 진단 스위치 — TF_NOANIM=1이면 모든 주민 애님 일시정지(바인드포즈 정지).
-    if std::env::var("TF_NOANIM").is_ok() {
-        let mut n = 0;
-        for (e, _, _) in &q_root {
-            for child in children.iter_descendants(e) {
-                if let Ok((_, mut player)) = players.get_mut(child) {
-                    player.pause_all();
-                    n += 1;
-                }
-            }
-        }
-        info!("[probe] TF_NOANIM — 애님 정지 {n}개");
-        return;
-    }
-    // 진단 대조군 — TF_PROBE_SPAWN=cube: 맵 중앙 빨강 큐브(일반 메시 렌더 확인).
-    // TF_PROBE_SPAWN=rawglb: 후처리 없는 주민 GLB 씬 원본 스폰(애님·틴트·파기 판별).
-    if let Ok(mode) = std::env::var("TF_PROBE_SPAWN")
-        && !mode.is_empty()
-    {
-        use bevy::gltf::GltfAssetLabel;
-        let center = world.size as f32 / 2.0;
-        if mode == "cube" {
-            commands.spawn((
-                Mesh3d(meshes.add(Mesh::from(bevy::math::primitives::Cuboid::new(
-                    1.5, 1.5, 1.5,
-                )))),
-                MeshMaterial3d(mats.add(StandardMaterial {
-                    base_color: Color::srgb(1.0, 0.05, 0.05),
-                    ..default()
-                })),
-                Transform::from_translation(Vec3::new(center, 1.5, center)),
-            ));
-            info!("[probe] TF_PROBE_SPAWN=cube — 중앙 큐브 스폰 ({center},{center})");
-        } else if mode == "rawglb" {
-            let scene = assets.load(GltfAssetLabel::Scene(0).from_asset(MODELS_M[0]));
-            commands.spawn((
-                bevy::world_serialization::WorldAssetRoot(scene),
-                Transform::from_translation(Vec3::new(center, 0.5, center)),
-            ));
-            info!("[probe] TF_PROBE_SPAWN=rawglb — 원본 씬 스폰 ({center},{center})");
-        }
-    }
-    // 진단 스위치 — TF_FOCUS_VILLAGER=1이면 카메라를 첫 주민에 고정·줌인.
-    if std::env::var("TF_FOCUS_VILLAGER").is_ok()
-        && let Some(tr) = q_tr.iter().next()
-    {
-        rig.target = tr.translation.truncate();
-        rig.zoom_goal = 2.4;
-        info!(
-            "[probe] TF_FOCUS_VILLAGER — 카메라 고정 ({:.1},{:.1}) 줌 2.4",
-            tr.translation.x, tr.translation.z
-        );
-    }
-    for (e, tag, anims) in &q_root {
-        let tag_name = tag.map(|t| t.0.as_str()).unwrap_or("demo").to_owned();
-        let mut n_mesh = 0;
-        let mut n_skinned = 0;
-        let mut alpha_modes = std::collections::BTreeMap::new();
-        for child in children.iter_descendants(e) {
-            if let Ok((se, _)) = skinned.get(child) {
-                n_skinned += 1;
-                let _ = se;
-            }
-            if let Ok(h) = mat_handles.get(child) {
-                n_mesh += 1;
-                if let Some(m) = mats.get(h) {
-                    let key = format!("{:?}", m.alpha_mode);
-                    *alpha_modes.entry(key).or_insert(0) += 1;
-                }
-            }
-        }
-        let playing = children
-            .iter_descendants(e)
-            .any(|c| players.get(c).is_ok_and(|(_, p)| !p.all_paused()));
-        let fit = q_tr.get(e).map(|t| {
-            format!(
-                "sc={:.2} pos=({:.1},{:.1},{:.1})",
-                t.scale.x, t.translation.x, t.translation.y, t.translation.z
-            )
-        });
-        info!(
-            "[probe] {} anims={} playing={} meshes={} skinned={} alpha={:?} {} t={:.0}h",
-            tag_name,
-            anims,
-            playing,
-            n_mesh,
-            n_skinned,
-            alpha_modes,
-            fit.unwrap_or_else(|_| "no-tr".into()),
-            day.hour
-        );
-    }
 }
 
 /// 시간 기반 자유 난수(배회 휴식 길이) — 결정론 대상 아님(연출).
