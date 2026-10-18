@@ -9,6 +9,7 @@
 
 use crate::net::{
     FrameQueue, LiveAgent, LiveFrame, LiveResource, PHASE_CONNECTING, PHASE_RECONNECTING,
+    feed, feed::FeedQueues,
 };
 use colyseus_lite::{MatchmakeResp, Room, RoomEvent, SchemaState, Value as ColyValue};
 use log::info;
@@ -23,30 +24,30 @@ const LOCAL_API: &str = "http://127.0.0.1:8892";
 const LOCAL_WS: &str = "http://127.0.0.1:8893";
 
 /// 접속 스레드 기동 — NetPlugin(native) connect_bridge에서 1회 호출.
-pub fn spawn(queue: FrameQueue, phase: Arc<AtomicU8>) {
+pub fn spawn(queue: FrameQueue, phase: Arc<AtomicU8>, feeds: FeedQueues) {
     let _ = std::thread::Builder::new()
         .name("tf-net".into())
         .spawn(move || {
-            if catch_unwind(AssertUnwindSafe(|| run_blocking(queue, phase))).is_err() {
+            if catch_unwind(AssertUnwindSafe(|| run_blocking(queue, phase, feeds))).is_err() {
                 // 패닉 전파는 앱 전체 중단(release abort) — 삼키고 로그만.
                 eprintln!("[net] 네트워크 스레드 패닉 — 중단(데모 관전 유지)");
             }
         });
 }
 
-fn run_blocking(queue: FrameQueue, phase: Arc<AtomicU8>) {
+fn run_blocking(queue: FrameQueue, phase: Arc<AtomicU8>, feeds: FeedQueues) {
     let Ok(rt) = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
     else {
         return;
     };
-    rt.block_on(run(queue, phase));
+    rt.block_on(run(queue, phase, feeds));
 }
 
 /// 로컬 백엔드 우선 프로브 — 데스크톱 개발·에뮬레이터(adb reverse) 무설정.
 /// 127.0.0.1 거부는 즉시 실패라 실기기 체감 지연 없음.
-fn pick_bases() -> (&'static str, &'static str) {
+pub(crate) fn pick_bases() -> (&'static str, &'static str) {
     use std::net::TcpStream;
     let addr: std::net::SocketAddr = "127.0.0.1:8892".parse().expect("주소");
     let local = TcpStream::connect_timeout(&addr, Duration::from_millis(600)).is_ok();
@@ -57,7 +58,7 @@ fn pick_bases() -> (&'static str, &'static str) {
     }
 }
 
-async fn run(queue: FrameQueue, phase: Arc<AtomicU8>) {
+async fn run(queue: FrameQueue, phase: Arc<AtomicU8>, feeds: FeedQueues) {
     let (api, ws) = pick_bases();
     info!("[net] 라이브 베이스 — api {api} · ws {ws}");
     let Ok(http) = reqwest::Client::builder()
@@ -69,7 +70,7 @@ async fn run(queue: FrameQueue, phase: Arc<AtomicU8>) {
     let mut retry: u32 = 0;
     loop {
         phase.store(PHASE_CONNECTING, Ordering::Relaxed);
-        if let Err(e) = once(&http, api, ws, &queue).await {
+        if let Err(e) = once(&http, api, ws, &queue, &feeds).await {
             info!("[net] 접속 종료: {e}");
         }
         retry += 1;
@@ -86,6 +87,7 @@ async fn once(
     api: &str,
     ws: &str,
     queue: &FrameQueue,
+    feeds: &FeedQueues,
 ) -> Result<(), String> {
     // 관전 티켓(무인증) — 네이티브 앱은 관전 스코프(채팅 송신 없음).
     let ticket: String = http
@@ -141,9 +143,13 @@ async fn once(
                 state.apply_patch(&b)?;
                 push_frame(&state, &mut first_state, queue);
             }
-            RoomEvent::Data { kind, .. } => {
-                info!("[net] 룸 메시지 수신: {kind}");
-            }
+            RoomEvent::Data { kind, payload } => match kind.as_str() {
+                // 관전 피드 — 채팅 방송(§17.55)·이벤트 플러시(2s 폴).
+                "chat" => feed::push_chat(feeds, &payload),
+                "event" => feed::push_event(feeds, &payload),
+                "hello" => {} // 관전 스코프 — 참여자 인사 무시
+                other => info!("[net] 룸 메시지 수신: {other}"),
+            },
             RoomEvent::Error { code, message } => {
                 return Err(format!("룸 오류 {code}: {message}"));
             }
@@ -204,6 +210,16 @@ fn build_frame(state: &SchemaState, with_map: bool) -> Option<LiveFrame> {
                 look: av("lookJson")
                     .and_then(ColyValue::as_str)
                     .map(str::to_owned),
+                act_progress: av("actProgress")
+                    .and_then(ColyValue::as_f64)
+                    .map(|v| v as f32),
+                goal_text: av("goalText").and_then(ColyValue::as_str).map(str::to_owned),
+                goal_key: av("goalKey").and_then(ColyValue::as_str).map(str::to_owned),
+                hunger: av("hunger").and_then(ColyValue::as_f64).map(|v| v as f32),
+                thirst: av("thirst").and_then(ColyValue::as_f64).map(|v| v as f32),
+                fatigue: av("fatigue").and_then(ColyValue::as_f64).map(|v| v as f32),
+                warmth: av("warmth").and_then(ColyValue::as_f64).map(|v| v as f32),
+                inv_json: av("invJson").and_then(ColyValue::as_str).map(str::to_owned),
             })
         })
         .collect();

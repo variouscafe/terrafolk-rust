@@ -310,6 +310,7 @@ pub fn sync_agents(
                     status: a.status.clone(),
                 },
                 LiveAgentTag(a.id.clone()),
+                super::agent_hud::AgentHud::default(),
                 bevy::world_serialization::WorldAssetRoot(scene),
                 Transform::from_translation(Vec3::new(a.x, ground, a.y)),
             ))
