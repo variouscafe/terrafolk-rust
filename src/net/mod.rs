@@ -176,6 +176,10 @@ fn connect_bridge(queue: Res<FrameQueue>) {    use wasm_bindgen::closure::Closur
 /// 프레임은 자원으로 흘러온다). 실패·끊김은 스레드 안에서 백오프 재접속.
 #[cfg(not(target_arch = "wasm32"))]
 fn connect_bridge(queue: Res<FrameQueue>, phase: Res<NetLinkPhase>) {
+    if std::env::var("TF_NO_NET").is_ok() {
+        info!("[net] TF_NO_NET — 접속 스킵(데모 진단)");
+        return;
+    }
     native_conn::spawn(queue.clone(), Arc::clone(&phase.0));
 }
 

@@ -17,6 +17,23 @@ pub fn setup(app: &mut App) {
     app.insert_resource(bevy::render::error_handler::RenderErrorHandler(
         |_err, _main, _render| bevy::render::error_handler::RenderErrorPolicy::Ignore,
     ));
+    // 진단/회피 스위치 — TF_CPU_PREPROC=1이면 GPU 전처리를 RenderStartup에서
+    // 1회 비활성화. 매 프레임 클램프 금지 규칙의 유일 예외 경로(부팅 1회).
+    // 네이티브(Metal/Vulkan) GPU 전처리 경로에서 스키닝 메시가 조용히 안
+    // 그려지는 회귀 조사용(웹 WebGL2=CPU 경로는 정상).
+    if let Some(render_app) = app.get_sub_app_mut(bevy::render::RenderApp) {
+        render_app.add_systems(
+            bevy::render::RenderStartup,
+            |mut support: ResMut<
+                bevy::render::batching::gpu_preprocessing::GpuPreprocessingSupport,
+            >| {
+                if std::env::var("TF_CPU_PREPROC").is_ok() {
+                    support.max_supported_mode = bevy::render::batching::gpu_preprocessing::GpuPreprocessingMode::None;
+                    info!("[gpu] TF_CPU_PREPROC — GPU 전처리 비활성화(부팅 1회)");
+                }
+            },
+        );
+    }
     // 스왑체인 포맷 로그 — "화면이 비는데 에러가 없다" 진단의 첫 확인 포인트.
     #[cfg(target_os = "android")]
     if let Some(render_app) = app.get_sub_app_mut(bevy::render::RenderApp) {
