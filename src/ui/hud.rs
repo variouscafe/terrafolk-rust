@@ -103,6 +103,7 @@ pub fn date_of(day: u32) -> (u32, u32, u32, &'static str) {
 }
 
 #[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)] // Bevy 시스템 파라미터(텍스트 마커별 분리 쿼리)
 pub fn update_hud(
     day: Res<DayTime>,
     weather: Res<WeatherState>,

@@ -401,7 +401,9 @@ fn finish_villager_setup(
 
 /// 진단 — 주민 렌더 상태 덤프(유령 디버깅): 스폰 8초 후 1회.
 /// 애님 연결·스킨·재질 알파 모드를 콘솔에 기록한다.
+#[allow(clippy::too_many_arguments)] // Bevy 시스템 파라미터 — finish_villager_setup과 동일 계열
 pub fn villager_render_probe(
+    mut commands: Commands,
     time: Res<Time>,
     day: Res<crate::world::daynight::DayTime>,
     q_root: Query<(Entity, &LiveAgentTag, Has<VillagerAnims>), With<Villager>>,
@@ -414,6 +416,14 @@ pub fn villager_render_probe(
 ) {
     #[allow(clippy::collapsible_if)]
     if time.elapsed_secs() < 8.0 || time.elapsed_secs() > 8.2 {
+        return;
+    }
+    // 진단 스위치 — TF_HIDE_VILLAGERS=1이면 주민 루트를 숨긴다(A/B 차분 촬영).
+    if std::env::var("TF_HIDE_VILLAGERS").is_ok() {
+        for (e, _, _) in &q_root {
+            commands.entity(e).insert(Visibility::Hidden);
+        }
+        info!("[probe] TF_HIDE_VILLAGERS — 주민 {}명 은닉", q_root.iter().count());
         return;
     }
     for (e, tag, anims) in &q_root {

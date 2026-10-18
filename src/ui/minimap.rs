@@ -160,6 +160,7 @@ fn on_map_tap(
 }
 
 #[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)] // Bevy 시스템 파라미터(월드·넷·카메라·UI 자원 동시 참조)
 pub fn update_minimap(
     time: Res<Time>,
     world: Res<WorldData>,
@@ -279,10 +280,10 @@ pub fn update_minimap(
         rect_stroke(&mut buf, size, x0 + 1, y0 + 1, x1 - 1, y1 - 1, VIEW_GOLD);
     }
 
-    if let Some(h) = &st.image {
-        if let Some(mut img) = images.get_mut(h) {
-            img.data = Some(buf);
-        }
+    if let Some(h) = &st.image
+        && let Some(mut img) = images.get_mut(h)
+    {
+        img.data = Some(buf);
     }
 
     // 상태 칩 — LIVE면 발명 수(문명 진척), 그 외 링크 단계.
@@ -332,10 +333,10 @@ fn draw_live(
     use crate::net::LiveResource;
     let parse = |r: &LiveResource, cache: &mut HashMap<u32, (String, ResState)>| {
         let raw = r.state.as_deref().unwrap_or("");
-        if let Some((prev, parsed)) = cache.get(&r.id) {
-            if prev == raw {
-                return *parsed;
-            }
+        if let Some((prev, parsed)) = cache.get(&r.id)
+            && prev == raw
+        {
+            return *parsed;
         }
         let v: serde_json::Value = serde_json::from_str(raw).unwrap_or_default();
         let g = |k: &str| v.get(k);
@@ -382,7 +383,7 @@ fn draw_live(
 /// 데모 프롭 — WorldData.props(결정론 배치)를 같은 문명 팔레트로.
 fn draw_demo_props(buf: &mut [u8], size: usize, world: &WorldData) {
     for p in &world.props {
-        let (x, y) = (p.x as usize, p.y as usize);
+        let (x, y) = (p.x, p.y);
         match p.kind {
             PropKind::TreeBroadleaf | PropKind::TreePine | PropKind::TreePalm
             | PropKind::TreeSapling => px(buf, size, x, y, TREE),
