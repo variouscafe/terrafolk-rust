@@ -25,6 +25,7 @@ pub fn follow_camera(
     touches: Res<Touches>,
     mut rig: ResMut<CameraRig>,
     mut follow: ResMut<CamFollow>,
+    #[cfg(not(target_arch = "wasm32"))]
     chat: Res<crate::ui::chat::ChatState>,
     sel: Res<Selection>,
     q: Query<&Transform, With<Villager>>,
@@ -58,7 +59,11 @@ pub fn follow_camera(
             KeyCode::ArrowRight,
         ]);
     // 채팅 입력 중(소프트키보드·전송 버튼 탭)에는 해제하지 않는다.
+    // 웹은 DOM UI가 자체 처리 — ui 모듈이 cfg 제외라 참조 불가.
+    #[cfg(not(target_arch = "wasm32"))]
     let typing = chat.active;
+    #[cfg(target_arch = "wasm32")]
+    let typing = false;
     if !changed
         && !typing
         && (pan_key
