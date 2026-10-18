@@ -238,6 +238,7 @@ pub fn pick_agent(
 #[allow(clippy::type_complexity)] // Bevy 쿼리 타입 — 링/주민 상호 배제 접근
 pub fn follow_selection(
     time: Res<Time>,
+    rig: Res<crate::world::camera_rig::CameraRig>,
     mut sel: ResMut<Selection>,
     q: Query<&Transform, With<Villager>>,
     q_tags: Query<(Entity, &LiveAgentTag), With<Villager>>,
@@ -266,7 +267,10 @@ pub fn follow_selection(
             let at = q.get(e).expect("just checked").translation;
             tr.translation = Vec3::new(at.x, at.y + 0.03, at.z);
             let pulse = 1.0 + 0.05 * (time.elapsed_secs() * 3.2).sin();
-            tr.scale = Vec3::splat(pulse);
+            // 화면 일정 크기 — 줌아웃(0.6배)에선 고리가 ~5px로 사라지므로
+            // 줌 배율에 반비례 확대(클램프 0.8~2.5). 원거리 관전에서도 선택이 보인다.
+            let zoom_fit = (1.0 / rig.zoom.max(0.15)).clamp(0.8, 2.5);
+            tr.scale = Vec3::splat(pulse * zoom_fit);
             *vis = Visibility::Visible;
         }
         None => *vis = Visibility::Hidden,
