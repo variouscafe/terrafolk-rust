@@ -1,6 +1,7 @@
 //! 월드 — 데모 결정론 데이터 + 2.5D 아이소 렌더(스플랫 지형·3D 소품·하루순환·수면).
 //! 계약: 서버는 정사각 그리드를 주고 클라이언트가 투영(docs/data-contract.md).
 
+pub mod animal_anim;
 pub mod bld;
 pub mod cam_follow;
 pub mod camera_input;
@@ -77,6 +78,7 @@ impl Plugin for WorldPlugin {
         // 웹은 prime_live_world가 라이브 맵으로 교체한다.
         #[cfg(not(target_arch = "wasm32"))]
         app.add_systems(Update, legacy_world::prime_legacy_world);
+        app.add_systems(Update, animal_anim::play_animal_idles);
         app.add_systems(Update, materials_guard::guard_blend_materials);
         app.add_systems(
             Update,

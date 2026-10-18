@@ -1,4 +1,6 @@
-//! 3D 소품 — poly.pizza/Quaternius CC0 GLB 씬 스폰 + 자동 핏.
+//! 3D 소품 — Quaternius CC0 GLB 씬 스폰 + 자동 핏. 자연은 Stylized Nature
+//! MEGAKIT(2026-10-18 교체), 사슴 계열은 Animated Animal Pack(스킨드·Idle
+//! 애님 — animal_anim.rs). 나머지 건축·소품은 기존 poly/Kenney CC0·CC-BY.
 //! 원천 스케일이 제각각(0.57m 오두막~25m 텐트)이므로 계층 AABB를 측정해
 //! 목표 높이로 정규화한다(결정론 — 좌표 해시 회전·지터 포함).
 //! 번들 GLB(나무 5종 나란히)는 메시명으로 변형 1개만 유지한다.
@@ -22,26 +24,14 @@ impl PropKind {
     pub fn model(self) -> ModelSpec {
         match self {
             PropKind::TreeBroadleaf => ModelSpec {
-                path: "models/MapleTrees.glb",
+                path: "models/qnature/tree-0.glb",
                 target_h: 7.2,
-                variants: &[
-                    "MapleTree_1",
-                    "MapleTree_2",
-                    "MapleTree_3",
-                    "MapleTree_4",
-                    "MapleTree_5",
-                ],
+                variants: &[],
             },
             PropKind::TreePine => ModelSpec {
-                path: "models/PineTrees.glb",
+                path: "models/qnature/pine-1.glb",
                 target_h: 8.0,
-                variants: &[
-                    "PineTree_1",
-                    "PineTree_2",
-                    "PineTree_3",
-                    "PineTree_4",
-                    "PineTree_5",
-                ],
+                variants: &[],
             },
             PropKind::TreePalm => ModelSpec {
                 path: "models/PalmTrees.glb",
@@ -55,45 +45,39 @@ impl PropKind {
                 ],
             },
             PropKind::TreeSapling => ModelSpec {
-                path: "models/Trees_Normal.glb",
-                target_h: 2.3,
-                variants: &["NormalTree_1", "NormalTree_2", "NormalTree_3"],
+                path: "models/qnature/fern-0.glb",
+                target_h: 1.4,
+                variants: &[],
             },
             PropKind::TreeDead => ModelSpec {
-                path: "models/DeadTrees.glb",
+                path: "models/qnature/dead-tree-0.glb",
                 target_h: 6.4,
-                variants: &["DeadTree_8", "DeadTree_9", "DeadTree_10"],
+                variants: &[],
             },
             PropKind::BerryBush => ModelSpec {
-                path: "models/Bushes.glb",
+                path: "models/qnature/bush-with-flowers-0.glb",
                 target_h: 1.15,
-                variants: &["Bush", "Plant_1", "Bush_Flowers"],
+                variants: &[],
             },
             PropKind::Boulder => ModelSpec {
-                path: "models/Rocks.glb",
+                path: "models/qnature/rock-medium-0.glb",
                 target_h: 1.5,
-                variants: &["Rock_1", "Rock_2", "Rock_3", "Rock_4"],
+                variants: &[],
             },
             PropKind::GoldVein => ModelSpec {
-                path: "models/Rocks.glb",
+                path: "models/qnature/rock-medium-2.glb",
                 target_h: 1.05,
-                variants: &["Rock_2"],
+                variants: &[],
             },
             PropKind::FlowerClump => ModelSpec {
-                path: "models/Flowers.glb",
+                path: "models/qnature/flower-group-0.glb",
                 target_h: 0.6,
-                variants: &[
-                    "Flower_1_Clump",
-                    "Flower_2_Clump",
-                    "Flower_3_Clump",
-                    "Flower_4_Clump",
-                    "Flower_5_Clump",
-                ],
+                variants: &[],
             },
             PropKind::GrassClump => ModelSpec {
-                path: "models/Grass.glb",
+                path: "models/qnature/grass-0.glb",
                 target_h: 0.55,
-                variants: &["Grass_Large_Extruded", "Grass_Small"],
+                variants: &[],
             },
             PropKind::Hut => ModelSpec {
                 // 코티지 3변형(테라코타·청색·주황 지붕) — fetch_village_glbs.py 산출
@@ -148,13 +132,13 @@ impl PropKind {
                 variants: &[],
             },
             PropKind::AnimalDeer => ModelSpec {
-                path: "models/AnimalDeer.glb",
+                path: "models/qanimal/deer.glb",
                 target_h: 1.7,
                 variants: &[],
             },
             PropKind::AnimalWaterDeer => ModelSpec {
-                path: "models/AnimalWaterDeer.glb",
-                target_h: 0.85,
+                path: "models/qanimal/stag.glb",
+                target_h: 1.1,
                 variants: &[],
             },
             PropKind::AnimalSquirrel => ModelSpec {
