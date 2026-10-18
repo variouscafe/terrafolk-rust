@@ -98,17 +98,38 @@ async fn run(queue: FrameQueue, phase: Arc<AtomicU8>, feeds: FeedQueues) {
     }
 }
 
-/// 1회 접속 주기 — 티켓부터 스트림 종료까지.
-async fn once(
-    http: &reqwest::Client,
-    api: &str,
-    ws: &str,
-    queue: &FrameQueue,
-    feeds: &FeedQueues,
-) -> Result<(), String> {
-    // 관전 티켓(무인증) — 네이티브 앱은 관전 스코프(채팅 송신 없음).
-    let ticket: String = http
-        .get(format!("{api}/api/worldsim/spectate-ticket"))
+/// 계정 토큰 저장(app 전용 auth.json) — OAuth 딥링크 완성 전에는 adb push
+/// 수동 시딩이 개발·검증 경로. android는 외부 files 디렉터리(adb 직접 회수
+/// 가능·지속), 그 외 플랫폼은 작업 디렉터리.
+#[derive(serde::Deserialize, Default, Clone)]
+struct AuthFile {
+    access: Option<String>,
+    #[allow(dead_code)] // 갱신 흐름(F2 3단계)에서 사용
+    refresh: Option<String>,
+}
+
+fn load_auth() -> AuthFile {
+    let path = if cfg!(target_os = "android") {
+        std::fs::read_to_string("/proc/self/cmdline")
+            .ok()
+            .and_then(|s| s.split('\0').next().map(str::trim).map(str::to_owned))
+            .filter(|s| !s.is_empty())
+            .map(|pkg| {
+                std::path::PathBuf::from("/storage/emulated/0/Android/data")
+                    .join(pkg)
+                    .join("files/auth.json")
+            })
+    } else {
+        Some(std::path::PathBuf::from("auth.json"))
+    };
+    path.and_then(|p| std::fs::read_to_string(p).ok())
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+/// 관전 티켓(무인증) — 폴백 공용.
+async fn spectate_ticket(http: &reqwest::Client, api: &str) -> Result<String, String> {
+    http.get(format!("{api}/api/worldsim/spectate-ticket"))
         .send()
         .await
         .map_err(|e| format!("티켓 요청 실패: {e}"))?
@@ -120,7 +141,51 @@ async fn once(
         .get("ticket")
         .and_then(|t| t.as_str())
         .map(str::to_owned)
-        .ok_or("티켓 응답에 ticket 없음")?;
+        .ok_or_else(|| "티켓 응답에 ticket 없음".into())
+}
+
+/// 1회 접속 주기 — 티켓부터 스트림 종료까지.
+async fn once(
+    http: &reqwest::Client,
+    api: &str,
+    ws: &str,
+    queue: &FrameQueue,
+    feeds: &FeedQueues,
+) -> Result<(), String> {
+    // 티켓 — 저장된 계정 토큰이면 user 스코프(소유 캐릭터 지시), 아니면
+    // 관전(무인증). 계정 경로 실패는 무조건 관전 폴백 — 관전은 항상 동작.
+    let ticket: String = if let Some(access) = load_auth().access {
+        let got: Result<String, String> = async {
+            let v = http
+                .get(format!("{api}/api/worldsim/player-ticket"))
+                .bearer_auth(&access)
+                .send()
+                .await
+                .map_err(|e| format!("계정 티켓 요청 실패: {e}"))?
+                .error_for_status()
+                .map_err(|e| format!("계정 티켓 HTTP {e}"))?
+                .json::<serde_json::Value>()
+                .await
+                .map_err(|e| e.to_string())?;
+            v.get("ticket")
+                .and_then(|t| t.as_str())
+                .map(str::to_owned)
+                .ok_or_else(|| "계정 티켓 응답에 ticket 없음".into())
+        }
+        .await;
+        match got {
+            Ok(t) => {
+                info!("[net] 계정 티켓(user 스코프) 획득");
+                t
+            }
+            Err(e) => {
+                info!("[net] 계정 티켓 실패({e}) — 관전 폴백");
+                spectate_ticket(http, api).await?
+            }
+        }
+    } else {
+        spectate_ticket(http, api).await?
+    };
     // matchmake — 좌석 확정(onAuth도 이 HTTP 단계에서).
     let mm: MatchmakeResp = http
         .post(format!("{ws}/matchmake/joinOrCreate/world"))
