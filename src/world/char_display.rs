@@ -38,6 +38,15 @@ const DISPLAYS: [(&str, &str); 2] = [
 /// 전시 키(미터) — 주민(1.62)보다 살짝 작게.
 const DISPLAY_H: f32 = 1.4;
 
+/// 콩눈 캘리브레이션(Head 본 로컬 단위 — UE5 리그 원본 스케일 기준,
+/// 2026-10-19 흰 점 픽셀·비전 실측으로 위치 확정).
+const EYE_R: f32 = 0.016;
+const EYE_GAP: f32 = 0.036;
+const EYE_Y: f32 = 0.028;
+const EYE_Z: f32 = 0.058;
+/// 콩눈 색 — 진갈색(안드로이드 눈동자 톤, 언릿이라 밤에도 유지).
+const EYE_COLOR: Color = Color::srgb(0.13, 0.09, 0.07);
+
 /// 마을 중심 인근에 전시 2인 스폰(월드 준비 후 1회).
 pub fn spawn_char_display(
     world: Res<WorldData>,
@@ -58,9 +67,9 @@ pub fn spawn_char_display(
         for (i, (model, hair)) in DISPLAYS.iter().enumerate() {
             let scene = assets.load(GltfAssetLabel::Scene(0).from_asset(*model));
             let hair_scene = assets.load(GltfAssetLabel::Scene(0).from_asset(*hair));
-            // 나란히 서로 마주 보게(좌→우·우→좌)
+            // 나란히 카메라(남동 45°)쪽을 살짝 비스듬히(좌 38°·우 52°)
             let side = i as f32 - 0.5;
-            let yaw = std::f32::consts::FRAC_PI_2 * if i == 0 { 1.0 } else { -1.0 };
+            let yaw = std::f32::consts::FRAC_PI_4 + side * 0.24;
             commands
                 .spawn((
                     CharDisplay,
@@ -89,7 +98,8 @@ pub fn display_ready(
     children: Query<&Children>,
     names: Query<&Name>,
     q_mesh: FitQuery,
-    meshes: Res<Assets<Mesh>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut mats: ResMut<Assets<StandardMaterial>>,
     mut aabb_cache: ResMut<MeshAabbCache>,
     world: Res<WorldData>,
 ) {
@@ -104,7 +114,8 @@ pub fn display_ready(
         &children,
         &names,
         &q_mesh,
-        &meshes,
+        &mut meshes,
+        &mut mats,
         &mut aabb_cache,
         &world,
     ) {
@@ -121,7 +132,8 @@ pub fn retry_display(
     children: Query<&Children>,
     names: Query<&Name>,
     q_mesh: FitQuery,
-    meshes: Res<Assets<Mesh>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut mats: ResMut<Assets<StandardMaterial>>,
     mut aabb_cache: ResMut<MeshAabbCache>,
     world: Res<WorldData>,
 ) {
@@ -140,7 +152,8 @@ pub fn retry_display(
             &children,
             &names,
             &q_mesh,
-            &meshes,
+            &mut meshes,
+            &mut mats,
             &mut aabb_cache,
             &world,
         ) {
@@ -172,7 +185,8 @@ fn finish_display(
     children: &Query<&Children>,
     names: &Query<&Name>,
     q_mesh: &FitQuery,
-    meshes: &Assets<Mesh>,
+    meshes: &mut Assets<Mesh>,
+    mats: &mut Assets<StandardMaterial>,
     aabb_cache: &mut MeshAabbCache,
     world: &WorldData,
 ) -> bool {
@@ -221,6 +235,8 @@ fn finish_display(
         }
     }
     // 3) 헤어 — Head 본에 부착(스킨드 씬이라 Head와 함께 이동)
+    // 4) 콩눈 — 타겟 얼굴(Memoji풍) 근사: Head 본 정면에 어두운 원 2개.
+    //    언릿 머티리얼(조명 무시) — 항상 또렷한 점 눈.
     if let Some(head) = head_bone {
         let hair = commands
             .spawn((
@@ -230,6 +246,22 @@ fn finish_display(
             ))
             .id();
         commands.entity(head).add_child(hair);
+        // 디버그 — 4방향 탐침(밝은 흰 점): 얼굴 정면 축 실측 후 제거
+        for side in [-1.0f32, 1.0] {
+            let eye = commands
+                .spawn((
+                    Name::new("display-eye"),
+                    Mesh3d(meshes.add(Circle::new(EYE_R).mesh().build())),
+                    MeshMaterial3d(mats.add(StandardMaterial {
+                        base_color: EYE_COLOR,
+                        unlit: true,
+                        ..default()
+                    })),
+                    Transform::from_translation(Vec3::new(side * EYE_GAP, EYE_Y, EYE_Z)),
+                ))
+                .id();
+            commands.entity(head).add_child(eye);
+        }
     }
     commands.entity(entity).insert(DisplayDone);
     true
