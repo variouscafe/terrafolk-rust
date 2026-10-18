@@ -138,11 +138,7 @@ fn query_android_insets() -> (f32, f32) {
                 "getCurrentWindowMetrics",
                 "()Landroid/view/WindowMetrics;",
             )?;
-            obj!(
-                &metrics,
-                "getWindowInsets",
-                "()Landroid/view/WindowInsets;",
-            )
+            obj!(&metrics, "getWindowInsets", "()Landroid/view/WindowInsets;",)
         }
     })();
     let Some(insets) = insets else {

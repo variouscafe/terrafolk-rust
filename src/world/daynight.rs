@@ -74,49 +74,49 @@ pub fn spawn_sun(
     ));
     // 달 — 언릿 창백 원반(밤 하늘 앵커, apply_sky가 위치·가시성 소유)
     if !crate::net::dbg_gate::off("no_sky") {
-    commands.spawn((
-        MoonDisc,
-        Transform::from_scale(Vec3::splat(5.0)),
-        Mesh3d(meshes.add(Mesh::from(bevy::math::primitives::Circle::new(1.0)))),
-        MeshMaterial3d(mats.add(StandardMaterial {
-            base_color: Color::srgb(0.91, 0.93, 0.96),
+        commands.spawn((
+            MoonDisc,
+            Transform::from_scale(Vec3::splat(5.0)),
+            Mesh3d(meshes.add(Mesh::from(bevy::math::primitives::Circle::new(1.0)))),
+            MeshMaterial3d(mats.add(StandardMaterial {
+                base_color: Color::srgb(0.91, 0.93, 0.96),
+                unlit: true,
+                ..default()
+            })),
+            Visibility::Hidden,
+        ));
+        // 별 — 상반구 90개, 절대각 카메라를 향한 작은 쿼드(루트가 카메라 추적)
+        let star_mesh = meshes.add(Mesh::from(bevy::math::primitives::Circle::new(0.30)));
+        let star_mat = mats.add(StandardMaterial {
+            base_color: Color::srgb(0.80, 0.85, 0.94),
             unlit: true,
             ..default()
-        })),
-        Visibility::Hidden,
-    ));
-    // 별 — 상반구 90개, 절대각 카메라를 향한 작은 쿼드(루트가 카메라 추적)
-    let star_mesh = meshes.add(Mesh::from(bevy::math::primitives::Circle::new(0.30)));
-    let star_mat = mats.add(StandardMaterial {
-        base_color: Color::srgb(0.80, 0.85, 0.94),
-        unlit: true,
-        ..default()
-    });
-    let root = commands
-        .spawn((StarsRoot, Visibility::Hidden, Transform::default()))
-        .with_children(|c| {
-            let mut rng = 20261017u64;
-            for _ in 0..90 {
-                let az = star_rng(&mut rng) * std::f32::consts::TAU;
-                let el = (0.12 + star_rng(&mut rng) * 0.8).min(1.4);
-                let r = 120.0;
-                let pos = Vec3::new(
-                    az.cos() * el.cos() * r,
-                    el.sin() * r + 6.0,
-                    az.sin() * el.cos() * r,
-                );
-                let mut tr = Transform::from_translation(pos)
-                    .with_scale(Vec3::splat(0.7 + star_rng(&mut rng) * 0.8));
-                tr.look_at(pos * 2.0, Vec3::Y); // +Z면을 카메라(원점)쪽으로
-                c.spawn((
-                    Mesh3d(star_mesh.clone()),
-                    MeshMaterial3d(star_mat.clone()),
-                    tr,
-                ));
-            }
-        })
-        .id();
-    let _ = root;
+        });
+        let root = commands
+            .spawn((StarsRoot, Visibility::Hidden, Transform::default()))
+            .with_children(|c| {
+                let mut rng = 20261017u64;
+                for _ in 0..90 {
+                    let az = star_rng(&mut rng) * std::f32::consts::TAU;
+                    let el = (0.12 + star_rng(&mut rng) * 0.8).min(1.4);
+                    let r = 120.0;
+                    let pos = Vec3::new(
+                        az.cos() * el.cos() * r,
+                        el.sin() * r + 6.0,
+                        az.sin() * el.cos() * r,
+                    );
+                    let mut tr = Transform::from_translation(pos)
+                        .with_scale(Vec3::splat(0.7 + star_rng(&mut rng) * 0.8));
+                    tr.look_at(pos * 2.0, Vec3::Y); // +Z면을 카메라(원점)쪽으로
+                    c.spawn((
+                        Mesh3d(star_mesh.clone()),
+                        MeshMaterial3d(star_mat.clone()),
+                        tr,
+                    ));
+                }
+            })
+            .id();
+        let _ = root;
     } // no_sky 게이트 — 달·별 스폰 스킵
 }
 

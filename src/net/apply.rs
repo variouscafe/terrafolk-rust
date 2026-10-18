@@ -127,8 +127,7 @@ pub fn prime_live_world(
             .filter(|p| !cleared.contains(&(p.x as i32, p.y as i32)))
             .collect()
     };
-    for p in deco
-    {
+    for p in deco {
         crate::world::models::spawn_one_prop(
             &mut commands,
             &world,

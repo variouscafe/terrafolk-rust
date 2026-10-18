@@ -112,4 +112,3 @@ pub fn debug_screenshot(
             .observe(bevy::render::view::screenshot::save_to_disk(path));
     }
 }
-

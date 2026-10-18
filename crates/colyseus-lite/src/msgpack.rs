@@ -134,7 +134,9 @@ pub fn read_value(bytes: &[u8], off: &mut usize) -> Result<serde_json::Value, St
             }
             let v = f64::from_be_bytes(bytes[*off..*off + 8].try_into().unwrap());
             *off += 8;
-            serde_json::Number::from_f64(v).map(V::Number).unwrap_or(V::Null)
+            serde_json::Number::from_f64(v)
+                .map(V::Number)
+                .unwrap_or(V::Null)
         }
         0xCC => V::from(be(1)? as u8),
         0xCD => V::from(be(2)? as u16),
@@ -158,14 +160,22 @@ pub fn read_value(bytes: &[u8], off: &mut usize) -> Result<serde_json::Value, St
                 }
                 0xC5 => {
                     let l = u16::from_be_bytes(
-                        bytes.get(*off..*off + 2).ok_or("msgpack: bin16 잘림")?.try_into().unwrap(),
+                        bytes
+                            .get(*off..*off + 2)
+                            .ok_or("msgpack: bin16 잘림")?
+                            .try_into()
+                            .unwrap(),
                     ) as usize;
                     *off += 2;
                     l
                 }
                 _ => {
                     let l = u32::from_be_bytes(
-                        bytes.get(*off..*off + 4).ok_or("msgpack: bin32 잘림")?.try_into().unwrap(),
+                        bytes
+                            .get(*off..*off + 4)
+                            .ok_or("msgpack: bin32 잘림")?
+                            .try_into()
+                            .unwrap(),
                     ) as usize;
                     *off += 4;
                     l
@@ -179,14 +189,22 @@ pub fn read_value(bytes: &[u8], off: &mut usize) -> Result<serde_json::Value, St
                 0x90..=0x9F => (b & 0x0F) as usize,
                 0xDC => {
                     let l = u16::from_be_bytes(
-                        bytes.get(*off..*off + 2).ok_or("msgpack: 배열 길이 잘림")?.try_into().unwrap(),
+                        bytes
+                            .get(*off..*off + 2)
+                            .ok_or("msgpack: 배열 길이 잘림")?
+                            .try_into()
+                            .unwrap(),
                     ) as usize;
                     *off += 2;
                     l
                 }
                 _ => {
                     let l = u32::from_be_bytes(
-                        bytes.get(*off..*off + 4).ok_or("msgpack: 배열 길이 잘림")?.try_into().unwrap(),
+                        bytes
+                            .get(*off..*off + 4)
+                            .ok_or("msgpack: 배열 길이 잘림")?
+                            .try_into()
+                            .unwrap(),
                     ) as usize;
                     *off += 4;
                     l
@@ -203,14 +221,22 @@ pub fn read_value(bytes: &[u8], off: &mut usize) -> Result<serde_json::Value, St
                 0x80..=0x8F => (b & 0x0F) as usize,
                 0xDE => {
                     let l = u16::from_be_bytes(
-                        bytes.get(*off..*off + 2).ok_or("msgpack: 맵 길이 잘림")?.try_into().unwrap(),
+                        bytes
+                            .get(*off..*off + 2)
+                            .ok_or("msgpack: 맵 길이 잘림")?
+                            .try_into()
+                            .unwrap(),
                     ) as usize;
                     *off += 2;
                     l
                 }
                 _ => {
                     let l = u32::from_be_bytes(
-                        bytes.get(*off..*off + 4).ok_or("msgpack: 맵 길이 잘림")?.try_into().unwrap(),
+                        bytes
+                            .get(*off..*off + 4)
+                            .ok_or("msgpack: 맵 길이 잘림")?
+                            .try_into()
+                            .unwrap(),
                     ) as usize;
                     *off += 4;
                     l
@@ -238,14 +264,22 @@ pub fn read_value(bytes: &[u8], off: &mut usize) -> Result<serde_json::Value, St
                 }
                 0xC8 => {
                     let l = u16::from_be_bytes(
-                        bytes.get(*off..*off + 2).ok_or("msgpack: ext16 잘림")?.try_into().unwrap(),
+                        bytes
+                            .get(*off..*off + 2)
+                            .ok_or("msgpack: ext16 잘림")?
+                            .try_into()
+                            .unwrap(),
                     ) as usize;
                     *off += 2;
                     l
                 }
                 _ => {
                     let l = u32::from_be_bytes(
-                        bytes.get(*off..*off + 4).ok_or("msgpack: ext32 잘림")?.try_into().unwrap(),
+                        bytes
+                            .get(*off..*off + 4)
+                            .ok_or("msgpack: ext32 잘림")?
+                            .try_into()
+                            .unwrap(),
                     ) as usize;
                     *off += 4;
                     l

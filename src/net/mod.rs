@@ -144,7 +144,8 @@ impl Plugin for NetPlugin {
 
 /// 브리지 기동 — JS에 sink 등록 + 접속 요청(wasm 전용, 네이티브는 데모 유지).
 #[cfg(target_arch = "wasm32")]
-fn connect_bridge(queue: Res<FrameQueue>) {    use wasm_bindgen::closure::Closure;
+fn connect_bridge(queue: Res<FrameQueue>) {
+    use wasm_bindgen::closure::Closure;
     use wasm_bindgen::prelude::*;
     let q = std::sync::Arc::clone(&queue.inner);
     let sink = Closure::<dyn Fn(String)>::new(move |json: String| {
@@ -199,11 +200,7 @@ fn update_link_phase(phase: Res<NetLinkPhase>, mut net: ResMut<NetState>) {
 }
 
 /// 큐 → 최신 프레임 1개만 채택(중간 프레임 스킵 — 1s 주기라 충분).
-pub fn drain_frames(
-    queue: Res<FrameQueue>,
-    phase: Res<NetLinkPhase>,
-    mut net: ResMut<NetState>,
-) {
+pub fn drain_frames(queue: Res<FrameQueue>, phase: Res<NetLinkPhase>, mut net: ResMut<NetState>) {
     let drained: Vec<String> = {
         let Ok(mut q) = queue.inner.lock() else {
             return;

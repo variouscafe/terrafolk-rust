@@ -15,8 +15,8 @@
 
 use crate::msgpack;
 use crate::protocol::{self, code, frame_code};
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use tokio::sync::mpsc;
 use ws_link::{LinkEvent, LinkHandle, WsConfig};
 
@@ -39,8 +39,14 @@ pub enum RoomEvent {
         payload: serde_json::Value,
     },
     /// ROOM_DATA_BYTES — 이진 페이로드(본 프로토콜에선 미사용, 통과).
-    DataBytes { kind: String, payload: Vec<u8> },
-    Error { code: u16, message: String },
+    DataBytes {
+        kind: String,
+        payload: Vec<u8>,
+    },
+    Error {
+        code: u16,
+        message: String,
+    },
     /// 연결 종료(사유) — 재접속은 앱이 결정한다.
     Closed(String),
 }
@@ -150,7 +156,9 @@ async fn route(
                         .await;
                 }
                 Err(e) => {
-                    let _ = ev_tx.send(RoomEvent::Closed(format!("조인 파싱 실패: {e}"))).await;
+                    let _ = ev_tx
+                        .send(RoomEvent::Closed(format!("조인 파싱 실패: {e}")))
+                        .await;
                 }
             }
         }
@@ -199,7 +207,12 @@ async fn route(
                 .ok()
                 .and_then(|v| v.as_str().map(|s| s.to_owned()))
                 .unwrap_or_default();
-            let _ = ev_tx.send(RoomEvent::Error { code: c, message: m }).await;
+            let _ = ev_tx
+                .send(RoomEvent::Error {
+                    code: c,
+                    message: m,
+                })
+                .await;
         }
         code::LEAVE_ROOM => {
             let _ = ev_tx.send(RoomEvent::Closed("서버 퇴장 요청".into())).await;

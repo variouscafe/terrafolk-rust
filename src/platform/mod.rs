@@ -61,10 +61,7 @@ impl Plugin for PlatformPlugin {
         #[cfg(not(target_arch = "wasm32"))]
         app.add_systems(
             Update,
-            (
-                diagnostics::boot_probe,
-                diagnostics::debug_screenshot,
-            ),
+            (diagnostics::boot_probe, diagnostics::debug_screenshot),
         );
     }
 }

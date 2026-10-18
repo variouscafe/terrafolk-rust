@@ -101,11 +101,7 @@ pub fn model_path_for(id: &str, look: Option<&str>) -> &'static str {
 /// 데모 주민 이름 풀 — 스폰 순서대로(결정론). 라이브는 서버 name 사용.
 const DEMO_NAMES: [&str; 6] = ["아라", "두리", "세범", "나온", "모리", "바름"];
 
-pub fn spawn_legacy_villagers(
-    commands: &mut Commands,
-    world: &WorldData,
-    assets: &AssetServer,
-) {
+pub fn spawn_legacy_villagers(commands: &mut Commands, world: &WorldData, assets: &AssetServer) {
     let mut rng = super::data::Rng::new(99);
     let c = world.size as i32 / 2;
     let mut placed = 0;
@@ -277,7 +273,9 @@ fn finish_villager_setup(
     // lookJson 해시가 고른 하나만 남기고 나머지 파기 — 주민별 외형 분리.
     {
         let seed = model.1.as_deref().unwrap_or("");
-        let h = seed.bytes().fold(0u64, |a, b| a.wrapping_mul(31) + b as u64);
+        let h = seed
+            .bytes()
+            .fold(0u64, |a, b| a.wrapping_mul(31) + b as u64);
         let pick = HAIR_VARIANTS[(h % HAIR_VARIANTS.len() as u64) as usize];
         for child in children.iter_descendants(entity) {
             if let Ok((Some(name), _, _, _, _)) = q_walk.get(child)
@@ -296,17 +294,31 @@ fn finish_villager_setup(
     // 회귀의 1차 회피책(주민 수십 개 드로우콜 — 비용 무시 가능).
     {
         let seed = model.1.as_deref().unwrap_or("");
-        let h = seed.bytes().fold(0u64, |a, b| a.wrapping_mul(31) + b as u64);
+        let h = seed
+            .bytes()
+            .fold(0u64, |a, b| a.wrapping_mul(31) + b as u64);
         let slots: [(&str, Color); 3] = [
-            ("Casual_Body.White", shirt_colors()[(h.wrapping_mul(0x9E37) % 8) as usize]),
-            ("Casual_Legs.Orange", pants_colors()[(h.wrapping_mul(0x85EB) % 5) as usize]),
-            ("Casual_Feet.Grey", shoe_colors()[(h.wrapping_mul(0xC2B2) % 3) as usize]),
+            (
+                "Casual_Body.White",
+                shirt_colors()[(h.wrapping_mul(0x9E37) % 8) as usize],
+            ),
+            (
+                "Casual_Legs.Orange",
+                pants_colors()[(h.wrapping_mul(0x85EB) % 5) as usize],
+            ),
+            (
+                "Casual_Feet.Grey",
+                shoe_colors()[(h.wrapping_mul(0xC2B2) % 3) as usize],
+            ),
         ];
         for child in children.iter_descendants(entity) {
             let Ok((Some(name), _, _, _, _)) = q_walk.get(child) else {
                 continue;
             };
-            let Some(tint) = slots.iter().find(|(slot, _)| name.as_str() == *slot).map(|(_, c)| *c)
+            let Some(tint) = slots
+                .iter()
+                .find(|(slot, _)| name.as_str() == *slot)
+                .map(|(_, c)| *c)
             else {
                 continue;
             };
@@ -374,8 +386,7 @@ fn finish_villager_setup(
             measure.push(child);
         }
     }
-    if let Some((mn, mx)) =
-        super::models::meshes_aabb(&measure, entity, q_walk, meshes, aabb_cache)
+    if let Some((mn, mx)) = super::models::meshes_aabb(&measure, entity, q_walk, meshes, aabb_cache)
     {
         let size = (mx - mn).max(Vec3::splat(1e-4));
         let s = (villager.target_h / size.y).clamp(0.05, 50.0);
@@ -427,7 +438,10 @@ pub fn villager_render_probe(
         for (e, _, _) in &q_root {
             commands.entity(e).insert(Visibility::Hidden);
         }
-        info!("[probe] TF_HIDE_VILLAGERS — 주민 {}명 은닉", q_root.iter().count());
+        info!(
+            "[probe] TF_HIDE_VILLAGERS — 주민 {}명 은닉",
+            q_root.iter().count()
+        );
         return;
     }
     // 진단 스위치 — TF_NOSKIN=1이면 자손 SkinnedMesh를 제거한다(스킨 렌더
@@ -437,7 +451,9 @@ pub fn villager_render_probe(
         for (e, _, _) in &q_root {
             for child in children.iter_descendants(e) {
                 if skinned.get(child).is_ok() {
-                    commands.entity(child).remove::<bevy::mesh::skinning::SkinnedMesh>();
+                    commands
+                        .entity(child)
+                        .remove::<bevy::mesh::skinning::SkinnedMesh>();
                     n += 1;
                 }
             }
@@ -499,10 +515,7 @@ pub fn villager_render_probe(
         );
     }
     for (e, tag, anims) in &q_root {
-        let tag_name = tag
-            .map(|t| t.0.as_str())
-            .unwrap_or("demo")
-            .to_owned();
+        let tag_name = tag.map(|t| t.0.as_str()).unwrap_or("demo").to_owned();
         let mut n_mesh = 0;
         let mut n_skinned = 0;
         let mut alpha_modes = std::collections::BTreeMap::new();
@@ -530,7 +543,12 @@ pub fn villager_render_probe(
         });
         info!(
             "[probe] {} anims={} playing={} meshes={} skinned={} alpha={:?} {} t={:.0}h",
-            tag_name, anims, playing, n_mesh, n_skinned, alpha_modes,
+            tag_name,
+            anims,
+            playing,
+            n_mesh,
+            n_skinned,
+            alpha_modes,
             fit.unwrap_or_else(|_| "no-tr".into()),
             day.hour
         );

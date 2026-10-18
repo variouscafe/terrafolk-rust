@@ -16,7 +16,7 @@ use crate::net::apply::LiveAgentTag;
 use crate::net::{NetState, NetStatus};
 use crate::world::camera_rig::CameraRig;
 use crate::world::data::{PropKind, WorldData};
-use crate::world::overlay::{view_box, PanBridge};
+use crate::world::overlay::{PanBridge, view_box};
 use crate::world::pick::Selection;
 use crate::world::villager::Villager;
 
@@ -106,7 +106,11 @@ impl Default for MinimapState {
     }
 }
 
-pub fn spawn_minimap(mut commands: Commands, theme: Res<UiTheme>, safe: Res<crate::platform::safe_area::SafeArea>) {
+pub fn spawn_minimap(
+    mut commands: Commands,
+    theme: Res<UiTheme>,
+    safe: Res<crate::platform::safe_area::SafeArea>,
+) {
     commands
         .spawn((
             MinimapRoot,
@@ -242,11 +246,7 @@ pub fn update_minimap(
                 st.image = Some(images.add(image));
             }
         }
-        st.bake = Some(Bake {
-            sig,
-            size,
-            pixels,
-        });
+        st.bake = Some(Bake { sig, size, pixels });
     }
     let Some(bake) = st.bake.clone() else {
         return;
@@ -265,7 +265,15 @@ pub fn update_minimap(
         let sel = selection.entity == Some(entity);
         let c = if sel { SELECTED } else { VILLAGER };
         if sel {
-            rect_fill(&mut buf, size, x.saturating_sub(1), y.saturating_sub(1), 3, 3, c);
+            rect_fill(
+                &mut buf,
+                size,
+                x.saturating_sub(1),
+                y.saturating_sub(1),
+                3,
+                3,
+                c,
+            );
         } else {
             rect_fill(&mut buf, size, x, y, 2, 2, c);
         }
@@ -273,8 +281,12 @@ pub fn update_minimap(
     let (vw, vh) = view_box(rig.zoom, window.width() / window.height().max(1.0));
     let x0 = (rig.target.x - vw * 0.5).floor().clamp(0.0, size as f32) as usize;
     let y0 = (rig.target.y - vh * 0.5).floor().clamp(0.0, size as f32) as usize;
-    let x1 = ((rig.target.x + vw * 0.5).ceil().clamp(0.0, (size - 1) as f32)) as usize;
-    let y1 = ((rig.target.y + vh * 0.5).ceil().clamp(0.0, (size - 1) as f32)) as usize;
+    let x1 = ((rig.target.x + vw * 0.5)
+        .ceil()
+        .clamp(0.0, (size - 1) as f32)) as usize;
+    let y1 = ((rig.target.y + vh * 0.5)
+        .ceil()
+        .clamp(0.0, (size - 1) as f32)) as usize;
     rect_stroke(&mut buf, size, x0, y0, x1, y1, VIEW_DARK);
     if x1 > x0 + 1 && y1 > y0 + 1 {
         rect_stroke(&mut buf, size, x0 + 1, y0 + 1, x1 - 1, y1 - 1, VIEW_GOLD);
@@ -299,18 +311,22 @@ pub fn update_minimap(
 fn chip_label(net: &NetState, inv: &mut Option<(String, usize)>) -> String {
     match net.status {
         NetStatus::Connected => {
-            let count = net.frame.as_ref().and_then(|f| f.inventions.as_deref()).map(|raw| {
-                if inv.as_ref().map(|(r, _)| r == raw).unwrap_or(false) {
-                    inv.as_ref().map(|(_, n)| *n).unwrap_or(0)
-                } else {
-                    let n = serde_json::from_str::<serde_json::Value>(raw)
-                        .ok()
-                        .and_then(|v| v.as_array().map(|a| a.len()))
-                        .unwrap_or(0);
-                    *inv = Some((raw.to_owned(), n));
-                    n
-                }
-            });
+            let count = net
+                .frame
+                .as_ref()
+                .and_then(|f| f.inventions.as_deref())
+                .map(|raw| {
+                    if inv.as_ref().map(|(r, _)| r == raw).unwrap_or(false) {
+                        inv.as_ref().map(|(_, n)| *n).unwrap_or(0)
+                    } else {
+                        let n = serde_json::from_str::<serde_json::Value>(raw)
+                            .ok()
+                            .and_then(|v| v.as_array().map(|a| a.len()))
+                            .unwrap_or(0);
+                        *inv = Some((raw.to_owned(), n));
+                        n
+                    }
+                });
             match count {
                 Some(n) => format!("● LIVE · 발명 {n}"),
                 None => "● LIVE".to_owned(),
@@ -341,10 +357,24 @@ fn draw_live(
         let v: serde_json::Value = serde_json::from_str(raw).unwrap_or_default();
         let g = |k: &str| v.get(k);
         let ty = g("type").and_then(|t| t.as_str()).unwrap_or("");
-        let w = g("w").and_then(|w| w.as_u64()).filter(|w| *w >= 1).map(|w| w as u16)
-            .unwrap_or(match ty { "LONGHOUSE" | "WAREHOUSE" => 3, "WINDBREAK" => 1, _ => 2 });
-        let h = g("h").and_then(|h| h.as_u64()).filter(|h| *h >= 1).map(|h| h as u16)
-            .unwrap_or(match ty { "WAREHOUSE" => 3, "WINDBREAK" => 1, _ => 2 });
+        let w = g("w")
+            .and_then(|w| w.as_u64())
+            .filter(|w| *w >= 1)
+            .map(|w| w as u16)
+            .unwrap_or(match ty {
+                "LONGHOUSE" | "WAREHOUSE" => 3,
+                "WINDBREAK" => 1,
+                _ => 2,
+            });
+        let h = g("h")
+            .and_then(|h| h.as_u64())
+            .filter(|h| *h >= 1)
+            .map(|h| h as u16)
+            .unwrap_or(match ty {
+                "WAREHOUSE" => 3,
+                "WINDBREAK" => 1,
+                _ => 2,
+            });
         let parsed = ResState {
             w,
             h,
@@ -365,12 +395,27 @@ fn draw_live(
             "hut" => {
                 let st = parse(r, cache);
                 let c = if st.done { HUT_DONE } else { HUT_WIP };
-                rect_fill(buf, size, r.x as usize, r.y as usize, st.w as usize, st.h as usize, c);
+                rect_fill(
+                    buf,
+                    size,
+                    r.x as usize,
+                    r.y as usize,
+                    st.w as usize,
+                    st.h as usize,
+                    c,
+                );
             }
             "campfire" => {
                 let st = parse(r, cache);
-                rect_fill(buf, size, r.x as usize, r.y as usize, 2, 2,
-                    if st.lit { CAMP_LIT } else { CAMP_OUT });
+                rect_fill(
+                    buf,
+                    size,
+                    r.x as usize,
+                    r.y as usize,
+                    2,
+                    2,
+                    if st.lit { CAMP_LIT } else { CAMP_OUT },
+                );
             }
             "grave" => px(buf, size, r.x as usize, r.y as usize, GRAVE),
             "relic" => px(buf, size, r.x as usize, r.y as usize, RELIC),
@@ -385,7 +430,9 @@ fn draw_demo_props(buf: &mut [u8], size: usize, world: &WorldData) {
     for p in &world.props {
         let (x, y) = (p.x, p.y);
         match p.kind {
-            PropKind::TreeBroadleaf | PropKind::TreePine | PropKind::TreePalm
+            PropKind::TreeBroadleaf
+            | PropKind::TreePine
+            | PropKind::TreePalm
             | PropKind::TreeSapling => px(buf, size, x, y, TREE),
             PropKind::TreeDead => px(buf, size, x, y, TREE_DEAD),
             PropKind::GoldVein => px(buf, size, x, y, GOLD),
@@ -398,9 +445,14 @@ fn draw_demo_props(buf: &mut [u8], size: usize, world: &WorldData) {
             PropKind::Grave => px(buf, size, x, y, GRAVE),
             PropKind::Stash => px(buf, size, x, y, STASH),
             PropKind::Relic => px(buf, size, x, y, RELIC),
-            PropKind::FlowerClump | PropKind::GrassClump | PropKind::WoodLog
-            | PropKind::AnimalBoar | PropKind::AnimalDeer | PropKind::AnimalWaterDeer
-            | PropKind::AnimalSquirrel | PropKind::AnimalPheasant => {}
+            PropKind::FlowerClump
+            | PropKind::GrassClump
+            | PropKind::WoodLog
+            | PropKind::AnimalBoar
+            | PropKind::AnimalDeer
+            | PropKind::AnimalWaterDeer
+            | PropKind::AnimalSquirrel
+            | PropKind::AnimalPheasant => {}
         }
     }
 }

@@ -378,7 +378,9 @@ fn chain_matrix(entity: Entity, root_e: Entity, q: &FitQuery<'_, '_>) -> Mat4 {
 /// 메시를 반복 측정해 메인 스레드가 수십 초 블록되던 프리즈의 근본 대책.
 /// 유니크 GLB 메시는 ~26개뿐 — 캐시 적중률 사실상 100%.
 #[derive(Resource, Default)]
-pub struct MeshAabbCache(pub(crate) std::collections::HashMap<bevy::asset::AssetId<Mesh>, (Vec3, Vec3)>);
+pub struct MeshAabbCache(
+    pub(crate) std::collections::HashMap<bevy::asset::AssetId<Mesh>, (Vec3, Vec3)>,
+);
 
 /// 유지 메시들의 결합 AABB — 각 메시를 체인 행렬로 루트 로컬 공간으로.
 pub fn meshes_aabb(
@@ -495,8 +497,7 @@ pub fn fit_props(
             measure = all.into_iter().map(|(e, _)| e).collect();
         }
         // 메시 미로딩이면 다음 프레임 재시도(핏될 때까지 매 프레임 대상 유지)
-        let Some((mn, mx)) = meshes_aabb(&measure, root_e, &q_all, &meshes, &mut aabb_cache)
-        else {
+        let Some((mn, mx)) = meshes_aabb(&measure, root_e, &q_all, &meshes, &mut aabb_cache) else {
             continue;
         };
         let size = (mx - mn).max(Vec3::splat(1e-4));

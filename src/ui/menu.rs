@@ -47,7 +47,11 @@ pub fn spawn_menu_button(p: &mut ChildSpawnerCommands, theme: &UiTheme) {
 }
 
 /// 드롭다운·설정 팝업 스폰(부팅 1회, 닫힘 상태)
-pub fn spawn_menu(mut commands: Commands, theme: Res<UiTheme>, safe: Res<crate::platform::safe_area::SafeArea>) {
+pub fn spawn_menu(
+    mut commands: Commands,
+    theme: Res<UiTheme>,
+    safe: Res<crate::platform::safe_area::SafeArea>,
+) {
     // ── ☰ 드롭다운 — HUD 우측 아래로 열린다
     commands
         .spawn((

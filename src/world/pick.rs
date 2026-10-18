@@ -149,9 +149,12 @@ pub fn pick_agent(
     // 이 프레임의 실시간 hover — 스케줄 순서와 무관하게 직접 계산
     // (UiHover 리소스는 UI 체인이 갱신 전이면 한 프레임 늦다 — 누름 순간 놓침)
     let hover_now = ui_hover.0
-        || q_ui_hover
-            .iter()
-            .any(|i| matches!(i, bevy::ui::Interaction::Hovered | bevy::ui::Interaction::Pressed));
+        || q_ui_hover.iter().any(|i| {
+            matches!(
+                i,
+                bevy::ui::Interaction::Hovered | bevy::ui::Interaction::Pressed
+            )
+        });
     let mut tap: Option<Vec2> = None;
     let mut ui_press_now = false;
     if buttons.just_pressed(MouseButton::Left) {

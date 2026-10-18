@@ -38,7 +38,7 @@ pub mod protocol;
 pub mod room;
 pub mod schema;
 
-pub use room::{ws_url, Room, RoomEvent};
+pub use room::{Room, RoomEvent, ws_url};
 pub use schema::{SchemaState, Value};
 
 /// 룸 접속 확정 응답(matchmake POST `/matchmake/joinOrCreate/:room`의 본문).

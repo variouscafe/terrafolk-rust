@@ -40,7 +40,11 @@ fn chip() -> Node {
     }
 }
 
-pub fn spawn_hud(mut commands: Commands, theme: Res<UiTheme>, safe: Res<crate::platform::safe_area::SafeArea>) {
+pub fn spawn_hud(
+    mut commands: Commands,
+    theme: Res<UiTheme>,
+    safe: Res<crate::platform::safe_area::SafeArea>,
+) {
     commands
         .spawn((
             HudRoot,
@@ -59,17 +63,40 @@ pub fn spawn_hud(mut commands: Commands, theme: Res<UiTheme>, safe: Res<crate::p
             BackgroundColor(theme::HUD_BG),
         ))
         .with_children(|p| {
-            p.spawn((
-                Text::new("Terrafolk"),
-                theme.title(11.0),
-            ));
+            p.spawn((Text::new("Terrafolk"), theme.title(11.0)));
             p.spawn((HudClock, Text::new(""), theme.label(10.0)));
-            p.spawn((HudWeather, Text::new(""), theme.label(10.0), chip(), BackgroundColor(theme::INK800)));
-            p.spawn((HudPop, Text::new(""), theme.label(10.0), chip(), BackgroundColor(theme::INK800)));
-            p.spawn((HudNet, Text::new(""), theme.text(9.0, theme::ACCENT), chip(), BackgroundColor(theme::INK800)));
-            p.spawn((Text::new("관전"), theme.text(9.0, theme::INK400), chip(), BackgroundColor(theme::INK800)));
+            p.spawn((
+                HudWeather,
+                Text::new(""),
+                theme.label(10.0),
+                chip(),
+                BackgroundColor(theme::INK800),
+            ));
+            p.spawn((
+                HudPop,
+                Text::new(""),
+                theme.label(10.0),
+                chip(),
+                BackgroundColor(theme::INK800),
+            ));
+            p.spawn((
+                HudNet,
+                Text::new(""),
+                theme.text(9.0, theme::ACCENT),
+                chip(),
+                BackgroundColor(theme::INK800),
+            ));
+            p.spawn((
+                Text::new("관전"),
+                theme.text(9.0, theme::INK400),
+                chip(),
+                BackgroundColor(theme::INK800),
+            ));
             // flex spacer — ☰를 우측으로 민다(버튼은 menu.rs 스폰)
-            p.spawn(Node { flex_grow: 1.0, ..default() });
+            p.spawn(Node {
+                flex_grow: 1.0,
+                ..default()
+            });
             super::menu::spawn_menu_button(p, &theme);
         });
     commands.init_resource::<LastHud>();
