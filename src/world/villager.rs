@@ -43,7 +43,24 @@ pub struct VillagerAnims {
 #[derive(Component)]
 pub struct VillagerModel(pub Handle<Gltf>, pub Option<String>);
 
-const MODELS: [&str; 2] = ["models/VillagerMan.glb", "models/VillagerWoman.glb"];
+/// Kenney Mini Characters(CC0, 치비 3두신·body/head 분리 메시·7관절) —
+/// 참조 스타일(밀짚모자 파머·점 눈)과 동일 계열. 6남+6녀 변형(의상·헤어·피부).
+const MODELS_M: [&str; 6] = [
+    "models/Kenney_character-male-a.glb",
+    "models/Kenney_character-male-b.glb",
+    "models/Kenney_character-male-c.glb",
+    "models/Kenney_character-male-d.glb",
+    "models/Kenney_character-male-e.glb",
+    "models/Kenney_character-male-f.glb",
+];
+const MODELS_F: [&str; 6] = [
+    "models/Kenney_character-female-a.glb",
+    "models/Kenney_character-female-b.glb",
+    "models/Kenney_character-female-c.glb",
+    "models/Kenney_character-female-d.glb",
+    "models/Kenney_character-female-e.glb",
+    "models/Kenney_character-female-f.glb",
+];
 
 /// 여성 모델 헤어 변형 프리미티브(VillagerWoman Casual_Head 공존 파츠) —
 /// 룩 해시로 1택. 남성(Sam 단일 메시)엔 해당 없다.
@@ -81,21 +98,22 @@ fn shoe_colors() -> [Color; 3] {
     ]
 }
 
-/// 라이브 에이전트용 — lookJson.sex(있으면) 또는 id 해시로 남/여 선택.
+/// 라이브 에이전트용 — lookJson.sex(있으면) 또는 id 해시로 남/녀 그룹을 고르고,
+/// 해시로 a~f 변형(의상·헤어)을 1택한다(Kenney 12종 — 슬롯 재질이 없어
+/// 틴트 대신 변형 자체가 착의 다양성을 담당).
 pub fn model_path_for(id: &str, look: Option<&str>) -> &'static str {
-    if let Some(look) = look
+    let female = if let Some(look) = look
         && look.contains("\"sex\":\"")
+        && let Some(i) = look.find("\"sex\":\"")
     {
-        // lookJson은 {uuid,sex,age} — sex 값 문자로 판별(여성 F/f)
-        if let Some(i) = look.find("\"sex\":\"") {
-            let c = look[i + 7..].chars().next().unwrap_or('M');
-            if c == 'F' || c == 'f' {
-                return MODELS[1];
-            }
-        }
-    }
+        let c = look[i + 7..].chars().next().unwrap_or('M');
+        c == 'F' || c == 'f'
+    } else {
+        false
+    };
     let h = id.bytes().fold(0u64, |a, b| a.wrapping_mul(31) + b as u64);
-    MODELS[(h % 2) as usize]
+    let group: &[&str] = if female { &MODELS_F } else { &MODELS_M };
+    group[(h % group.len() as u64) as usize]
 }
 
 /// 데모 주민 이름 풀 — 스폰 순서대로(결정론). 라이브는 서버 name 사용.
@@ -113,7 +131,7 @@ pub fn spawn_legacy_villagers(commands: &mut Commands, world: &WorldData, assets
         if !world.walkable(x, y) {
             continue;
         }
-        let path = MODELS[placed % MODELS.len()];
+        let path = model_path_for(&format!("demo:{placed}"), None);
         let scene = assets.load(GltfAssetLabel::Scene(0).from_asset(path));
         let gltf = assets.load(path);
         let ground = world.height_at(x, y);
@@ -339,7 +357,9 @@ fn finish_villager_setup(
     let find = |suffix: &str| {
         gltf.named_animations
             .iter()
-            .find(|(name, _)| name.ends_with(suffix))
+            .find(|(name, _)| {
+                name.to_ascii_lowercase().ends_with(&suffix.to_ascii_lowercase())
+            })
             .map(|(_, h)| h.clone())
     };
     let (Some(walk_h), Some(idle_h)) = (find("Walk"), find("Idle")) else {
@@ -495,7 +515,7 @@ pub fn villager_render_probe(
             ));
             info!("[probe] TF_PROBE_SPAWN=cube — 중앙 큐브 스폰 ({center},{center})");
         } else if mode == "rawglb" {
-            let scene = assets.load(GltfAssetLabel::Scene(0).from_asset(MODELS[0]));
+            let scene = assets.load(GltfAssetLabel::Scene(0).from_asset(MODELS_M[0]));
             commands.spawn((
                 bevy::world_serialization::WorldAssetRoot(scene),
                 Transform::from_translation(Vec3::new(center, 0.5, center)),
