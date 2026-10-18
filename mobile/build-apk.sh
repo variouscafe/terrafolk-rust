@@ -31,4 +31,11 @@ $BT/zipalign -f 4 /tmp/terrafolk_inject.apk /tmp/terrafolk_aligned.apk
 echo "[4/4] debug 서명 → $OUT (배포 서명은 release keystore로 교체할 것)"
 $BT/apksigner sign --ks ~/.android/debug.keystore --ks-pass pass:android \
   --key-pass pass:android --out "$OUT" /tmp/terrafolk_aligned.apk
+
+# 이전 버전 산출물 정리 — 새 APK/AAB가 생기면 나머지 버전 파일은 모두
+# 제거(누적 방지 · 2026-10-18 사용자 규칙). 현재 버전만 남긴다.
+find "$ROOT" -maxdepth 1 -type f \( -name 'terrafolk-*.apk' -o -name 'terrafolk-*.aab' \) \
+  ! -name "terrafolk-$VERSION.apk" -print -delete
+rm -f /tmp/terrafolk_inject.apk /tmp/terrafolk_aligned.apk
+
 echo "완료: $OUT ($(du -h "$OUT" | cut -f1)) — adb: adb install -r $OUT"
