@@ -11,7 +11,6 @@ use bevy::prelude::*;
 
 use super::camera_input::PointerInput;
 use super::camera_rig::CameraRig;
-#[cfg(target_arch = "wasm32")]
 use super::camera_rig::{CAM_PITCH_DEG, VIEW_H};
 use super::villager::Villager;
 use crate::net::apply::LiveAgentTag;
@@ -22,9 +21,10 @@ use crate::net::resources::LiveResourceTag;
 #[cfg(target_arch = "wasm32")]
 const ANCHOR_H: f32 = 1.85;
 /// JS→Rust 카메라 점프 큐 — tf.panTo(x, z) 호출을 다음 프레임에 반영.
+/// 네이티브 미니맵 탭(ui/minimap.rs)도 같은 큐에 민다(동일 규약).
 #[derive(Resource, Default)]
 pub struct PanBridge {
-    queue: std::sync::Arc<std::sync::Mutex<Vec<(f32, f32)>>>,
+    pub(crate) queue: std::sync::Arc<std::sync::Mutex<Vec<(f32, f32)>>>,
 }
 
 /// 브리지 등록 — JS가 tf.panTo(x, z)로 뷰 중심 이동을 요청한다(wasm).
@@ -140,8 +140,8 @@ pub fn overlay_feed(
 /// 미니맵 뷰포트 박스 — 부저각(요 45°·피치 35°) 정사영의 지면 풋프린트는
 /// 대각선 회전 마름모. 축정렬 근사로 AABB 반폭을 쓴다(FE도 카메라 rect를
 /// 박스로 그린다). 세로 성분 = 시야높이/2/sin(피치), 가로 성분 = 그×종횡비.
-#[cfg(target_arch = "wasm32")]
-fn view_box(zoom: f32, aspect: f32) -> (f32, f32) {
+/// 웹(tf.onOverlay v)과 네이티브 미니맵(ui/minimap.rs)이 공유.
+pub(crate) fn view_box(zoom: f32, aspect: f32) -> (f32, f32) {
     let half_h = VIEW_H * 0.5 * zoom;
     let ground_v = half_h / CAM_PITCH_DEG.to_radians().sin();
     let ground_h = half_h * aspect;

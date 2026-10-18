@@ -4,6 +4,7 @@
 use bevy::prelude::*;
 
 use super::theme::{self, UiTheme};
+use crate::net::{NetState, NetStatus};
 use crate::world::daynight::DayTime;
 use crate::world::precip::WeatherState;
 use crate::world::villager::Villager;
@@ -19,6 +20,8 @@ pub struct HudClock;
 pub struct HudWeather;
 #[derive(Component)]
 pub struct HudPop;
+#[derive(Component)]
+pub struct HudNet;
 
 /// 이전 프레임 문자열 캐시 — 변화 시에만 Text 재할당(리렌더 최소화)
 #[derive(Resource, Default)]
@@ -26,6 +29,7 @@ pub struct LastHud {
     clock: String,
     weather: String,
     pop: String,
+    net: String,
 }
 
 /// 칩 공통 노드(레거시 rounded bg-ink-800 칩)
@@ -62,6 +66,7 @@ pub fn spawn_hud(mut commands: Commands, theme: Res<UiTheme>, safe: Res<crate::p
             p.spawn((HudClock, Text::new(""), theme.label(10.0)));
             p.spawn((HudWeather, Text::new(""), theme.label(10.0), chip(), BackgroundColor(theme::INK800)));
             p.spawn((HudPop, Text::new(""), theme.label(10.0), chip(), BackgroundColor(theme::INK800)));
+            p.spawn((HudNet, Text::new(""), theme.text(9.0, theme::ACCENT), chip(), BackgroundColor(theme::INK800)));
             p.spawn((Text::new("관전"), theme.text(9.0, theme::INK400), chip(), BackgroundColor(theme::INK800)));
             // flex spacer — ☰를 우측으로 민다(버튼은 menu.rs 스폰)
             p.spawn(Node { flex_grow: 1.0, ..default() });
@@ -101,10 +106,44 @@ pub fn date_of(day: u32) -> (u32, u32, u32, &'static str) {
 pub fn update_hud(
     day: Res<DayTime>,
     weather: Res<WeatherState>,
+    net: Res<NetState>,
     villagers: Query<(), With<Villager>>,
-    mut q_clock: Query<&mut Text, (With<HudClock>, Without<HudWeather>, Without<HudPop>)>,
-    mut q_weather: Query<&mut Text, (With<HudWeather>, Without<HudClock>, Without<HudPop>)>,
-    mut q_pop: Query<&mut Text, (With<HudPop>, Without<HudClock>, Without<HudWeather>)>,
+    mut q_clock: Query<
+        &mut Text,
+        (
+            With<HudClock>,
+            Without<HudWeather>,
+            Without<HudPop>,
+            Without<HudNet>,
+        ),
+    >,
+    mut q_weather: Query<
+        &mut Text,
+        (
+            With<HudWeather>,
+            Without<HudClock>,
+            Without<HudPop>,
+            Without<HudNet>,
+        ),
+    >,
+    mut q_pop: Query<
+        &mut Text,
+        (
+            With<HudPop>,
+            Without<HudClock>,
+            Without<HudWeather>,
+            Without<HudNet>,
+        ),
+    >,
+    mut q_net: Query<
+        &mut Text,
+        (
+            With<HudNet>,
+            Without<HudClock>,
+            Without<HudWeather>,
+            Without<HudPop>,
+        ),
+    >,
     mut last: ResMut<LastHud>,
 ) {
     let (y, m, d, season) = date_of(day.day);
@@ -143,6 +182,20 @@ pub fn update_hud(
         last.pop = pop.clone();
         if let Ok(mut t) = q_pop.single_mut() {
             **t = pop;
+        }
+    }
+
+    // 링크 배지 — 라이브(네이티브 접속 스레드)·데모 구분(웹 worldsim 배지 대응)
+    let net_txt = match net.status {
+        NetStatus::Connected => "● LIVE".to_owned(),
+        NetStatus::Connecting => "…연결".to_owned(),
+        NetStatus::Reconnecting => "↻ 재접속".to_owned(),
+        NetStatus::Idle => "○ 데모".to_owned(),
+    };
+    if net_txt != last.net {
+        last.net = net_txt.clone();
+        if let Ok(mut t) = q_net.single_mut() {
+            **t = net_txt;
         }
     }
 }

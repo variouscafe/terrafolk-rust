@@ -1,0 +1,12 @@
+[package]
+name = "colyseus-lite"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Colyseus 0.18 클라이언트 최소 구현 — matchmake·조인·@colyseus/schema 5.x 동적 디코딩(ws-link 위)"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt", "sync", "time", "macros"] }
+ws-link = { path = "../ws-link" }

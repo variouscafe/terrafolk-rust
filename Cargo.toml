@@ -1,12 +1,12 @@
 [package]
 name = "terrafolk_bevy"
-version = "0.2.0"
+version = "0.3.0"
 publish = false
 edition = "2024"
 exclude = ["dist", "build", "assets", "credits"]
 
 [workspace]
-members = ["mobile"]
+members = ["mobile", "crates/ws-link", "crates/colyseus-lite"]
 
 [profile.dev.package."*"]
 opt-level = 3
@@ -60,6 +60,17 @@ log = { version = "0.4", features = ["max_level_debug", "release_max_level_warn"
 
 [build-dependencies]
 embed-resource = "1"
+
+# 네이티브 라이브 접속(net/native_conn.rs) — wasm은 JS(colyseus.js) 경로 유지.
+# rustls 한정: 안드로이드 크로스컴파일에서 native-tls/openssl 금지.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+ws-link = { path = "crates/ws-link" }
+colyseus-lite = { path = "crates/colyseus-lite" }
+tokio = { version = "1", features = ["rt", "sync", "time", "macros"] }
+reqwest = { version = "0.12", default-features = false, features = [
+    "rustls-tls",
+    "json",
+] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1"

@@ -1,0 +1,14 @@
+[package]
+name = "ws-link"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "게임·프로토콜 무관 WebSocket 재접속 링크 — 어떤 Rust 앱에도 복사해 쓰는 통신 계층"
+
+[dependencies]
+futures-util = { version = "0.3", default-features = false, features = [
+    "std",
+    "sink",
+] }
+tokio = { version = "1", features = ["rt", "sync", "time", "macros"] }
+tokio-tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"] }

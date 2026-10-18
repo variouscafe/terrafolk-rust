@@ -8,6 +8,7 @@
 pub mod chars;
 pub mod hud;
 pub mod menu;
+pub mod minimap;
 pub mod theme;
 
 use bevy::prelude::*;
@@ -41,12 +42,13 @@ impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<UiState>()
             .init_resource::<PointerOverUi>()
+            .init_resource::<minimap::MinimapState>()
             .add_systems(
                 Startup,
                 (
                     load_theme,
                     crate::platform::safe_area::refresh, // 스폰 직전 인셋 2차 확인
-                    (hud::spawn_hud, menu::spawn_menu, chars::spawn),
+                    (hud::spawn_hud, menu::spawn_menu, chars::spawn, minimap::spawn_minimap),
                 )
                     .chain(),
             );
@@ -60,6 +62,7 @@ impl Plugin for UiPlugin {
                     chars::refresh_list,
                     chars::refresh_sel_panel,
                     chars::apply_list_selection,
+                    minimap::update_minimap,
                     apply_safe_area,
                 )
                     .chain(),
@@ -83,6 +86,15 @@ fn apply_safe_area(
             Without<menu::MenuDropdown>,
         ),
     >,
+    mut q_mini: Query<
+        &mut Node,
+        (
+            With<minimap::MinimapRoot>,
+            Without<hud::HudRoot>,
+            Without<menu::MenuDropdown>,
+            Without<chars::SelPanel>,
+        ),
+    >,
     mut applied: Local<crate::platform::safe_area::SafeArea>,
 ) {
     if (safe.top - applied.top).abs() < 0.5 && (safe.bottom - applied.bottom).abs() < 0.5 {
@@ -97,6 +109,9 @@ fn apply_safe_area(
     }
     if let Ok(mut n) = q_panel.single_mut() {
         n.bottom = Val::Px(safe.bottom + 8.0);
+    }
+    if let Ok(mut n) = q_mini.single_mut() {
+        n.top = Val::Px(safe.top + minimap::SAFE_TOP_OFFSET);
     }
 }
 
