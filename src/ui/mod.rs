@@ -83,7 +83,7 @@ impl Plugin for UiPlugin {
             app.add_systems(
                 Update,
                 (
-                    update_pointer_over_ui,
+                    (update_pointer_over_ui, back_close).chain(),
                     hud::update_hud,
                     hud::update_notice,
                     daydial::update_daydial,
@@ -157,6 +157,45 @@ fn apply_safe_area(
 /// 팝업 백드롭 탭 → 팝업 닫기(모바일 표준 UX). 각 팝업 루트에 observe로 부착.
 pub fn close_on_backdrop(_: On<Pointer<Click>>, mut state: ResMut<UiState>) {
     state.popup = None;
+}
+
+/// 안드로이드 뒤로 가기(BrowserBack) — 열린 UI부터 단계적으로 닫는다:
+/// 레일 패널 → 팝업 → ☰ 메뉴 → 주민 선택 해제 → 앱 종료(안드로이드 표준).
+/// 키가 Bevy에 전달되면 액티비티 종결은 막히므로, 마지막 단계는 직접
+/// AppExit를 쓴다(데스크톱·웹은 뒤로 가기로 앱을 끊는 관행이 없어 제외).
+fn back_close(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut ui: ResMut<UiState>,
+    mut rail: ResMut<rail::RailState>,
+    mut sel: ResMut<crate::world::pick::Selection>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    if !keys.just_pressed(KeyCode::BrowserBack) {
+        return;
+    }
+    if rail.open.take().is_some() {
+        info!("[back] 레일 패널 닫음");
+        return;
+    }
+    if ui.popup.take().is_some() {
+        info!("[back] 팝업 닫음");
+        return;
+    }
+    if ui.menu_open {
+        ui.menu_open = false;
+        info!("[back] 메뉴 닫음");
+        return;
+    }
+    if sel.id.is_some() || sel.entity.is_some() {
+        sel.id = None;
+        sel.entity = None;
+        info!("[back] 선택 해제");
+        return;
+    }
+    info!("[back] 종료 요청");
+    if cfg!(target_os = "android") {
+        exit.write(AppExit::Success);
+    }
 }
 
 /// 폰트 로드 → 테마 리소스. HUD·팝업 스폰이 이 뒤에 오므로 스폰 시점에
