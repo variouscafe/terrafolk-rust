@@ -6,6 +6,7 @@
 //! menu(☰ 드롭다운·팝업 셸·설정) · chars(주민 목록·선택 패널).
 
 pub mod chars;
+pub mod chat;
 pub mod civ;
 pub mod daydial;
 pub mod hud;
@@ -67,6 +68,7 @@ impl Plugin for UiPlugin {
                         hud::spawn_hud,
                         menu::spawn_menu,
                         chars::spawn,
+                    chat::spawn,
                         civ::spawn,
                         res::spawn,
                         log::spawn,
@@ -83,7 +85,7 @@ impl Plugin for UiPlugin {
             app.add_systems(
                 Update,
                 (
-                    (update_pointer_over_ui, back_close).chain(),
+                    (update_pointer_over_ui, back_close, chat::chat_input, chat::quick_greet_key, chat::refresh_chat_bar).chain(),
                     hud::update_hud,
                     hud::update_notice,
                     daydial::update_daydial,

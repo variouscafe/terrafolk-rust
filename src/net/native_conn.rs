@@ -12,6 +12,23 @@ use crate::net::{
     feed, feed::FeedQueues,
 };
 use colyseus_lite::{MatchmakeResp, Room, RoomEvent, SchemaState, Value as ColyValue};
+
+/// 룸 송신 핸들(OnceLock — 접속 스레드가 1회 설정, UI가 &송신).
+static ROOM: std::sync::OnceLock<Room> = std::sync::OnceLock::new();
+
+/// 관전 채팅 송신 — 서버 handleChat이 agentId 대상 converse를 처리한다
+/// (docs §17.55 · room/chat.ts). 접속 전/후 해제 시 false.
+pub fn send_chat(agent_id: &str, text: &str) -> bool {
+    let Some(room) = ROOM.get() else {
+        info!("[net] 채팅 송신 스킵 — 룸 미접속");
+        return false;
+    };
+    room.send(
+        "chat",
+        &serde_json::json!({ "agentId": agent_id, "text": text, "lang": "ko" }),
+    );
+    true
+}
 use log::info;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
@@ -118,7 +135,9 @@ async fn once(
         .await
         .map_err(|e| e.to_string())?;
     let url = colyseus_lite::ws_url(ws, &mm.processId, &mm.roomId, &mm.sessionId);
-    let (_room, mut rx) = Room::connect(url, Some(&ticket)).await?;
+    let (room, mut rx) = Room::connect(url, Some(&ticket)).await?;
+    // 송신 핸들 전역 보관 — 관전 채팅 송신(UI chat 모듈이 호출).
+    let _ = ROOM.set(room);
     info!("[net] 룸 접속 완료 — room {}", mm.roomId);
     let mut state = SchemaState::new();
     // mapJson은 fullStateOnly — 첫 전체 상태에만 실어 보낸다(이후 None).

@@ -25,6 +25,7 @@ pub fn follow_camera(
     touches: Res<Touches>,
     mut rig: ResMut<CameraRig>,
     mut follow: ResMut<CamFollow>,
+    chat: Res<crate::ui::chat::ChatState>,
     sel: Res<Selection>,
     q: Query<&Transform, With<Villager>>,
     mut last_sel: Local<Option<String>>,
@@ -56,7 +57,10 @@ pub fn follow_camera(
             KeyCode::ArrowLeft,
             KeyCode::ArrowRight,
         ]);
+    // 채팅 입력 중(소프트키보드·전송 버튼 탭)에는 해제하지 않는다.
+    let typing = chat.active;
     if !changed
+        && !typing
         && (pan_key
             || mouse.just_pressed(MouseButton::Left)
             || touches.iter_just_pressed().next().is_some())
