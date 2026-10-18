@@ -29,26 +29,73 @@ fn launch_uri_android() -> Option<String> {
     let vm = unsafe { jni::JavaVM::from_raw(vm_ptr) }.ok()?;
     let mut env = vm.attach_current_thread().ok()?;
     let context = unsafe { JObject::from_raw(context_ptr) };
-
-    let intent = env
-        .call_method(&context, "getIntent", "()Landroid/content/Intent;", &[])
-        .ok()?
-        .l()
-        .ok()?;
-    let data = env
-        .call_method(&intent, "getData", "()Landroid/net/Uri;", &[])
-        .ok()?
-        .l()
-        .ok()?;
-    let s = env
-        .call_method(&data, "toString", "()Ljava/lang/String;", &[])
-        .ok()?
-        .l()
-        .ok()?;
-    let jstr = jni::objects::JString::from(s);
-    let out = env.get_string(&jstr).ok()?.into();
-    info!("[deep_link] 런치 URI: {out}");
-    Some(out)
+    // ⚠️ ndk-context의 context는 Application(android-activity 0.6 계약)이라
+    // getIntent가 없다(2026-10-19 실측 NoSuchMethodError 즉사 사고). 공개 API인
+    // ActivityManager.getAppTasks()[0].taskInfo.baseIntent에서 태스크 시작
+    // 인텐트(= 딥링크 데이터)를 읽는다. 모든 실패는 예외 청소 후 None.
+    macro_rules! call {
+        ($recv:expr, $name:expr, $sig:expr $(, $arg:expr)* $(,)?) => {
+            match env.call_method($recv, $name, $sig, &[$($arg),*]) {
+                Ok(v) => v.l().ok(),
+                Err(_) => {
+                    let _ = env.exception_clear();
+                    None
+                }
+            }
+        };
+    }
+    let service = env.new_string("activity").ok()?;
+    let am = call!(&context, "getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;", JValue::Object(&service))?;
+    let Some(tasks) = call!(&am, "getAppTasks", "()Ljava/util/List;") else {
+        info!("[deep_link] getAppTasks 실패");
+        return None;
+    };
+    let size = env
+        .call_method(&tasks, "size", "()I", &[])
+        .ok()
+        .and_then(|v| v.i().ok())
+        .unwrap_or(-1);
+    info!("[deep_link] 태스크 수: {size}");
+    // 태스크 여럿(런처 시작분 + 딥링크 VIEW분)일 수 있다 — 데이터가 있는
+    // 첫 인텐트를 찾는다.
+    for i in 0..size.max(0) {
+        let idx = JValue::Int(i);
+        let Some(task) = call!(&tasks, "get", "(I)Ljava/lang/Object;", idx) else {
+            info!("[deep_link] 태스크[{i}] get 실패");
+            continue;
+        };
+        let Some(info) = call!(&task, "getTaskInfo", "()Landroid/app/ActivityManager$RecentTaskInfo;") else {
+            info!("[deep_link] 태스크[{i}] getTaskInfo 실패");
+            continue;
+        };
+        // baseIntent는 TaskInfo의 공개 필드(메서드 아님) — get_field 경로.
+        let intent = match env.get_field(&info, "baseIntent", "Landroid/content/Intent;") {
+            Ok(v) => v.l().ok(),
+            Err(_) => {
+                let _ = env.exception_clear();
+                None
+            }
+        };
+        let Some(intent) = intent else {
+            info!("[deep_link] 태스크[{i}] baseIntent 필드 실패");
+            continue;
+        };
+        // 일반 런치(데이터 없음)는 조용히 스킵 — 부팅마다 발생.
+        let Some(data) = call!(&intent, "getData", "()Landroid/net/Uri;") else {
+            continue;
+        };
+        let Some(s) = call!(&data, "toString", "()Ljava/lang/String;") else {
+            continue;
+        };
+        let js = jni::objects::JString::from(s);
+        let Ok(jstr) = env.get_string(&js) else {
+            continue;
+        };
+        let out: String = jstr.to_string_lossy().into_owned();
+        info!("[deep_link] 태스크[{i}] URI: {out}");
+        return Some(out);
+    }
+    None
 }
 
 /// terrafolk://auth#at=..&rt=.. 조각 → (access, refresh). 순수 파서(테스트 가능).
