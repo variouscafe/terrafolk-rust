@@ -2,6 +2,7 @@
 //! 계약: 서버는 정사각 그리드를 주고 클라이언트가 투영(docs/data-contract.md).
 
 pub mod animal_anim;
+pub mod chibi;
 pub mod bld;
 pub mod cam_follow;
 pub mod camera_input;
@@ -79,6 +80,7 @@ impl Plugin for WorldPlugin {
         #[cfg(not(target_arch = "wasm32"))]
         app.add_systems(Update, legacy_world::prime_legacy_world);
         app.add_systems(Update, animal_anim::play_animal_idles);
+        app.add_systems(Update, chibi::chibiify);
         app.add_systems(Update, materials_guard::guard_blend_materials);
         app.add_systems(
             Update,

@@ -42,32 +42,22 @@ pub struct VillagerAnims {
 #[derive(Component)]
 pub struct VillagerModel(pub Handle<Gltf>, pub Option<String>);
 
-/// Kenney Mini Characters(CC0, 치비 3두신·body/head 분리 메시·7관절) —
-/// 참조 스타일(밀짚모자 파머·점 눈)과 동일 계열. 6남+6녀 변형(의상·헤어·피부).
-pub(crate) const MODELS_M: [&str; 6] = [
-    "models/Kenney_character-male-a.glb",
-    "models/Kenney_character-male-b.glb",
-    "models/Kenney_character-male-c.glb",
-    "models/Kenney_character-male-d.glb",
-    "models/Kenney_character-male-e.glb",
-    "models/Kenney_character-male-f.glb",
+/// Quaternius Ultimate Modular Men/Women(CC0, 표준 휴머노이드 리그·애님 24종,
+/// Body/Legs/Feet 파츠 분리) — 원시 마을 테마 6종. 치비화(본 스케일)는
+/// chibiify가 담당. 착의 다양성은 변형(의상·헤어)이, 부착 아이템은 wear가 담당.
+pub(crate) const MODELS_M: [&str; 4] = [
+    "models/qchar/m-farmer.glb",
+    "models/qchar/m-worker.glb",
+    "models/qchar/m-adventurer.glb",
+    "models/qchar/m-casual-character.glb",
 ];
-const MODELS_F: [&str; 6] = [
-    "models/Kenney_character-female-a.glb",
-    "models/Kenney_character-female-b.glb",
-    "models/Kenney_character-female-c.glb",
-    "models/Kenney_character-female-d.glb",
-    "models/Kenney_character-female-e.glb",
-    "models/Kenney_character-female-f.glb",
+const MODELS_F: [&str; 2] = [
+    "models/qchar/f-adventurer.glb",
+    "models/qchar/f-worker.glb",
 ];
-
-// 착의 다양성은 Kenney 변형(a~f·남녀 12종)이 담당하고, 아이템 부착은
-// wear 모듈(본 앵커 레이어)이 담당한다 — 재질 틴트는 colormap 텍스처
-// 구조상 지역 분리가 안 되어 폐기(2026-10-18, Quaternius 잔코드 정리).
 
 /// 라이브 에이전트용 — lookJson.sex(있으면) 또는 id 해시로 남/녀 그룹을 고르고,
-/// 해시로 a~f 변형(의상·헤어)을 1택한다(Kenney 12종 — 슬롯 재질이 없어
-/// 틴트 대신 변형 자체가 착의 다양성을 담당).
+/// 해시로 변형(의상·헤어)을 1택한다.
 pub fn model_path_for(id: &str, look: Option<&str>) -> &'static str {
     let female = if let Some(look) = look
         && look.contains("\"sex\":\"")
