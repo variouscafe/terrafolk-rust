@@ -17,12 +17,16 @@ const LEG_SCALE: f32 = 0.72;
 #[derive(Component)]
 pub struct ChibiDone;
 
-/// 본 이름별 배율 — Quaternius CharacterArmature 표준 본명.
-fn bone_scale(name: &str) -> Option<f32> {
+/// 본 이름별 배율 — 이중 리그(Quaternius CharacterArmature · UE5 마네킹).
+/// ⚠️ 체인 최상단 본만 매칭: 로컬 스케일은 자손 전체에 전파되므로 체인의
+/// 모든 뼈에 곱하면 0.82³처럼 누적 왜곡된다(2026-10-18 실측).
+///   - 머리: Head(양쪽 동일) · 몸통: Abdomen(q)/spine_01(u) — 다리는 형제라
+///     영향 없음 · 다리: UpperLeg.X(q)/thigh_x(u) — 종아리는 자손이라 함께 단축.
+pub fn bone_scale(name: &str) -> Option<f32> {
     match name {
-        "Head" | "Head_end" => Some(HEAD_SCALE),
-        "Spine" | "Spine1" | "Spine2" => Some(SPINE_SCALE),
-        "UpperLeg.L" | "UpperLeg.R" | "LowerLeg.L" | "LowerLeg.R" => Some(LEG_SCALE),
+        "Head" => Some(HEAD_SCALE),
+        "Abdomen" | "spine_01" => Some(SPINE_SCALE),
+        "UpperLeg.L" | "UpperLeg.R" | "thigh_l" | "thigh_r" => Some(LEG_SCALE),
         _ => None,
     }
 }

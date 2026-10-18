@@ -25,12 +25,13 @@ pub enum WearSlot {
 }
 
 impl WearSlot {
-    /// 부착 대상 본 이름 후보 — Quaternius 표준 리그 우선, Kenney 7본 폴백.
+    /// 부착 대상 본 이름 후보 — Quaternius 표준 리그 우선, UE5 마네킹
+    /// (Universal Base Characters)·Kenney 7본 폴백.
     fn bones(self) -> &'static [&'static str] {
         match self {
             Self::Eyes => &["Head", "head"],
-            Self::HandRight => &["LowerArm.R", "arm-right"],
-            Self::HandLeft => &["LowerArm.L", "arm-left"],
+            Self::HandRight => &["LowerArm.R", "hand_r", "arm-right"],
+            Self::HandLeft => &["LowerArm.L", "hand_l", "arm-left"],
         }
     }
 
