@@ -10,6 +10,7 @@
 //! 사용: `app.add_plugins(PlatformPlugin)` — GamePlugin이 월드보다 먼저 넣는다.
 //! 게임 고유 재질 가드(예: WebGL2 BLEND 금지)는 world/materials_guard 참조.
 
+pub mod deep_link;
 pub mod diagnostics;
 pub mod open_url;
 pub mod gpu;

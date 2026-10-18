@@ -101,7 +101,7 @@ async fn run(queue: FrameQueue, phase: Arc<AtomicU8>, feeds: FeedQueues) {
 /// 계정 토큰 저장(app 전용 auth.json) — OAuth 딥링크 완성 전에는 adb push
 /// 수동 시딩이 개발·검증 경로. android는 외부 files 디렉터리(adb 직접 회수
 /// 가능·지속), 그 외 플랫폼은 작업 디렉터리.
-#[derive(serde::Deserialize, Default, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Default, Clone)]
 struct AuthFile {
     access: Option<String>,
     #[allow(dead_code)] // 갱신 흐름(F2 3단계)에서 사용
@@ -109,7 +109,27 @@ struct AuthFile {
 }
 
 fn load_auth() -> AuthFile {
-    let path = if cfg!(target_os = "android") {
+    // 딥링크 수신(OAuth 콜백 terrafolk://auth#at=..&rt=..) — 있으면 저장 후 진행.
+    if let Some(uri) = crate::platform::deep_link::launch_uri()
+        && let Some((access, refresh)) = crate::platform::deep_link::parse_auth_fragment(&uri)
+    {
+        let auth = AuthFile {
+            access: Some(access),
+            refresh: Some(refresh),
+        };
+        save_auth(&auth);
+        info!("[net] 딥링크 토큰 저장 완료");
+        return auth;
+    }
+    auth_path()
+        .and_then(|p| std::fs::read_to_string(p).ok())
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+/// 토큰 파일 경로 — android 외부 files 디렉터리(지속), 그 외 cwd.
+fn auth_path() -> Option<std::path::PathBuf> {
+    if cfg!(target_os = "android") {
         std::fs::read_to_string("/proc/self/cmdline")
             .ok()
             .and_then(|s| s.split('\0').next().map(str::trim).map(str::to_owned))
@@ -121,10 +141,25 @@ fn load_auth() -> AuthFile {
             })
     } else {
         Some(std::path::PathBuf::from("auth.json"))
+    }
+}
+
+/// 토큰 저장 — 딥링크 수신 시(load_auth이 호출). 실패는 로그만(재접속서 재시도).
+fn save_auth(auth: &AuthFile) {
+    let Some(path) = auth_path() else {
+        return;
     };
-    path.and_then(|p| std::fs::read_to_string(p).ok())
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_default()
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    match serde_json::to_string(auth) {
+        Ok(s) => {
+            if std::fs::write(&path, s).is_err() {
+                info!("[net] 토큰 저장 실패(쓰기 권한?) — {:?}, 재접속 시 재시도", path);
+            }
+        }
+        Err(_) => {}
+    }
 }
 
 /// 관전 티켓(무인증) — 폴백 공용.

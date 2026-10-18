@@ -12,3 +12,12 @@ android:
       - name: android.permission.INTERNET
     application:
       label: "Terrafolk" # Todo
+      # F2 계정 — OAuth 콜백 terrafolk://auth 딥링크(콜백이 스킴으로 302).
+      # 첫 activity는 xbuild가 MAIN/LAUNCHER·NativeActivity 기본값을 채운다.
+      activities:
+        - intent_filters:
+            - actions: ["android.intent.action.VIEW"]
+              categories:
+                ["android.intent.category.DEFAULT", "android.intent.category.BROWSABLE"]
+              data:
+                - scheme: "terrafolk"
