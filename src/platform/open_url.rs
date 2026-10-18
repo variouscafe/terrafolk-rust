@@ -29,18 +29,22 @@ fn open_url_android(url: &str) -> bool {
     let vm_ptr = ctx.vm() as *mut jni::sys::JavaVM;
     let context_ptr = ctx.context() as jni::sys::jobject;
     if vm_ptr.is_null() || context_ptr.is_null() {
+        info!("[open_url] 컨텍스트 없음");
         return false;
     }
     let Ok(vm) = (unsafe { jni::JavaVM::from_raw(vm_ptr) }) else {
+        info!("[open_url] VM 획득 실패");
         return false;
     };
     let Ok(mut env) = vm.attach_current_thread() else {
+        info!("[open_url] 스레드 attach 실패");
         return false;
     };
     let context = unsafe { JObject::from_raw(context_ptr) };
 
     // Uri.parse(url) — 인자·반환 모두 소유→차입 변환에 주의(jni 0.21 제네릭)
     let Ok(url_j) = env.new_string(url) else {
+        info!("[open_url] 문자열 생성 실패");
         return false;
     };
     let uri = env
