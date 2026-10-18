@@ -179,6 +179,20 @@ pub fn spawn(
                     info.spawn((SelGoal, Text::new(""), theme.text(9.0, theme::INK400)));
                 });
             p.spawn((
+                SelChatButton,
+                Button,
+                Interaction::default(),
+                Node {
+                    padding: UiRect::axes(Val::Px(9.0), Val::Px(5.0)),
+                    ..default()
+                },
+                BackgroundColor(theme::INK700),
+            ))
+            .observe(super::chat::open_chat)
+            .with_children(|b| {
+                b.spawn((Text::new("말걸기"), theme.label(10.0)));
+            });
+            p.spawn((
                 SelFollowChip,
                 Text::new("추적 중"),
                 theme.text(9.0, theme::INK950),
@@ -323,6 +337,10 @@ fn on_row_click(
     sel.epoch = sel.epoch.wrapping_add(1);
     state.popup = None; // 탭 즉시 닫고 카메라가 주민에게
 }
+
+/// 선택 패널 말걸기 버튼(F1 채팅 입구).
+#[derive(Component)]
+pub struct SelChatButton;
 
 /// 하단 패널 해제 칩 — 선택 해제. 행 선택과 동일하게 확정 클릭 이벤트.
 fn on_clear_click(_: On<Pointer<Click>>, mut sel: ResMut<Selection>) {
