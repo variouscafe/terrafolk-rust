@@ -66,7 +66,6 @@ impl Plugin for UiPlugin {
                     menu::interact,
                     chars::refresh_list,
                     chars::refresh_sel_panel,
-                    chars::apply_list_selection,
                     minimap::update_minimap,
                     apply_safe_area,
                 )

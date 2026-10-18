@@ -41,9 +41,49 @@ pub fn spawn_menu_button(p: &mut ChildSpawnerCommands, theme: &UiTheme) {
         BackgroundColor(theme::INK800),
         Interaction::default(),
     ))
+    .observe(on_menu_btn_click) // 폴링 아닌 확정 클릭 이벤트(빠른 탭 유실 방지)
     .with_children(|b| {
         b.spawn((Text::new("☰"), theme.title(12.0)));
     });
+}
+
+/// ☰ 토글 — Interaction 폴링은 빠른 탭(눌림+해제 동일 프레임)에서 Pressed
+/// 창을 놓친다(chars.rs 주석 참고). Pointer<Click> 확정 이벤트로 전환.
+fn on_menu_btn_click(_: On<Pointer<Click>>, mut state: ResMut<UiState>) {
+    state.menu_open = !state.menu_open;
+}
+
+/// 드롭다운 항목(주민·설정) — 팝업 열고 메뉴 닫기
+fn on_menu_item_click(
+    trigger: On<Pointer<Click>>,
+    mut state: ResMut<UiState>,
+    items: Query<&MenuOpenPopup>,
+) {
+    if let Ok(p) = items.get(trigger.entity) {
+        state.popup = Some(p.0);
+        state.menu_open = false;
+    }
+}
+
+/// 팝업 ✕ 닫기
+fn on_close_click(_: On<Pointer<Click>>, mut state: ResMut<UiState>) {
+    state.popup = None;
+}
+
+/// 시간 배속 ×1 ↔ ×40(레거시 T키와 동일)
+fn on_timescale_click(
+    _: On<Pointer<Click>>,
+    mut day: ResMut<DayTime>,
+    mut q_label: Query<&mut Text, With<TimeScaleLabel>>,
+) {
+    day.time_scale = if day.time_scale == 1.0 { 40.0 } else { 1.0 };
+    if let Ok(mut label) = q_label.single_mut() {
+        **label = if day.time_scale == 1.0 {
+            "시간 배속 ×1".into()
+        } else {
+            "시간 배속 ×40".into()
+        };
+    }
 }
 
 /// 드롭다운·설정 팝업 스폰(부팅 1회, 닫힘 상태)
@@ -110,6 +150,7 @@ pub fn spawn_menu(
                     BackgroundColor(theme::INK800),
                     Interaction::default(),
                 ))
+                .observe(on_timescale_click)
                 .with_children(|b| {
                     b.spawn((TimeScaleLabel, Text::new("시간 배속 ×1"), theme.label(11.0)));
                 });
@@ -123,6 +164,7 @@ pub fn spawn_menu(
                     BackgroundColor(theme::INK700),
                     Interaction::default(),
                 ))
+                .observe(on_close_click)
                 .with_children(|b| {
                     b.spawn((Text::new("닫기"), theme.label(11.0)));
                 });
@@ -141,33 +183,21 @@ fn menu_item(d: &mut ChildSpawnerCommands, theme: &UiTheme, label: &str, popup: 
         BackgroundColor(Color::NONE),
         Interaction::default(),
     ))
+    .observe(on_menu_item_click)
     .with_children(|b| {
         b.spawn((Text::new(label), theme.label(12.0)));
     });
 }
 
-/// 메뉴 상호작용 — ☰ 토글, 항목 → 팝업, 닫기, 시간 배속 토글.
-/// 버튼 종류별 쿼리 대신 하나의 통합 쿼리(충돌 필터 지옥 회피).
-#[allow(clippy::type_complexity)]
-#[allow(clippy::too_many_arguments)] // Bevy 시스템 파라미터 — 입력·시간·UI 상태를 한 프레임 안에서 순서 보정
+/// 메뉴 상태 반영 — 뒤로가기 닫기 + 드롭다운·설정 팝업 표시.
+/// 버튼 클릭은 각 스폰점의 Pointer<Click> 옵저버(on_*_click)가 담당 —
+/// Interaction 폴링은 빠른 탭에서 Pressed 창을 놓친다(에뮬레이터 실측).
 pub fn interact(
     mut state: ResMut<UiState>,
-    mut day: ResMut<DayTime>,
     keys: Res<ButtonInput<KeyCode>>,
     mut key_msgs: MessageReader<KeyboardInput>,
-    q_btns: Query<
-        (
-            &Interaction,
-            Option<&MenuOpenPopup>,
-            Has<CloseButton>,
-            Has<TimeScaleButton>,
-            Has<MenuButton>,
-        ),
-        With<Button>,
-    >,
     mut q_dropdown: Query<&mut Visibility, (With<MenuDropdown>, Without<SettingsPopup>)>,
     mut q_settings: Query<&mut Visibility, (With<SettingsPopup>, Without<MenuDropdown>)>,
-    mut q_label: Query<&mut Text, With<TimeScaleLabel>>,
 ) {
     // Escape/안드로이드 뒤로가기 — 열린 UI부터 닫는다(표준: 팝업→메뉴→선택 해제).
     if crate::platform::back_pressed(&keys) || crate::platform::back_in_messages(&mut key_msgs) {
@@ -176,29 +206,6 @@ pub fn interact(
         } else {
             state.menu_open = false;
         }
-    }
-    for (i, popup, close, timescale, menu_btn) in q_btns.iter() {
-        if *i != Interaction::Pressed {
-            continue;
-        }
-        if menu_btn {
-            state.menu_open = !state.menu_open;
-        } else if let Some(popup) = popup {
-            state.popup = Some(popup.0);
-            state.menu_open = false;
-        } else if close {
-            state.popup = None;
-        } else if timescale {
-            // 시간 배속 ×1 ↔ ×40(레거시 T키와 동일)
-            day.time_scale = if day.time_scale == 1.0 { 40.0 } else { 1.0 };
-        }
-    }
-    if let Ok(mut label) = q_label.single_mut() {
-        **label = if day.time_scale == 1.0 {
-            "시간 배속 ×1".into()
-        } else {
-            "시간 배속 ×40".into()
-        };
     }
 
     // 표시 상태 반영

@@ -245,6 +245,14 @@ pub fn follow_selection(
     mut ring: Query<(&mut Transform, &mut Visibility), (With<SelectionRing>, Without<Villager>)>,
 ) {
     let Ok((mut tr, mut vis)) = ring.single_mut() else {
+        // 진단 — 링 엔티티 수 이상(0·복수)이면 매 프레임 조용히 무시된다
+        static RING_WARN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+        if !RING_WARN.swap(true, std::sync::atomic::Ordering::Relaxed) {
+            warn!(
+                "[ring] follow_selection 조기 리턴 — 링 쿼리 수 {}",
+                ring.iter().count()
+            );
+        }
         return;
     };
     if sel.entity.is_some_and(|e| q.get(e).is_err()) {
@@ -272,6 +280,19 @@ pub fn follow_selection(
             let zoom_fit = (1.0 / rig.zoom.max(0.15)).clamp(0.8, 2.5);
             tr.scale = Vec3::splat(pulse * zoom_fit);
             *vis = Visibility::Visible;
+            // 진단 — 링 표시 최초 1회(선택마다): 위치·스케일·줌
+            static RING_INFO: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+            if RING_INFO.fetch_add(1, std::sync::atomic::Ordering::Relaxed) < 2 {
+                info!(
+                    "[ring] 표시 pos=({:.1},{:.1},{:.1}) scale={:.2} zoom={:.2} sel={:?}",
+                    at.x,
+                    at.y + 0.03,
+                    at.z,
+                    tr.scale.x,
+                    rig.zoom,
+                    sel.id
+                );
+            }
         }
         None => *vis = Visibility::Hidden,
     }

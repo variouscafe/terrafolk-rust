@@ -144,6 +144,7 @@ pub fn spawn(
                 BackgroundColor(theme::INK700),
                 Interaction::default(),
             ))
+            .observe(on_clear_click) // 폴링 아닌 확정 클릭(빠른 탭 유실 방지)
             .with_children(|b| {
                 b.spawn((Text::new("해제"), theme.label(10.0)));
             });
@@ -248,18 +249,10 @@ fn on_row_click(
     state.popup = None; // 탭 즉시 닫고 카메라가 주민에게
 }
 
-/// 목록 탭 → 선택(Selection epoch 증가 — 링·카메라 추적 자동). 해제 버튼도 여기서.
-pub fn apply_list_selection(
-    mut sel: ResMut<Selection>,
-    mut q_clear: Query<&mut Interaction, With<SelClearButton>>,
-) {
-    // 행 선택은 on_row_click 옵저버가 담당(위 참조) — 여기는 해제 버튼만.
-    for i in q_clear.iter_mut() {
-        if *i == Interaction::Pressed {
-            sel.id = None;
-            sel.entity = None;
-        }
-    }
+/// 하단 패널 해제 칩 — 선택 해제. 행 선택과 동일하게 확정 클릭 이벤트.
+fn on_clear_click(_: On<Pointer<Click>>, mut sel: ResMut<Selection>) {
+    sel.id = None;
+    sel.entity = None;
 }
 
 /// 하단 선택 패널 갱신 — 이름·상태·추적 칩 표시(선택 해제는 위 시스템이).
