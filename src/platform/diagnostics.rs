@@ -86,8 +86,9 @@ pub fn boot_probe(
     );
 }
 
-/// 검증용 인앱 스크린샷 — 6초·14초 2회(P키 수동 추가는 데스크톱).
-/// 저장 결과는 bevy가 로그로 남긴다(성공/IO 에러).
+/// 검증용 인앱 스크린샷 — 자동은 TF_SHOT 환경변수가 있을 때만(6초·14초 2회).
+/// 2026-10-18 실측: 스왑체인 경합(콘텐츠 rect 변경 직후)에서 버퍼 매핑
+/// 패닉으로 앱이 죽는 경합이 있어 기본 끔. 데스크톱 P키 수동은 유지.
 pub fn debug_screenshot(
     mut commands: Commands,
     time: Res<Time>,
@@ -98,8 +99,9 @@ pub fn debug_screenshot(
     if *shots >= SHOT_TIMES.len() as u32 {
         return;
     }
+    let auto = std::env::var("TF_SHOT").is_ok();
     let due = SHOT_TIMES[*shots as usize];
-    if time.elapsed_secs() > due || keys.just_pressed(KeyCode::KeyP) {
+    if (auto && time.elapsed_secs() > due) || keys.just_pressed(KeyCode::KeyP) {
         *shots += 1;
         let path = shot_path();
         info!(

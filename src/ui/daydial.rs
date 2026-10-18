@@ -25,14 +25,16 @@ pub struct DayDialState {
 }
 
 /// HUD 시계 칩 뒤에 위젯 노드를 심는다(hud.rs가 위치를 제공).
-pub fn mount(p: &mut ChildSpawnerCommands, _theme: &UiTheme) {
+/// compact — 협소 화면(<360px)에서 48px로 축소 표시(캔버스 68px를 압축).
+pub fn mount(p: &mut ChildSpawnerCommands, _theme: &UiTheme, compact: bool) {
+    let (w, h) = if compact { (48.0, 13.0) } else { (W as f32, H as f32) };
     p.spawn((
         DayDialImg,
         Pickable::IGNORE, // 표시 전용 — 월드 탭·UI 픽킹에서 제외
         ImageNode::default(),
         Node {
-            width: Val::Px(W as f32),
-            height: Val::Px(H as f32),
+            width: Val::Px(w),
+            height: Val::Px(h),
             ..default()
         },
     ));
