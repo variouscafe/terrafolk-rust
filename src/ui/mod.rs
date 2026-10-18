@@ -7,20 +7,30 @@
 
 pub mod chars;
 pub mod civ;
+pub mod daydial;
 pub mod hud;
+pub mod i18n;
+pub mod i18n_data;
+pub mod i18n_view;
+pub mod log;
 pub mod menu;
 pub mod minimap;
+pub mod rail;
 pub mod theme;
+pub mod toasts;
+pub mod tooltip;
+pub mod world_overlay;
+pub mod world_overlay_badges;
 
 use bevy::prelude::*;
 
-/// 팝업 종류 — 레거시 PopupKey 중 네이티브 데모에서 실동작하는 것부터.
-/// (res·inventions·log·account는 라이브 서버 연동 기능 — 연결 시 추가)
+/// 팝업 종류 — 레거시 PopupKey 패리티. account(로그인)만 남음(OAuth 별도 과업).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Popup {
     Chars,
     Res,
     Inventions,
+    Log,
     Settings,
 }
 
@@ -46,6 +56,7 @@ impl Plugin for UiPlugin {
         app.init_resource::<UiState>()
             .init_resource::<PointerOverUi>()
             .init_resource::<minimap::MinimapState>()
+            .init_resource::<daydial::DayDialState>()
             .add_systems(
                 Startup,
                 (
@@ -56,6 +67,11 @@ impl Plugin for UiPlugin {
                         menu::spawn_menu,
                         chars::spawn,
                         civ::spawn,
+                        log::spawn,
+                        world_overlay::spawn_overlay,
+                        rail::spawn,
+                        toasts::spawn_toasts,
+                        tooltip::spawn_tooltip,
                         minimap::spawn_minimap,
                     ),
                 )
@@ -67,11 +83,21 @@ impl Plugin for UiPlugin {
                 (
                     update_pointer_over_ui,
                     hud::update_hud,
+                    daydial::update_daydial,
                     menu::interact,
                     chars::refresh_list,
                     chars::refresh_sel_panel,
                     civ::refresh_res,
                     civ::refresh_civ,
+                    log::update_log,
+                    world_overlay::sync_overlay_nodes,
+                    world_overlay::update_bubbles,
+                    world_overlay_badges::update_badges,
+                    world_overlay_badges::animate_slots,
+                    world_overlay::place_anchors,
+                    rail::refresh_rail,
+                    toasts::update_toasts,
+                    tooltip::update_tooltip,
                     minimap::update_minimap,
                     apply_safe_area,
                 )

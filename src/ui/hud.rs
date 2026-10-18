@@ -65,6 +65,7 @@ pub fn spawn_hud(
         .with_children(|p| {
             p.spawn((Text::new("Terrafolk"), theme.title(11.0)));
             p.spawn((HudClock, Text::new(""), theme.label(10.0)));
+            super::daydial::mount(p, &theme);
             p.spawn((
                 HudWeather,
                 Text::new(""),

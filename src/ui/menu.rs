@@ -112,6 +112,7 @@ pub fn spawn_menu(
             menu_item(d, &theme, "주민", Popup::Chars);
             menu_item(d, &theme, "자원", Popup::Res);
             menu_item(d, &theme, "문명", Popup::Inventions);
+            menu_item(d, &theme, "기록", Popup::Log);
             menu_item(d, &theme, "설정", Popup::Settings);
         });
     // ── 설정 팝업(중앙 모달 셸) — 백드롭 탭으로도 닫힌다
