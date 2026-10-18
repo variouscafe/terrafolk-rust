@@ -3,7 +3,9 @@
 //! reflection 부트스트랩을 확인한다.
 
 use colyseus_lite::schema::decode::install_types;
-use colyseus_lite::schema::{FieldChild, FieldDef, FieldKind, Primitive, SchemaState, TypeDef, Value};
+use colyseus_lite::schema::{
+    FieldChild, FieldDef, FieldKind, Primitive, SchemaState, TypeDef, Value,
+};
 
 // ── 바이트 조립 헬퍼(notepack LE 방언) ──
 
@@ -95,23 +97,23 @@ fn mini_state() -> SchemaState {
 fn mini_full() -> Vec<u8> {
     let tick: u32 = 4242;
     cat(&[
-        &[0x80],                       // ADD | 필드0 tick
-        &tick.to_le_bytes(),           // u32 원시 LE
-        &[0x81],                       // ADD | 필드1 label
+        &[0x80],             // ADD | 필드0 tick
+        &tick.to_le_bytes(), // u32 원시 LE
+        &[0x81],             // ADD | 필드1 label
         &str_le("마을"),
-        &[0x82],                       // ADD | 필드2 temp
+        &[0x82], // ADD | 필드2 temp
         &num(18.5),
-        &[0x83],                       // ADD | 필드3 agents → 맵 refId 1
+        &[0x83], // ADD | 필드3 agents → 맵 refId 1
         &num(1.0),
-        &[0xFF, 0x01],                 // 스위치 → 맵 1
-        &[0x80],                       // 맵 ADD
-        &num(0.0),                     // 와이어 인덱스 0
-        &str_le("bot-1"),              // 키
-        &num(2.0),                     // 자식 Agent refId 2
-        &[0xFF, 0x02],                 // 스위치 → Agent 2
-        &[0x80],                       // ADD | 필드0 name
+        &[0xFF, 0x01],    // 스위치 → 맵 1
+        &[0x80],          // 맵 ADD
+        &num(0.0),        // 와이어 인덱스 0
+        &str_le("bot-1"), // 키
+        &num(2.0),        // 자식 Agent refId 2
+        &[0xFF, 0x02],    // 스위치 → Agent 2
+        &[0x80],          // ADD | 필드0 name
         &str_le("아다"),
-        &[0x81],                       // ADD | 필드1 x
+        &[0x81], // ADD | 필드1 x
         &num(10.5),
     ])
 }
@@ -139,23 +141,23 @@ fn patch_replace_add_delete() {
     s.apply_full(&mini_full()).expect("전체 상태");
     // 패치: temp 교체(루트 REPLACE), bot-1.x 교체, bot-2 추가, bot-1 삭제.
     let patch = cat(&[
-        &[0x02],                       // REPLACE | 필드2 temp
+        &[0x02], // REPLACE | 필드2 temp
         &num(21.0),
-        &[0xFF, 0x01],                 // 스위치 → agents 맵
-        &[0x80],                       // 맵 ADD(신규 bot-2)
+        &[0xFF, 0x01], // 스위치 → agents 맵
+        &[0x80],       // 맵 ADD(신규 bot-2)
         &num(1.0),
         &str_le("bot-2"),
-        &num(3.0),                     // Agent refId 3
+        &num(3.0), // Agent refId 3
         &[0xFF, 0x03],
         &[0x80],
         &str_le("벨"),
         &[0x81],
         &num(30.25),
-        &[0xFF, 0x01],                 // 스위치 → 맵
-        &[0x40],                       // 맵 DELETE — 와이어 인덱스만
-        &num(0.0),                     // wire 0 = bot-1
-        &[0xFF, 0x02],                 // 스위치 → Agent 2(bot-1)
-        &[0x01],                       // REPLACE | 필드1 x
+        &[0xFF, 0x01], // 스위치 → 맵
+        &[0x40],       // 맵 DELETE — 와이어 인덱스만
+        &num(0.0),     // wire 0 = bot-1
+        &[0xFF, 0x02], // 스위치 → Agent 2(bot-1)
+        &[0x01],       // REPLACE | 필드1 x
         &num(99.0),
     ]);
     s.apply_patch(&patch).expect("패치");
@@ -179,13 +181,18 @@ fn delete_and_add_rekeys_entry() {
     // DELETE_AND_ADD(192): 같은 와이어 인덱스를 새 키로 교체.
     let patch = cat(&[
         &[0xFF, 0x01],
-        &[0xC0],                       // DELETE_AND_ADD
+        &[0xC0], // DELETE_AND_ADD
         &num(0.0),
         &str_le("bot-9"),
-        &num(2.0),                     // 기존 Agent 2 재사용
+        &num(2.0), // 기존 Agent 2 재사용
     ]);
     s.apply_patch(&patch).expect("패치");
-    let entries = s.root().field("agents").expect("agents").entries().expect("맵");
+    let entries = s
+        .root()
+        .field("agents")
+        .expect("agents")
+        .entries()
+        .expect("맵");
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].0, "bot-9");
     assert_eq!(
@@ -220,10 +227,10 @@ fn bool_and_f32_primitives() {
         }],
     );
     let bytes = cat(&[
-        &[0x80, 0x01],                 // lit = true(원시 1바이트)
-        &[0x81],                       // f = f32 원시 LE
+        &[0x80, 0x01], // lit = true(원시 1바이트)
+        &[0x81],       // f = f32 원시 LE
         &2.5f32.to_le_bytes(),
-        &[0x82],                       // u16v 원시 LE
+        &[0x82], // u16v 원시 LE
         &600u16.to_le_bytes(),
     ]);
     s.apply_full(&bytes).expect("디코딩");
@@ -251,29 +258,29 @@ fn reflection_bytes() -> Vec<u8> {
         ])
     }
     cat(&[
-        &[0x80, 0x01],                 // types → 배열 refId 1
-        &[0x81],                       // rootType = 0
+        &[0x80, 0x01], // types → 배열 refId 1
+        &[0x81],       // rootType = 0
         &num(0.0),
-        &[0xFF, 0x01],                 // 스위치 → 배열
-        &[0x80, 0x00],                 // [0] = 타입 항목 refId 2
+        &[0xFF, 0x01], // 스위치 → 배열
+        &[0x80, 0x00], // [0] = 타입 항목 refId 2
         &num(2.0),
-        &[0x80, 0x01],                 // [1] = 타입 항목 refId 3
+        &[0x80, 0x01], // [1] = 타입 항목 refId 3
         &num(3.0),
         // World(2): id 0, extendsId -1, fields → 배열 4
         &[0xFF, 0x02],
         &[0x80],
-        &num(0.0),                     // id
+        &num(0.0), // id
         &[0x81],
-        &num(-1.0),                    // extendsId
-        &[0x82, 0x04],                 // fields → 배열 refId 4 (fixint 4)
+        &num(-1.0),    // extendsId
+        &[0x82, 0x04], // fields → 배열 refId 4 (fixint 4)
         &[0xFF, 0x04],
-        &[0x80, 0x00],                 // [0] = 필드 refId 5
+        &[0x80, 0x00], // [0] = 필드 refId 5
         &num(5.0),
-        &[0x80, 0x01],                 // [1] = 필드 refId 6
+        &[0x80, 0x01], // [1] = 필드 refId 6
         &num(6.0),
-        &[0x80, 0x02],                 // [2] = 필드 refId 7
+        &[0x80, 0x02], // [2] = 필드 refId 7
         &num(7.0),
-        &[0x80, 0x03],                 // [3] = 필드 refId 8
+        &[0x80, 0x03], // [3] = 필드 refId 8
         &num(8.0),
         &[0xFF, 0x05],
         &field("tick", "uint32", -1.0, ""),
@@ -292,9 +299,9 @@ fn reflection_bytes() -> Vec<u8> {
         &[0x82, 0x09],
         &[0xFF, 0x09],
         &[0x80, 0x00],
-        &num(10.0),                    // 필드 refId 10
+        &num(10.0), // 필드 refId 10
         &[0x80, 0x01],
-        &num(11.0),                    // 필드 refId 11
+        &num(11.0), // 필드 refId 11
         &[0xFF, 10],
         &field("name", "string", -1.0, ""),
         &[0xFF, 11],

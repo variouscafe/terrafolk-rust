@@ -12,8 +12,8 @@
 //! - TLS는 rustls(webpki 루트) — 크로스컴파일 안전(native-tls/openssl 무의존).
 //! - WS 프로토콜 수준 ping/pong은 자동 응답(tungstenite) — 앱 심장박동 불필요.
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use tokio::sync::mpsc;
 
@@ -160,9 +160,9 @@ async fn session(
 ) -> SessionEnd {
     use futures_util::SinkExt;
     use futures_util::StreamExt;
+    use tokio_tungstenite::tungstenite::Message;
     use tokio_tungstenite::tungstenite::client::IntoClientRequest;
     use tokio_tungstenite::tungstenite::http::HeaderValue;
-    use tokio_tungstenite::tungstenite::Message;
     use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 
     let mut req = match cfg.url.as_str().into_client_request() {
@@ -183,7 +183,10 @@ async fn session(
     ws_cfg.max_message_size = Some(cfg.max_message_size);
     ws_cfg.max_frame_size = Some(cfg.max_message_size);
     let (mut ws, _resp) = match tokio_tungstenite::connect_async_tls_with_config(
-        req, Some(ws_cfg), false, None,
+        req,
+        Some(ws_cfg),
+        false,
+        None,
     )
     .await
     {

@@ -48,7 +48,12 @@ impl Plugin for UiPlugin {
                 (
                     load_theme,
                     crate::platform::safe_area::refresh, // 스폰 직전 인셋 2차 확인
-                    (hud::spawn_hud, menu::spawn_menu, chars::spawn, minimap::spawn_minimap),
+                    (
+                        hud::spawn_hud,
+                        menu::spawn_menu,
+                        chars::spawn,
+                        minimap::spawn_minimap,
+                    ),
                 )
                     .chain(),
             );
@@ -141,5 +146,4 @@ fn update_pointer_over_ui(
         .any(|i| *i == Interaction::Hovered || *i == Interaction::Pressed);
     hover.0 = over.0;
     modal.0 = state.menu_open || state.popup.is_some();
-
 }

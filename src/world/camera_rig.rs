@@ -9,8 +9,8 @@ use bevy::core_pipeline::tonemapping::DebandDither;
 use bevy::input::gestures::PinchGesture;
 use bevy::input::mouse::AccumulatedMouseScroll;
 use bevy::post_process::bloom::Bloom;
-use bevy::render::view::ColorGrading;
 use bevy::prelude::*;
+use bevy::render::view::ColorGrading;
 
 use super::camera_input::{PointerInput, ground_at};
 use super::data::WorldData;
@@ -137,7 +137,11 @@ pub fn camera_control(
     let ui_block = ui_hover.0 && !input.gesture_in_progress();
 
     // ── 1) 터치 제스처 전이 + 두 손가락 핀치 비(줌 목표 반영 전에 확정)
-    let pinch_zoom = if ui_block { 1.0 } else { input.begin_frame(&mouse, &touches) };
+    let pinch_zoom = if ui_block {
+        1.0
+    } else {
+        input.begin_frame(&mouse, &touches)
+    };
 
     // ── 2) 줌 입력 누적 — UI 점유 시 신규 입력 양보
     let typing = super::pick::ui_typing();
@@ -253,4 +257,3 @@ pub fn camera_control(
         o.scale = rig.zoom;
     }
 }
-

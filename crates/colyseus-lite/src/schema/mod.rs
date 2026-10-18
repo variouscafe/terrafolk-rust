@@ -244,7 +244,10 @@ impl SchemaState {
         );
         decode::decode_full(&mut seed, bytes)?;
         let view = decode::materialize(&seed, 0);
-        let root_type = view.field("rootType").and_then(Value::as_f64).unwrap_or(0.0) as u16;
+        let root_type = view
+            .field("rootType")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0) as u16;
         let mut types = HashMap::new();
         let Some(items) = view.field("types").and_then(Value::items) else {
             return Err("reflection: types 배열 없음".into());
@@ -254,7 +257,10 @@ impl SchemaState {
             if id < 0 {
                 continue;
             }
-            let extends_raw = item.field("extendsId").and_then(Value::as_f64).unwrap_or(-1.0);
+            let extends_raw = item
+                .field("extendsId")
+                .and_then(Value::as_f64)
+                .unwrap_or(-1.0);
             let extends = if extends_raw >= 0.0 {
                 Some(extends_raw as u16)
             } else {
@@ -263,21 +269,29 @@ impl SchemaState {
             let mut fields = Vec::new();
             if let Some(field_items) = item.field("fields").and_then(Value::items) {
                 for f in field_items {
-                    let name = f.field("name").and_then(Value::as_str).unwrap_or("").to_owned();
+                    let name = f
+                        .field("name")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_owned();
                     let ty = f.field("type").and_then(Value::as_str).unwrap_or("");
-                    let refd = f.field("referencedType").and_then(Value::as_f64).unwrap_or(-1.0);
-                    let child_prim = f.field("childPrimitive").and_then(Value::as_str).unwrap_or("");
+                    let refd = f
+                        .field("referencedType")
+                        .and_then(Value::as_f64)
+                        .unwrap_or(-1.0);
+                    let child_prim = f
+                        .field("childPrimitive")
+                        .and_then(Value::as_str)
+                        .unwrap_or("");
                     let kind = match ty {
                         "ref" => FieldKind::Ref(refd as u16),
                         "map" | "array" | "set" => {
                             let child = if refd >= 0.0 {
                                 FieldChild::Ref(refd as u16)
                             } else {
-                                FieldChild::Primitive(
-                                    Primitive::parse(child_prim).ok_or_else(|| {
-                                        format!("reflection: 미지원 자식 원시 {child_prim}")
-                                    })?,
-                                )
+                                FieldChild::Primitive(Primitive::parse(child_prim).ok_or_else(
+                                    || format!("reflection: 미지원 자식 원시 {child_prim}"),
+                                )?)
                             };
                             if ty == "map" {
                                 FieldKind::MapOf(child)

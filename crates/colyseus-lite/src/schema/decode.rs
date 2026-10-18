@@ -86,17 +86,20 @@ fn decode_stream(state: &mut SchemaState, bytes: &[u8], root: u32) -> Result<(),
                 let op = b & 0xC0;
                 let idx = (b & 0x3F) as usize;
                 off += 1;
-                let field = def.fields.get(idx).ok_or_else(|| {
-                    format!("타입 {} 필드 {idx} 미지정 — 스키마 불일치", def.id)
-                })?;
+                let field = def
+                    .fields
+                    .get(idx)
+                    .ok_or_else(|| format!("타입 {} 필드 {idx} 미지정 — 스키마 불일치", def.id))?;
                 if op == OP_DELETE {
                     if let Some(RefNode::Struct { fields, .. }) = state.arena.get_mut(&current)
-                        && idx < fields.len() {
-                            fields[idx] = None;
-                        }
+                        && idx < fields.len()
+                    {
+                        fields[idx] = None;
+                    }
                     continue;
                 }
-                let value = read_field_value(state, &field.kind, op & OP_ADD != 0, bytes, &mut off)?;
+                let value =
+                    read_field_value(state, &field.kind, op & OP_ADD != 0, bytes, &mut off)?;
                 if let Some(RefNode::Struct { fields, .. }) = state.arena.get_mut(&current) {
                     if fields.len() <= idx {
                         fields.resize(idx + 1, None);
@@ -108,9 +111,7 @@ fn decode_stream(state: &mut SchemaState, bytes: &[u8], root: u32) -> Result<(),
                 off += 1;
                 if b == OP_CLEAR {
                     if let Some(RefNode::Map {
-                        index_key,
-                        entries,
-                        ..
+                        index_key, entries, ..
                     }) = state.arena.get_mut(&current)
                     {
                         index_key.clear();
@@ -120,26 +121,21 @@ fn decode_stream(state: &mut SchemaState, bytes: &[u8], root: u32) -> Result<(),
                 }
                 let wire = notepack::read_number(bytes, &mut off)? as u64;
                 if b == OP_DELETE {
-                    let key = state
-                        .arena
-                        .get(&current)
-                        .and_then(|n| match n {
-                            RefNode::Map { index_key, .. } => index_key
-                                .iter()
-                                .find(|(w, _)| *w == wire)
-                                .map(|(_, k)| k.clone()),
-                            _ => None,
-                        });
+                    let key = state.arena.get(&current).and_then(|n| match n {
+                        RefNode::Map { index_key, .. } => index_key
+                            .iter()
+                            .find(|(w, _)| *w == wire)
+                            .map(|(_, k)| k.clone()),
+                        _ => None,
+                    });
                     if let Some(key) = key
                         && let Some(RefNode::Map {
-                            index_key,
-                            entries,
-                            ..
+                            index_key, entries, ..
                         }) = state.arena.get_mut(&current)
-                        {
-                            index_key.retain(|(w, _)| *w != wire);
-                            entries.retain(|(k, _)| *k != key);
-                        }
+                    {
+                        index_key.retain(|(w, _)| *w != wire);
+                        entries.retain(|(k, _)| *k != key);
+                    }
                     continue;
                 }
                 let key = if b & OP_ADD != 0 {
@@ -168,20 +164,16 @@ fn decode_stream(state: &mut SchemaState, bytes: &[u8], root: u32) -> Result<(),
                     });
                     if let Some(old) = old_key
                         && let Some(RefNode::Map {
-                            index_key,
-                            entries,
-                            ..
+                            index_key, entries, ..
                         }) = state.arena.get_mut(&current)
-                        {
-                            index_key.retain(|(w, _)| *w != wire);
-                            entries.retain(|(k, _)| *k != old);
-                        }
+                    {
+                        index_key.retain(|(w, _)| *w != wire);
+                        entries.retain(|(k, _)| *k != old);
+                    }
                 }
                 let value = read_child_value(state, child, bytes, &mut off)?;
                 if let Some(RefNode::Map {
-                    index_key,
-                    entries,
-                    ..
+                    index_key, entries, ..
                 }) = state.arena.get_mut(&current)
                 {
                     index_key.retain(|(w, _)| *w != wire);
@@ -223,9 +215,10 @@ fn decode_stream(state: &mut SchemaState, bytes: &[u8], root: u32) -> Result<(),
                     OP_DELETE => {
                         let idx = notepack::read_number(bytes, &mut off)? as usize;
                         if let Some(RefNode::Array { items, .. }) = state.arena.get_mut(&current)
-                            && idx < items.len() {
-                                items.remove(idx);
-                            }
+                            && idx < items.len()
+                        {
+                            items.remove(idx);
+                        }
                     }
                     OP_MOVE | OP_DELETE_AND_MOVE | OP_MOVE_AND_ADD => {
                         // 배열 이동 계열 — 본 서버(reflection 포함)는 ADD만

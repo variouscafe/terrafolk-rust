@@ -28,7 +28,8 @@ pub fn setup(app: &mut App) {
                 bevy::render::batching::gpu_preprocessing::GpuPreprocessingSupport,
             >| {
                 if std::env::var("TF_CPU_PREPROC").is_ok() {
-                    support.max_supported_mode = bevy::render::batching::gpu_preprocessing::GpuPreprocessingMode::None;
+                    support.max_supported_mode =
+                        bevy::render::batching::gpu_preprocessing::GpuPreprocessingMode::None;
                     info!("[gpu] TF_CPU_PREPROC — GPU 전처리 비활성화(부팅 1회)");
                 }
             },

@@ -4,9 +4,9 @@
 
 pub mod net;
 pub mod platform;
-pub mod world;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod ui;
+pub mod world;
 
 use bevy::prelude::*;
 

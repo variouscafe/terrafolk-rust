@@ -4,9 +4,9 @@
 
 use bevy::prelude::*;
 
+use super::visual_map::{ResState, bld_size, live_visual};
 use super::{NetState, NetStatus};
 use crate::world::data::{PropKind, WorldData};
-use super::visual_map::{ResState, bld_size, live_visual};
 
 #[derive(Component)]
 pub struct LiveResourceTag(pub u32);
@@ -236,17 +236,17 @@ pub fn sync_resources(
                 let site = if super::dbg_gate::off("no_scaffold") {
                     commands.spawn(Transform::default()).id() // 진단 게이트 — 빈 발판
                 } else {
-                crate::world::bld::spawn_site(
-                    &mut commands,
-                    &mut meshes,
-                    &mut std_mats,
-                    r.x as i32,
-                    r.y as i32,
-                    w,
-                    h,
-                    ground,
-                    st.progress.unwrap_or(0.0).clamp(0.0, 1.0),
-                )
+                    crate::world::bld::spawn_site(
+                        &mut commands,
+                        &mut meshes,
+                        &mut std_mats,
+                        r.x as i32,
+                        r.y as i32,
+                        w,
+                        h,
+                        ground,
+                        st.progress.unwrap_or(0.0).clamp(0.0, 1.0),
+                    )
                 };
                 commands
                     .entity(site)

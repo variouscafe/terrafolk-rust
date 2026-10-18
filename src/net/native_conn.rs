@@ -12,9 +12,9 @@ use crate::net::{
 };
 use colyseus_lite::{MatchmakeResp, Room, RoomEvent, SchemaState, Value as ColyValue};
 use log::info;
-use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::time::Duration;
 
 const PROD_API: &str = "https://tf-api.suseona.com";
@@ -49,8 +49,7 @@ fn run_blocking(queue: FrameQueue, phase: Arc<AtomicU8>) {
 fn pick_bases() -> (&'static str, &'static str) {
     use std::net::TcpStream;
     let addr: std::net::SocketAddr = "127.0.0.1:8892".parse().expect("주소");
-    let local =
-        TcpStream::connect_timeout(&addr, Duration::from_millis(600)).is_ok();
+    let local = TcpStream::connect_timeout(&addr, Duration::from_millis(600)).is_ok();
     if local {
         (LOCAL_API, LOCAL_WS)
     } else {
@@ -186,14 +185,25 @@ fn build_frame(state: &SchemaState, with_map: bool) -> Option<LiveFrame> {
             Some(LiveAgent {
                 id: id.clone(),
                 name: av("name")?.as_str()?.to_owned(),
-                kind: av("kind").and_then(ColyValue::as_str).unwrap_or("bot").to_owned(),
+                kind: av("kind")
+                    .and_then(ColyValue::as_str)
+                    .unwrap_or("bot")
+                    .to_owned(),
                 x: av("x")?.as_f64()? as f32,
                 y: av("y")?.as_f64()? as f32,
-                facing: av("facing").and_then(ColyValue::as_str).unwrap_or("S").to_owned(),
-                status: av("status").and_then(ColyValue::as_str).unwrap_or("idle").to_owned(),
+                facing: av("facing")
+                    .and_then(ColyValue::as_str)
+                    .unwrap_or("S")
+                    .to_owned(),
+                status: av("status")
+                    .and_then(ColyValue::as_str)
+                    .unwrap_or("idle")
+                    .to_owned(),
                 act_type: av("actType").and_then(ColyValue::as_str).map(str::to_owned),
                 _act_type_r: None,
-                look: av("lookJson").and_then(ColyValue::as_str).map(str::to_owned),
+                look: av("lookJson")
+                    .and_then(ColyValue::as_str)
+                    .map(str::to_owned),
             })
         })
         .collect();
@@ -205,10 +215,15 @@ fn build_frame(state: &SchemaState, with_map: bool) -> Option<LiveFrame> {
             Some(LiveResource {
                 id: rv("id")?.as_f64()? as u32,
                 kind: rv("kind")?.as_str()?.to_owned(),
-                species: rv("species").and_then(ColyValue::as_str).unwrap_or("").to_owned(),
+                species: rv("species")
+                    .and_then(ColyValue::as_str)
+                    .unwrap_or("")
+                    .to_owned(),
                 x: rv("x")?.as_f64()? as u16,
                 y: rv("y")?.as_f64()? as u16,
-                state: rv("stateJson").and_then(ColyValue::as_str).map(str::to_owned),
+                state: rv("stateJson")
+                    .and_then(ColyValue::as_str)
+                    .map(str::to_owned),
             })
         })
         .collect();

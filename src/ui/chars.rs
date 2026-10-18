@@ -38,7 +38,11 @@ pub struct SelClearButton;
 #[derive(Resource, Default)]
 pub struct ListSig(String);
 
-pub fn spawn(mut commands: Commands, theme: Res<UiTheme>, safe: Res<crate::platform::safe_area::SafeArea>) {
+pub fn spawn(
+    mut commands: Commands,
+    theme: Res<UiTheme>,
+    safe: Res<crate::platform::safe_area::SafeArea>,
+) {
     // ── 주민 팝업(모달)
     commands
         .spawn((
@@ -116,10 +120,10 @@ pub fn spawn(mut commands: Commands, theme: Res<UiTheme>, safe: Res<crate::platf
                 flex_grow: 1.0,
                 ..default()
             },))
-            .with_children(|info| {
-                info.spawn((SelName, Text::new(""), theme.title(12.0)));
-                info.spawn((SelStatus, Text::new(""), theme.label(10.0)));
-            });
+                .with_children(|info| {
+                    info.spawn((SelName, Text::new(""), theme.title(12.0)));
+                    info.spawn((SelStatus, Text::new(""), theme.label(10.0)));
+                });
             p.spawn((
                 SelFollowChip,
                 Text::new("추적 중"),
@@ -199,9 +203,7 @@ pub fn refresh_list(
         return;
     };
     // 기존 행 철거 — despawn은 자손(행 텍스트)까지 재귀 제거(0.19 계약)
-    let stale: Vec<Entity> = children
-        .map(|c| c.to_vec())
-        .unwrap_or_default();
+    let stale: Vec<Entity> = children.map(|c| c.to_vec()).unwrap_or_default();
     for c in stale {
         commands.entity(c).despawn();
     }
@@ -268,7 +270,11 @@ pub fn refresh_sel_panel(
     villagers: Query<&Villager>,
     mut q_panel: Query<
         &mut Visibility,
-        (With<SelPanel>, Without<CharsPopupRoot>, Without<SelFollowChip>),
+        (
+            With<SelPanel>,
+            Without<CharsPopupRoot>,
+            Without<SelFollowChip>,
+        ),
     >,
     mut q_name: Query<&mut Text, (With<SelName>, Without<SelStatus>)>,
     mut q_status: Query<&mut Text, (With<SelStatus>, Without<SelName>)>,
@@ -296,6 +302,10 @@ pub fn refresh_sel_panel(
         }
     }
     if let Ok(mut c) = q_chip.single_mut() {
-        *c = if follow.active { Visibility::Visible } else { Visibility::Hidden };
+        *c = if follow.active {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
     }
 }
