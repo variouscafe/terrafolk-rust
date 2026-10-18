@@ -296,6 +296,9 @@ pub fn sync_agents(
         commands
             .spawn((
                 crate::world::villager::VillagerModel(gltf, look),
+                crate::world::wear::Wears(crate::world::wear::wear_ids_from_look(
+                    a.look.as_deref().unwrap_or(""),
+                )),
                 crate::world::villager::Villager {
                     from: Vec3::new(a.x, ground, a.y),
                     to: Vec3::new(a.x, ground, a.y),
