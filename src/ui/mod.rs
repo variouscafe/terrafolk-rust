@@ -6,6 +6,7 @@
 //! menu(☰ 드롭다운·팝업 셸·설정) · chars(주민 목록·선택 패널).
 
 pub mod chars;
+pub mod civ;
 pub mod hud;
 pub mod menu;
 pub mod minimap;
@@ -18,6 +19,8 @@ use bevy::prelude::*;
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Popup {
     Chars,
+    Res,
+    Inventions,
     Settings,
 }
 
@@ -52,6 +55,7 @@ impl Plugin for UiPlugin {
                         hud::spawn_hud,
                         menu::spawn_menu,
                         chars::spawn,
+                        civ::spawn,
                         minimap::spawn_minimap,
                     ),
                 )
@@ -66,6 +70,8 @@ impl Plugin for UiPlugin {
                     menu::interact,
                     chars::refresh_list,
                     chars::refresh_sel_panel,
+                    civ::refresh_res,
+                    civ::refresh_civ,
                     minimap::update_minimap,
                     apply_safe_area,
                 )
