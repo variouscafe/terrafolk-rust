@@ -24,6 +24,7 @@ pub mod tooltip;
 pub mod world_overlay;
 pub mod world_overlay_badges;
 
+use bevy::input::keyboard::KeyboardInput;
 use bevy::prelude::*;
 
 /// 팝업 종류 — 레거시 PopupKey 패리티. account(로그인)만 남음(OAuth 별도 과업).
@@ -34,6 +35,7 @@ pub enum Popup {
     Inventions,
     Log,
     Settings,
+    Account,
 }
 
 /// UI 상태(메뉴·팝업) — 한 번에 열리는 팝업은 1개(레거시와 동일).
@@ -67,6 +69,7 @@ impl Plugin for UiPlugin {
                     (
                         hud::spawn_hud,
                         menu::spawn_menu,
+                    menu::spawn_account_popup,
                         chars::spawn,
                     chat::spawn,
                         civ::spawn,
@@ -89,7 +92,7 @@ impl Plugin for UiPlugin {
                     hud::update_hud,
                     hud::update_notice,
                     daydial::update_daydial,
-                    menu::interact,
+                    (menu::interact, menu::refresh_account_popup).chain(),
                     chars::refresh_list,
                     chars::refresh_sel_panel,
                     res::refresh_res,
@@ -167,12 +170,17 @@ pub fn close_on_backdrop(_: On<Pointer<Click>>, mut state: ResMut<UiState>) {
 /// AppExit를 쓴다(데스크톱·웹은 뒤로 가기로 앱을 끊는 관행이 없어 제외).
 fn back_close(
     keys: Res<ButtonInput<KeyCode>>,
+    mut key_msgs: MessageReader<KeyboardInput>,
     mut ui: ResMut<UiState>,
     mut rail: ResMut<rail::RailState>,
     mut sel: ResMut<crate::world::pick::Selection>,
     mut exit: MessageWriter<AppExit>,
 ) {
-    if !keys.just_pressed(KeyCode::BrowserBack) {
+    // 안드로이드 뒤로 가기는 논리 키(Key::Named) 메시지로만 오므로 물리
+    // just_pressed와 메시지 양쪽을 판정(platform 헬퍼).
+    if !crate::platform::back_pressed(&keys)
+        && !crate::platform::back_in_messages(&mut key_msgs)
+    {
         return;
     }
     if rail.open.take().is_some() {

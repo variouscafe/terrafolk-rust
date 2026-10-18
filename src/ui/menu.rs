@@ -1,7 +1,6 @@
 //! ☰ 게임 메뉴 — 레거시 TopBar 드롭다운 직역(주민·설정. 나머지 항목은
 //! 라이브 서버 연동 기능이 구현될 때 추가) + 설정 팝업(시간 배속).
 
-use bevy::input::keyboard::KeyboardInput;
 use bevy::prelude::*;
 
 use super::theme::{self, UiTheme};
@@ -114,6 +113,7 @@ pub fn spawn_menu(
             menu_item(d, &theme, "문명", Popup::Inventions);
             menu_item(d, &theme, "기록", Popup::Log);
             menu_item(d, &theme, "설정", Popup::Settings);
+            menu_item(d, &theme, "계정", Popup::Account);
         });
     // ── 설정 팝업(중앙 모달 셸) — 백드롭 탭으로도 닫힌다
     commands
@@ -196,20 +196,11 @@ fn menu_item(d: &mut ChildSpawnerCommands, theme: &UiTheme, label: &str, popup: 
 /// 버튼 클릭은 각 스폰점의 Pointer<Click> 옵저버(on_*_click)가 담당 —
 /// Interaction 폴링은 빠른 탭에서 Pressed 창을 놓친다(에뮬레이터 실측).
 pub fn interact(
-    mut state: ResMut<UiState>,
-    keys: Res<ButtonInput<KeyCode>>,
-    mut key_msgs: MessageReader<KeyboardInput>,
+    state: Res<UiState>,
     mut q_dropdown: Query<&mut Visibility, (With<MenuDropdown>, Without<SettingsPopup>)>,
     mut q_settings: Query<&mut Visibility, (With<SettingsPopup>, Without<MenuDropdown>)>,
 ) {
-    // Escape/안드로이드 뒤로가기 — 열린 UI부터 닫는다(표준: 팝업→메뉴→선택 해제).
-    if crate::platform::back_pressed(&keys) || crate::platform::back_in_messages(&mut key_msgs) {
-        if state.popup.take().is_some() {
-            // 팝업만 닫고 끝
-        } else {
-            state.menu_open = false;
-        }
-    }
+    // 뒤로 가기 계열 닫기는 ui::back_close가 단일 소유(중복 처리 방지).
 
     // 표시 상태 반영
     if let Ok(mut v) = q_dropdown.single_mut() {
@@ -221,6 +212,116 @@ pub fn interact(
     }
     if let Ok(mut v) = q_settings.single_mut() {
         *v = if state.popup == Some(Popup::Settings) {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+    }
+}
+
+
+/// 계정 팝업 카드 루트.
+#[derive(Component)]
+pub struct AccountPopup;
+
+/// 계정 팝업 스폰 — 로그인 안내 + 브라우저 핸드오프 버튼(F2).
+/// 인증 완료는 terrafolk:// 딥링크로 앱이 재시작되며 토큰이 자동 저장된다.
+pub fn spawn_account_popup(mut commands: Commands, theme: Res<UiTheme>) {
+    commands
+        .spawn((
+            AccountPopup,
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
+            Visibility::Hidden,
+        ))
+        .observe(super::close_on_backdrop)
+        .with_children(|m| {
+            m.spawn((
+                Node {
+                    flex_direction: FlexDirection::Column,
+                    padding: UiRect::all(Val::Px(14.0)),
+                    row_gap: Val::Px(10.0),
+                    min_width: Val::Px(200.0),
+                    ..default()
+                },
+                BackgroundColor(theme::SURFACE),
+            ))
+            .with_children(|card| {
+                card.spawn((Text::new("계정"), theme.title(13.0)));
+                card.spawn((Text::new(
+                    "브라우저에서 로그인하면 주민에게 말을 걸고\n소유 캐릭터를 지시할 수 있어요. 로그인 후 앱으로\n자동 돌아옵니다.",
+                ), theme.text(10.0, theme::INK400)));
+                for (label, path) in [
+                    ("Google로 로그인", "/auth/google"),
+                    ("카카오로 로그인", "/auth/kakao"),
+                ] {
+                    card
+                        .spawn((
+                            Button,
+                            Node {
+                                padding: UiRect::axes(Val::Px(10.0), Val::Px(6.0)),
+                                ..default()
+                            },
+                            BackgroundColor(theme::INK800),
+                            Interaction::default(),
+                        ))
+                        .observe(on_login_click)
+                        .insert(LoginPath(path))
+                        .with_children(|b| {
+                            b.spawn((Text::new(label), theme.label(11.0)));
+                        });
+                }
+                card.spawn((
+                    CloseButton,
+                    Button,
+                    Node {
+                        padding: UiRect::axes(Val::Px(10.0), Val::Px(6.0)),
+                        ..default()
+                    },
+                    BackgroundColor(theme::INK700),
+                    Interaction::default(),
+                ))
+                .observe(on_close_click)
+                .with_children(|b| {
+                    b.spawn((Text::new("닫기"), theme.label(11.0)));
+                });
+            });
+        });
+}
+
+/// 로그인 버튼 경로 마커.
+#[derive(Component)]
+pub struct LoginPath(pub &'static str);
+
+
+fn on_login_click(
+    trigger: On<Pointer<Click>>,
+    paths: Query<&LoginPath>,
+    mut state: ResMut<UiState>,
+) {
+    let Ok(path) = paths.get(trigger.entity) else {
+        return;
+    };
+    state.popup = None; // 팝업 정리 — 브라우저로 넘어감
+    let url = format!("https://terrafolk.suseona.com{}?native=1", path.0);
+    if crate::platform::open_url::open_url(&url) {
+        info!("[account] 브라우저 핸드오프: {url}");
+    }
+}
+
+/// 계정 팝업 표시 갱신.
+pub fn refresh_account_popup(
+    state: Res<UiState>,
+    mut q: Query<&mut Visibility, With<AccountPopup>>,
+) {
+    if let Ok(mut v) = q.single_mut() {
+        *v = if state.popup == Some(Popup::Account) {
             Visibility::Visible
         } else {
             Visibility::Hidden
