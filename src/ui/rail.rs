@@ -9,13 +9,13 @@ use bevy::prelude::*;
 use super::i18n;
 use super::theme::{self, UiTheme};
 use crate::net::apply::LiveAgentTag;
-use crate::net::feed::PollStore;
+use crate::net::feed::{ChatLog, PollStore};
 use crate::world::pick::Selection;
 use crate::world::villager::Villager;
 
 #[derive(Component)]
 pub struct RailRoot;
-/// 레일 버튼(0=생활기록, 1=관계)
+/// 레일 버튼(0=생활기록, 1=관계, 2=소지품, 3=대화)
 #[derive(Component)]
 pub struct RailBtn(u8);
 #[derive(Component)]
@@ -50,6 +50,8 @@ pub fn spawn(mut commands: Commands, theme: Res<UiTheme>, safe: Res<crate::platf
         .with_children(|rail| {
             rail_btn(rail, &theme, 0, "史", "생활기록");
             rail_btn(rail, &theme, 1, "♥", "관계");
+            rail_btn(rail, &theme, 2, "袋", "소지품");
+            rail_btn(rail, &theme, 3, "言", "대화");
         });
     // 패널 카드 — 레일 버튼 왼쪽
     commands
@@ -115,6 +117,7 @@ pub fn refresh_rail(
     theme: Res<UiTheme>,
     sel: Res<Selection>,
     store: Res<PollStore>,
+    chat: Res<ChatLog>,
     villagers: Query<(&LiveAgentTag, &Villager)>,
     net: Res<crate::net::NetState>,
     mut commands: Commands,
@@ -147,11 +150,13 @@ pub fn refresh_rail(
     let rels = store.relations.lock().unwrap_or_else(|e| e.into_inner());
     // 서명 — 패널 종류·선택·데이터 버전(행 수·끝 ts)
     let sig = format!(
-        "{kind}|{}|{}|{}|{}",
+        "{kind}|{}|{}|{}|{}|{}|{}",
         sel.id.clone().unwrap_or_default(),
         hist.len(),
         hist.last().map(|h| h.ts.clone()).unwrap_or_default(),
         rels.len(),
+        chat.rows.len(),
+        chat.rows.back().map(|c| (c.gmin.unwrap_or(0), c.text.clone())).map(|(g, t)| format!("{g}{t}")).unwrap_or_default(),
     );
     if sig == state.sig {
         return;
@@ -167,7 +172,9 @@ pub fn refresh_rail(
     if let Ok(mut title) = q_title.single_mut() {
         **title = match kind {
             0 => "생활 기록".into(),
-            _ => "관계".into(),
+            1 => "관계".into(),
+            2 => "소지품".into(),
+            _ => "대화 기록".into(),
         };
     }
     if net.status != crate::net::NetStatus::Connected {
@@ -207,7 +214,7 @@ pub fn refresh_rail(
                 commands.entity(body_e).add_child(row);
             }
         }
-        _ => {
+        1 => {
             // A5 관계 — 선택 주민 포함 쌍(미선택 시 마을 전체) warmth top8.
             let rows: Vec<_> = rels
                 .iter()
@@ -282,6 +289,155 @@ pub fn refresh_rail(
                     })
                     .id();
                 commands.entity(body_e).add_child(row);
+            }
+        }
+        2 => {
+            // A3 소지품 — 선택 주민 invJson(§17.81 착용 제외 무게 바 + 칩).
+            let Some(id) = sel.id.as_deref() else {
+                spawn_hint(&mut commands, body_e, &theme, "주민을 선택하면 소지품이 표시된다");
+                return;
+            };
+            let Some(inv_src) = net
+                .frame
+                .as_ref()
+                .and_then(|f| f.agents.iter().find(|a| a.id == id))
+                .and_then(|a| a.inv_json.as_deref())
+            else {
+                spawn_hint(&mut commands, body_e, &theme, "소지품 정보가 없다");
+                return;
+            };
+            let Ok(inv) = serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(inv_src)
+            else {
+                spawn_hint(&mut commands, body_e, &theme, "소지품을 읽을 수 없다");
+                return;
+            };
+            if inv.is_empty() {
+                spawn_hint(&mut commands, body_e, &theme, "빈손이다");
+                return;
+            }
+            // 무게 바 — 85%+ 앰버 경고(FE CarryBar 직역)
+            const CAP: f32 = 5000.0;
+            let wt = i18n::carry_weight(&inv);
+            let heavy = wt / CAP >= 0.85;
+            let bar_row = commands
+                .spawn(Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    column_gap: Val::Px(6.0),
+                    ..default()
+                })
+                .with_children(|w| {
+                    w.spawn((Text::new("袋"), theme.text(9.0, theme::INK400)));
+                    w.spawn((
+                        Node {
+                            flex_grow: 1.0,
+                            height: Val::Px(5.0),
+                            ..default()
+                        },
+                        BackgroundColor(theme::INK800),
+                    ))
+                    .with_children(|track| {
+                        track.spawn((
+                            Node {
+                                width: Val::Percent((wt / CAP * 100.0).min(100.0)),
+                                height: Val::Percent(100.0),
+                                ..default()
+                            },
+                            BackgroundColor(if heavy {
+                                Color::srgb(0.984, 0.749, 0.141)
+                            } else {
+                                Color::srgb(0.063, 0.725, 0.506)
+                            }),
+                        ));
+                    });
+                    w.spawn((
+                        Text::new(format!("{wt}/5000")),
+                        theme.text(
+                            8.0,
+                            if heavy {
+                                Color::srgb(0.988, 0.816, 0.325)
+                            } else {
+                                theme::INK400
+                            },
+                        ),
+                    ));
+                })
+                .id();
+            commands.entity(body_e).add_child(bar_row);
+            // 칩 목록 — 라벨 ×수량(무게 내림)
+            let mut items: Vec<(&String, &serde_json::Value)> = inv.iter().collect();
+            items.sort_by(|a, b| {
+                (b.1.as_f64().unwrap_or(0.0) * i18n::item_wt(b.0) as f64)
+                    .total_cmp(&(a.1.as_f64().unwrap_or(0.0) * i18n::item_wt(a.0) as f64))
+            });
+            let chips = commands
+                .spawn(Node {
+                    flex_direction: FlexDirection::Row,
+                    flex_wrap: FlexWrap::Wrap,
+                    column_gap: Val::Px(4.0),
+                    row_gap: Val::Px(4.0),
+                    ..default()
+                })
+                .id();
+            for (id, qty) in items {
+                let chip = commands
+                    .spawn((
+                        Node {
+                            padding: UiRect::axes(Val::Px(5.0), Val::Px(2.0)),
+                            ..default()
+                        },
+                        BackgroundColor(theme::INK800),
+                    ))
+                    .with_children(|c| {
+                        c.spawn((
+                            Text::new(format!(
+                                "{} ×{}",
+                                i18n::vocab_label("item", id),
+                                qty.as_f64().map(|v| v as u32).unwrap_or(0)
+                            )),
+                            theme.text(8.5, theme::INK200),
+                        ));
+                    })
+                    .id();
+                commands.entity(chips).add_child(chip);
+            }
+            commands.entity(body_e).add_child(chips);
+        }
+        _ => {
+            // A6 대화 기록 — 최근 25행(게임 시각·화자색). 사람 발화는 액센트.
+            if chat.rows.is_empty() {
+                spawn_hint(&mut commands, body_e, &theme, "아직 대화가 없다");
+                return;
+            }
+            let start = chat.rows.len().saturating_sub(25);
+            for row in chat.rows.iter().skip(start) {
+                let is_human = row.speaker.contains('@') || row.speaker == "user";
+                let color = if is_human {
+                    theme::ACCENT
+                } else {
+                    i18n::agent_color(&row.agent_id)
+                };
+                let stamp = row.gmin.map(i18n::fmt_gmin).unwrap_or_default();
+                let text = if row.text.is_empty() {
+                    row.text_en.clone().unwrap_or_default()
+                } else {
+                    row.text.clone()
+                };
+                let line = commands
+                    .spawn(Node {
+                        flex_direction: FlexDirection::Row,
+                        column_gap: Val::Px(5.0),
+                        ..default()
+                    })
+                    .with_children(|l| {
+                        if !stamp.is_empty() {
+                            l.spawn((Text::new(stamp), theme.text(7.5, theme::INK400)));
+                        }
+                        l.spawn((Text::new(row.speaker.clone()), theme.text(8.5, color)));
+                        l.spawn((Text::new(text), theme.text(8.5, theme::INK200)));
+                    })
+                    .id();
+                commands.entity(body_e).add_child(line);
             }
         }
     }

@@ -22,6 +22,9 @@ pub struct HudWeather;
 pub struct HudPop;
 #[derive(Component)]
 pub struct HudNet;
+/// 재접속 공지 칩(레거시 notice — 좌측 노란 토스트 근사)
+#[derive(Component)]
+pub struct HudNotice;
 
 /// 이전 프레임 문자열 캐시 — 변화 시에만 Text 재할당(리렌더 최소화)
 #[derive(Resource, Default)]
@@ -30,6 +33,53 @@ pub struct LastHud {
     weather: String,
     pop: String,
     net: String,
+}
+
+/// 재접속 공지 — 링크 단계 에지에서 문구 갱신, 복구 2s 후 소멸(FE notice 근사).
+pub fn update_notice(
+    net: Res<crate::net::NetState>,
+    time: Res<Time>,
+    mut q_chip: Query<&mut Visibility, With<HudNotice>>,
+    mut q_text: Query<&mut Text, Without<HudNotice>>,
+    children_q: Query<&Children, With<HudNotice>>,
+    mut last: Local<Option<crate::net::NetStatus>>,
+    mut clear_at: Local<Option<f32>>,
+) {
+    if *last != Some(net.status) {
+        *last = Some(net.status);
+        *clear_at = match net.status {
+            crate::net::NetStatus::Connecting => None,
+            crate::net::NetStatus::Reconnecting => None,
+            crate::net::NetStatus::Connected => Some(time.elapsed_secs() + 2.0),
+            crate::net::NetStatus::Idle => None,
+        };
+        if let Ok(mut v) = q_chip.single_mut() {
+            *v = match net.status {
+                crate::net::NetStatus::Connecting | crate::net::NetStatus::Reconnecting => {
+                    Visibility::Visible
+                }
+                _ => Visibility::Hidden,
+            };
+        }
+        if let Ok(children) = children_q.single()
+            && let Some(&first) = children.first()
+            && let Ok(mut t) = q_text.get_mut(first)
+        {
+            **t = match net.status {
+                crate::net::NetStatus::Connecting => "연결 중…".into(),
+                crate::net::NetStatus::Reconnecting => "재접속 중…".into(),
+                _ => String::new(),
+            };
+        }
+    }
+    if let Some(at) = *clear_at
+        && time.elapsed_secs() >= at
+    {
+        *clear_at = None;
+        if let Ok(mut v) = q_chip.single_mut() {
+            *v = Visibility::Hidden;
+        }
+    }
 }
 
 /// 칩 공통 노드(레거시 rounded bg-ink-800 칩)
@@ -44,7 +94,10 @@ pub fn spawn_hud(
     mut commands: Commands,
     theme: Res<UiTheme>,
     safe: Res<crate::platform::safe_area::SafeArea>,
+    window: Single<&Window>,
 ) {
+    // 협소 화면 — DayDial 축소·관전 칩 생략(☰가 밀려나지 않게)
+    let narrow = window.width() < 360.0;
     commands
         .spawn((
             HudRoot,
@@ -65,7 +118,7 @@ pub fn spawn_hud(
         .with_children(|p| {
             p.spawn((Text::new("Terrafolk"), theme.title(11.0)));
             p.spawn((HudClock, Text::new(""), theme.label(10.0)));
-            super::daydial::mount(p, &theme);
+            super::daydial::mount(p, &theme, narrow);
             p.spawn((
                 HudWeather,
                 Text::new(""),
@@ -87,12 +140,14 @@ pub fn spawn_hud(
                 chip(),
                 BackgroundColor(theme::INK800),
             ));
-            p.spawn((
-                Text::new("관전"),
-                theme.text(9.0, theme::INK400),
-                chip(),
-                BackgroundColor(theme::INK800),
-            ));
+            if !narrow {
+                p.spawn((
+                    Text::new("관전"),
+                    theme.text(9.0, theme::INK400),
+                    chip(),
+                    BackgroundColor(theme::INK800),
+                ));
+            }
             // flex spacer — ☰를 우측으로 민다(버튼은 menu.rs 스폰)
             p.spawn(Node {
                 flex_grow: 1.0,
@@ -100,6 +155,25 @@ pub fn spawn_hud(
             });
             super::menu::spawn_menu_button(p, &theme);
         });
+    // 공지 칩 — HUD 아래 좌측(절대), 평소 숨김
+    commands.spawn((
+        HudNotice,
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(safe.top + 32.0),
+            left: Val::Px(8.0),
+            padding: UiRect::axes(Val::Px(7.0), Val::Px(4.0)),
+            ..default()
+        },
+        BackgroundColor(Color::srgb(0.988, 0.816, 0.325)),
+        Visibility::Hidden,
+    ))
+    .with_children(|n| {
+        n.spawn((
+            Text::new(""),
+            theme.text(9.0, theme::INK950),
+        ));
+    });
     commands.init_resource::<LastHud>();
 }
 

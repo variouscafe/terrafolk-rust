@@ -6,7 +6,7 @@
 use bevy::prelude::*;
 use serde_json::Value;
 
-use super::i18n_data::{EVENT_DICT, UI_D, VOCAB};
+use super::i18n_data::{EVENT_DICT, INVCAT_GROUPS, ITEM_WT, UI_D, VOCAB, WORN_ITEMS};
 use super::theme;
 /// 표시 계층(i18n_view) 재수출 — 호출부는 i18n:: 단일 경로 유지.
 pub use super::i18n_view::{
@@ -74,6 +74,56 @@ pub fn t_fmt(key: &str, params: &[(&str, &str)]) -> String {
 /// 어휘 공개 라벨(bld.{type} 등 — 툴팁·표시 계층용).
 pub fn vocab_label(prefix: &str, id: &str) -> String {
     label4(prefix, id)
+}
+
+// ---- 소지 무게(§17.81 FE carryWeight 직역) ----
+
+/// 품목 무게(vocab wt — 미등록 1).
+pub fn item_wt(id: &str) -> f32 {
+    ITEM_WT
+        .binary_search_by(|probe| probe.0.cmp(id))
+        .ok()
+        .map(|i| ITEM_WT[i].1)
+        .unwrap_or(1.0)
+}
+
+/// 착용품 여부(무게 제외 — 의상 티어+신발).
+pub fn is_worn(id: &str) -> bool {
+    WORN_ITEMS.binary_search_by(|probe| probe.0.cmp(id)).is_ok()
+}
+
+/// 소지 무게 — 착용품 제외 Σ qty×wt, 0.1 단위 반올림(FE와 동일 수식).
+pub fn carry_weight(inv: &serde_json::Map<String, Value>) -> f32 {
+    let mut w = 0.0;
+    for (id, qty) in inv {
+        if is_worn(id) {
+            continue;
+        }
+        w += qty.as_f64().unwrap_or(0.0) as f32 * item_wt(id);
+    }
+    (w * 10.0).round() / 10.0
+}
+
+// ---- 발명 범주(§17.45 FE invGroupOf·invCatId 직역) ----
+
+/// 범주 → 6대분류(living·production·infrastructure·culture·knowledge·institutions).
+/// 별칭(tool→tools·building→housing) 흡수.
+pub fn inv_group_of(category: &str) -> &'static str {
+    let cat = match category {
+        "tool" => "tools",
+        "building" => "housing",
+        c => c,
+    };
+    INVCAT_GROUPS
+        .binary_search_by(|probe| probe.0.cmp(cat))
+        .ok()
+        .map(|i| INVCAT_GROUPS[i].1)
+        .unwrap_or("living")
+}
+
+/// 대분류 라벨(invgroup.{group} — 없으면 원문).
+pub fn inv_group_label(group: &str) -> String {
+    t_or(&format!("invgroup.{group}"), group)
 }
 
 /// 어휘 라벨(item.{id}·sp.{id} 등) — 없으면 id 원문.

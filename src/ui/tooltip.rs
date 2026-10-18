@@ -187,7 +187,8 @@ fn res_tip(net: &NetState, gx: f32, gz: f32) -> Option<String> {
                     break;
                 }
             }
-            "grave" => {
+            // 무덤·유물 — 중심 1.1타일 근접(hover_res 규약 동일)
+            "grave" | "relic" => {
                 let d = (r.x as f32 - gx).powi(2) + (r.y as f32 - gz).powi(2);
                 if d < 1.1 * 1.1 && hit.as_ref().is_none_or(|(_, bd)| d < *bd) {
                     hit = Some((r, d));
@@ -213,6 +214,18 @@ fn res_tip(net: &NetState, gx: f32, gz: f32) -> Option<String> {
             );
             if let Some(ep) = st.epitaph.as_deref().filter(|e| !e.is_empty()) {
                 s.push_str(&format!("\n「{ep}」"));
+            }
+            Some(s)
+        }
+        "relic" => {
+            // 발명품 — 이름(species) + 발명가 + 설명(§17.38 FE 툴팁 직역)
+            let mut s = format!(
+                "{}\n{}",
+                r.species,
+                i18n::t_fmt("tip.relic", &[("by", st.by.as_deref().unwrap_or("?"))])
+            );
+            if let Some(p) = st.purpose.as_deref().filter(|p| !p.is_empty()) {
+                s.push_str(&format!("\n{}", i18n::fx(p)));
             }
             Some(s)
         }

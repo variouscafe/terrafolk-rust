@@ -40,6 +40,9 @@ pub(crate) struct ResState {
     /// grave 비문(60자 — 각인 전 null)
     #[serde(default)]
     pub(crate) epitaph: Option<String>,
+    /// relic 발명가 설명(§17.38 툴팁)
+    #[serde(default)]
+    pub(crate) purpose: Option<String>,
 }
 
 /// 발판 크기 — state.w/h 우선, 레거시 스냅숏은 타입 기본값(FE BLD_SEED_SIZE).

@@ -16,6 +16,7 @@ pub mod log;
 pub mod menu;
 pub mod minimap;
 pub mod rail;
+pub mod res;
 pub mod theme;
 pub mod toasts;
 pub mod tooltip;
@@ -67,6 +68,7 @@ impl Plugin for UiPlugin {
                         menu::spawn_menu,
                         chars::spawn,
                         civ::spawn,
+                        res::spawn,
                         log::spawn,
                         world_overlay::spawn_overlay,
                         rail::spawn,
@@ -83,11 +85,12 @@ impl Plugin for UiPlugin {
                 (
                     update_pointer_over_ui,
                     hud::update_hud,
+                    hud::update_notice,
                     daydial::update_daydial,
                     menu::interact,
                     chars::refresh_list,
                     chars::refresh_sel_panel,
-                    civ::refresh_res,
+                    res::refresh_res,
                     civ::refresh_civ,
                     log::update_log,
                     world_overlay::sync_overlay_nodes,
