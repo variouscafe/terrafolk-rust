@@ -358,7 +358,8 @@ fn finish_villager_setup(
         gltf.named_animations
             .iter()
             .find(|(name, _)| {
-                name.to_ascii_lowercase().ends_with(&suffix.to_ascii_lowercase())
+                name.to_ascii_lowercase()
+                    .ends_with(&suffix.to_ascii_lowercase())
             })
             .map(|(_, h)| h.clone())
     };
