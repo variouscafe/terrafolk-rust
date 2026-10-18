@@ -14,6 +14,9 @@ pub mod occlusion;
 pub mod overlay;
 pub mod pick;
 pub mod precip;
+/// 날씨 파티클(비·눈·번개) — 네이티브 전용(웹은 DOM 오버레이 담당)
+#[cfg(not(target_arch = "wasm32"))]
+pub mod precip_fx;
 pub mod propsfx;
 pub mod sky;
 pub mod splat;
@@ -43,6 +46,7 @@ impl Plugin for WorldPlugin {
             .insert_resource(camera_rig::CameraRig::default())
             .insert_resource(camera_input::PointerInput::default())
             .insert_resource(pick::Selection::default())
+            .insert_resource(pick::GroundTap::default())
             .insert_resource(pick::SelectBridge::default())
             .insert_resource(cam_follow::CamFollow::default())
             .insert_resource(overlay::PanBridge::default())
@@ -55,8 +59,17 @@ impl Plugin for WorldPlugin {
                     pick::spawn_ring,
                     pick::register_bridge,
                     overlay::register_pan_bridge,
+                    #[cfg(not(target_arch = "wasm32"))]
+                    precip_fx::spawn_lightning_flash,
                 ),
             );
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            app.add_systems(
+                Update,
+                (precip_fx::adjust_pool, precip_fx::update_precip, precip_fx::update_lightning).chain(),
+            );
+        }
         // 데모 결정론 월드는 네이티브 개발 빌드 전용 — 웹(wasm)은 라이브 접속→
         // 프라임으로 곧장 간다(스폰-철거 낭비·플래시 제거. 로딩 오버레이는
         // tf.uiPrime 통보로 해제).

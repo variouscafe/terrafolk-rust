@@ -23,7 +23,7 @@ pub struct SparkPhase(pub f32);
 
 const SPARK_COLOR: LinearRgba = LinearRgba::new(1.0, 0.83, 0.35, 1.0);
 /// 부저각 카메라 방향(요 45°·피치 35°) — 스파크 쿼드가 카메라를 향한다.
-const CAM_FACE: Vec3 = Vec3::new(0.579, 0.574, 0.579);
+pub(crate) const CAM_FACE: Vec3 = Vec3::new(0.579, 0.574, 0.579);
 
 /// 스파크 쿼드 스폰 — 광맥 상단, 절대각 카메라를 바라보는 사각형.
 pub fn spawn_vein_spark(
