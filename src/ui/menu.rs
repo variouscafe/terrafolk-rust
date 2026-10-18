@@ -315,11 +315,19 @@ fn on_login_click(
     }
 }
 
-/// 계정 팝업 표시 갱신.
+/// 계정 팝업 표시 갱신 — TF_ACCOUNT_POPUP이면 부팅 3초 후 자동 오픈
+/// (렌더링 검증 개발 스위치 — 메뉴 탭 좌표와 무관).
 pub fn refresh_account_popup(
-    state: Res<UiState>,
+    time: Res<Time>,
+    mut state: ResMut<UiState>,
     mut q: Query<&mut Visibility, With<AccountPopup>>,
 ) {
+    if std::env::var("TF_ACCOUNT_POPUP").is_ok()
+        && time.elapsed_secs() > 3.0
+        && state.popup.is_none()
+    {
+        state.popup = Some(Popup::Account);
+    }
     if let Ok(mut v) = q.single_mut() {
         *v = if state.popup == Some(Popup::Account) {
             Visibility::Visible
