@@ -103,7 +103,7 @@ impl Plugin for WorldPlugin {
                     sky::sky_update,
                 ),
                 villager::wander,
-                villager::animate_walk_idle,
+                villager::animate_states,
                 villager::retry_villager_setup,
                 wear::apply_wears,
                 // 렌더 진단 프로브 — dev 빌드 전용(운영 콘솔 지저분함 방지, 리뷰 #9)

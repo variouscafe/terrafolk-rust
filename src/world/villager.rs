@@ -1,7 +1,8 @@
-//! 주민 — Quaternius CC0 리깅 캐릭터(GLB) + 보행/대기 애니메이션 + 배회 FSM.
+//! 주민 — Quaternius CC0 리깅 캐릭터(GLB) + 상태 애니메이션 + 배회 FSM.
 //! Phase 2에서 서버 agents 스키마 좌표로 구동된다(구조 동일).
 //! 스폰 → WorldInstanceReady 옵저버에서 오토펏(족장 지면 착지)·애니메이션
-//! 그래프(Walk/Idle 2클립) 연결. 이동 시 캐릭터가 이동 방향으로 회전.
+//! 그래프(Walk/Idle/Interact/Wave 4클립) 연결. 이동 시 캐릭터가 이동 방향으로
+//! 회전. 활동(채집·건설…)은 Interact, 주고받기(give·trade)는 Wave로 연출한다.
 
 use bevy::gltf::{Gltf, GltfAssetLabel};
 use bevy::prelude::*;
@@ -29,14 +30,41 @@ pub struct Villager {
     pub name: String,
     /// 상태 코드(walk·idle·chop… 레거시 status.* 규칙) — UI가 한글로 번역
     pub status: String,
+    /// 활동 코드(라이브: 서버 actType[gather·build…] · 데모: 배회 휴식 연출) —
+    /// 애님 상태(Interact/Wave)와 UI 라벨의 원천. 비면 status로 폴백.
+    pub act: String,
+}
+
+/// 애님 상태 — 그래프 클립 인덱스와 1:1.
+#[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
+pub enum AnimKind {
+    #[default]
+    Idle,
+    Walk,
+    Interact,
+    Wave,
+}
+
+/// 활동 코드 → 애님 상태. 활동 전반(채집·건설·채광…)은 Interact,
+/// 주고받기(give·trade)는 Wave(손 내밀기), 휴식은 Idle. 알 수 없는
+/// 코드는 Interact(활동형 기본 — 시각적으로 하는 일이 있는 게 생명감).
+fn act_kind(code: &str) -> AnimKind {
+    match code {
+        "moving" => AnimKind::Walk,
+        "give" | "trade" => AnimKind::Wave,
+        "idle" | "sleep" | "sleeping" | "thinking" | "" => AnimKind::Idle,
+        _ => AnimKind::Interact,
+    }
 }
 
 #[derive(Component)]
 pub struct VillagerAnims {
     pub walk: AnimationNodeIndex,
     pub idle_anim: AnimationNodeIndex,
+    pub interact: AnimationNodeIndex,
+    pub wave: AnimationNodeIndex,
     pub player_e: Entity,
-    pub current_walk: bool,
+    pub current: AnimKind,
 }
 
 #[derive(Component)]
@@ -107,6 +135,7 @@ pub fn spawn_legacy_villagers(commands: &mut Commands, world: &WorldData, assets
                     target_h: VILLAGER_H,
                     name: DEMO_NAMES[placed].into(),
                     status: "idle".into(),
+                    act: String::new(),
                 },
                 WorldAssetRoot(scene),
                 Transform::from_translation(Vec3::new(x as f32 + 0.5, ground, y as f32 + 0.5))
@@ -250,6 +279,13 @@ fn finish_villager_setup(
     let mut graph = AnimationGraph::new();
     let walk_i = graph.add_clip(walk_h, 1.0, graph.root);
     let idle_i = graph.add_clip(idle_h, 1.0, graph.root);
+    // Interact·Wave — 이 팩엔 있으나 이후 합류 모델을 위해 폴백(Idle 인덱스)
+    let interact_i = find("Interact")
+        .map(|h| graph.add_clip(h, 1.0, graph.root))
+        .unwrap_or(idle_i);
+    let wave_i = find("Wave")
+        .map(|h| graph.add_clip(h, 1.0, graph.root))
+        .unwrap_or(idle_i);
     let graph_h = graphs.add(graph);
 
     // 하위 AnimationPlayer 탐색(bevy_gltf가 자동 스폰)
@@ -306,8 +342,10 @@ fn finish_villager_setup(
     commands.entity(entity).insert(VillagerAnims {
         walk: walk_i,
         idle_anim: idle_i,
+        interact: interact_i,
+        wave: wave_i,
         player_e,
-        current_walk: false,
+        current: AnimKind::Idle,
     });
     true
 }
@@ -317,28 +355,45 @@ fn rand_free(seed: u64, scale: f32) -> f32 {
     super::data::Rng::new(seed.wrapping_mul(2654435761)).f32() * scale
 }
 
+/// 데모 휴식 활동 풀 — act.* 어휘에 있는 코드만(UI 라벨·애님 매핑 보장).
+const DEMO_ACTS: [&str; 7] = ["gather", "chop", "forage", "craft", "drink", "give", "eat"];
+
 pub fn wander(
     time: Res<Time>,
     world: Res<WorldData>,
     mut q: Query<(&mut Villager, &mut Transform), Without<crate::net::apply::LiveAgentTag>>,
 ) {
     for (mut v, mut tr) in &mut q {
-        // 상태 코드 갱신(데모 전용 — 라이브는 sync_agents가 서버 값 반영)
-        let want = if v.moving { "walk" } else { "idle" };
+        // 상태 코드 갱신(데모 전용 — 라이브는 sync_agents가 서버 값 반영).
+        // 활동 중(act 비빔)엔 활동 코드가 곧 상태(라벨·애님 일관).
+        let want = if v.moving {
+            "walk".to_string()
+        } else if v.act.is_empty() {
+            "idle".to_string()
+        } else {
+            v.act.clone()
+        };
         if v.status != want {
-            v.status = want.into();
+            v.status = want;
         }
         if v.moving {
             v.t += time.delta_secs() / WALK_TIME;
             if v.t >= 1.0 {
                 v.t = 0.0;
                 v.moving = false;
-                v.idle = 0.4
-                    + rand_free(
-                        (time.elapsed_secs() * 1000.0) as u64
-                            ^ (tr.translation.x as u64).wrapping_mul(31),
-                        2.0,
-                    );
+                // 도착 휴식 — 35%는 자리에서 활동(채집·손짓), 나머지는 그냥 대기.
+                let seed = (time.elapsed_secs() * 1000.0) as u64
+                    ^ (tr.translation.x as u64).wrapping_mul(31);
+                if rand_free(seed, 1.0) < 0.35 {
+                    let pool = DEMO_ACTS.len();
+                    v.act =
+                        DEMO_ACTS[(rand_free(seed.wrapping_add(7), pool as f32) as usize) % pool]
+                            .into();
+                    v.idle = 1.6 + rand_free(seed.wrapping_add(13), 2.0);
+                } else {
+                    v.act.clear();
+                    v.idle = 0.4 + rand_free(seed, 2.0);
+                }
                 tr.translation = v.to;
             } else {
                 let s = v.t * v.t * (3.0 - 2.0 * v.t); // smoothstep
@@ -382,6 +437,7 @@ pub fn wander(
                 v.from = tr.translation;
                 v.to = target;
                 v.moving = true;
+                v.act.clear(); // 이동 개시 — 활동 종료
                 v.t = 0.0;
                 break;
             }
@@ -395,23 +451,30 @@ pub fn wander(
     }
 }
 
-/// 보행↔대기 애니메이션 전환(플레이어는 하위 엔티티에 있음).
+/// 애님 상태 전환(플레이어는 하위 엔티티에 있음) — 이동 우선, 정지 시
+/// 활동 코드(act 우선·status 폴백)로 Walk/Idle/Interact/Wave를 고른다.
 /// 0.25초 크로스페이드 — 하드 컷은 주민을 기계적으로 보이게 한다(생명감 직결).
-pub fn animate_walk_idle(
+pub fn animate_states(
     mut q: Query<(&Villager, &mut VillagerAnims)>,
     mut players: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>,
 ) {
     for (v, mut anims) in &mut q {
-        if v.moving == anims.current_walk {
+        let want = if v.moving {
+            AnimKind::Walk
+        } else {
+            act_kind(if v.act.is_empty() { &v.status } else { &v.act })
+        };
+        if want == anims.current {
             continue;
         }
-        anims.current_walk = v.moving;
+        anims.current = want;
+        let idx = match want {
+            AnimKind::Walk => anims.walk,
+            AnimKind::Idle => anims.idle_anim,
+            AnimKind::Interact => anims.interact,
+            AnimKind::Wave => anims.wave,
+        };
         if let Ok((mut player, mut transitions)) = players.get_mut(anims.player_e) {
-            let idx = if v.moving {
-                anims.walk
-            } else {
-                anims.idle_anim
-            };
             transitions
                 .play(&mut player, idx, Duration::from_millis(250))
                 .repeat();
