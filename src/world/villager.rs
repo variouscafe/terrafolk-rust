@@ -401,7 +401,7 @@ fn finish_villager_setup(
 
 /// 진단 — 주민 렌더 상태 덤프(유령 디버깅): 스폰 8초 후 1회.
 /// 애님 연결·스킨·재질 알파 모드를 콘솔에 기록한다.
-#[allow(clippy::too_many_arguments)] // Bevy 시스템 파라미터 — finish_villager_setup과 동일 계열
+#[allow(clippy::too_many_arguments, clippy::type_complexity)] // Bevy 시스템 파라미터·쿼리 — finish_villager_setup과 동일 계열
 pub fn villager_render_probe(
     mut commands: Commands,
     mut rig: ResMut<crate::world::camera_rig::CameraRig>,
