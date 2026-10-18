@@ -85,7 +85,7 @@ impl Plugin for UiPlugin {
             app.add_systems(
                 Update,
                 (
-                    (update_pointer_over_ui, back_close, chat::chat_input, chat::quick_greet_key, chat::refresh_chat_bar).chain(),
+                    (update_pointer_over_ui, back_close, chat::auto_greet, chat::chat_input, chat::quick_greet_key, chat::refresh_chat_bar).chain(),
                     hud::update_hud,
                     hud::update_notice,
                     daydial::update_daydial,

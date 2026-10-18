@@ -217,6 +217,37 @@ pub fn chat_input(
     }
 }
 
+/// 자동 인사(TF_AUTO_GREET) — 부팅 후 첫 주민 선택 + 인사 송신(채팅 E2E
+/// 개발 스위치 — UI 입력 없이 송신→서버 방송→수신 경로 전체를 로그로 검증).
+pub fn auto_greet(
+    time: Res<Time>,
+    villagers: Query<(Entity, &crate::world::villager::Villager, Option<&crate::net::apply::LiveAgentTag>)>,
+    mut sel: ResMut<Selection>,
+    mut done: Local<bool>,
+) {
+    if *done || std::env::var("TF_AUTO_GREET").is_err() || time.elapsed_secs() < 8.0 {
+        return;
+    }
+    // 첫 라이브 주민(없으면 데모) 선택 — 목록 1행과 동일 순서(이름순 아님 단순 첫)
+    let pick = villagers
+        .iter()
+        .find(|(_, _, t)| t.is_some())
+        .map(|(e, _, t)| (e, t.unwrap().0.clone()))
+        .or_else(|| villagers.iter().next().map(|(e, v, _)| (e, format!("demo:{}", e.index()))));
+    let Some((entity, id)) = pick else { return; };
+    sel.id = Some(id.clone());
+    sel.entity = Some(entity);
+    sel.epoch = sel.epoch.wrapping_add(1);
+    info!("[chat] TF_AUTO_GREET — {id} 선택, 송신 개시");
+    let chat = ChatState {
+        active: true,
+        buffer: "안녕! 반가워".into(),
+        preedit: String::new(),
+    };
+    send(&chat, &sel);
+    *done = true;
+}
+
 /// 빠른 인사 키(G) — 선택 주민에게 즉시 인사 송신(키보드·바 없는 검증 경로).
 pub fn quick_greet_key(keys: Res<ButtonInput<KeyCode>>, sel: Res<Selection>) {
     if !keys.just_pressed(KeyCode::KeyG) {
