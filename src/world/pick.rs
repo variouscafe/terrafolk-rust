@@ -31,6 +31,14 @@ pub struct Selection {
     pub epoch: u32,
 }
 
+/// 빈 땅 탭 통보(네이티브) — 화면 좌표와 에포크. 툴팁(ui/tooltip.rs)이
+/// 무덤·건물 판정(tip.grave·tip.hut.*)을 위해 소비한다(웹은 §17.38 유물 카드).
+#[derive(Resource, Default)]
+pub struct GroundTap {
+    pub px: Vec2,
+    pub epoch: u32,
+}
+
 /// 발밑 선택 링 표식
 #[derive(Component)]
 pub struct SelectionRing;
@@ -128,6 +136,7 @@ pub fn pick_agent(
     q_cam: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
     q_agents: Query<(Entity, &Transform, Option<&LiveAgentTag>), With<Villager>>,
     mut sel: ResMut<Selection>,
+    mut ground_tap: ResMut<GroundTap>,
     mut press: Local<Option<Vec2>>,
     mut ui_press: Local<bool>,
     mut ui_touches: Local<std::collections::HashSet<u64>>,
@@ -228,6 +237,12 @@ pub fn pick_agent(
             #[cfg(target_arch = "wasm32")]
             if let Some(g) = super::camera_input::ground_at(cam, gt, px, 0.0) {
                 notify_ground(g.x, g.z);
+            }
+            // 네이티브 — 빈 땅 탭을 툴팁에 통보(무덤·건물 §17.78 판정).
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                ground_tap.px = px;
+                ground_tap.epoch = ground_tap.epoch.wrapping_add(1);
             }
         }
     }

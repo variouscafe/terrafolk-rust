@@ -21,6 +21,28 @@ pub(crate) struct ResState {
     pub(crate) progress: Option<f32>,
     #[serde(default)]
     pub(crate) maturity: Option<u8>,
+    // ---- 툴팁 표시 전용(§17.42·§17.78) — 렌더링에는 관여 않는다 ----
+    /// hut 소유자 id(빈집이면 null)
+    #[serde(default)]
+    pub(crate) owner: Option<String>,
+    /// hut 소유자 표시 캐시(사망자도 표시)
+    #[serde(default)]
+    pub(crate) owner_name: Option<String>,
+    /// 공사 중 건축자 id
+    #[serde(default)]
+    pub(crate) by: Option<String>,
+    /// grave 묘주 이름
+    #[serde(default)]
+    pub(crate) name: Option<String>,
+    /// grave 향년
+    #[serde(default)]
+    pub(crate) age: Option<u16>,
+    /// grave 비문(60자 — 각인 전 null)
+    #[serde(default)]
+    pub(crate) epitaph: Option<String>,
+    /// relic 발명가 설명(§17.38 툴팁)
+    #[serde(default)]
+    pub(crate) purpose: Option<String>,
 }
 
 /// 발판 크기 — state.w/h 우선, 레거시 스냅숏은 타입 기본값(FE BLD_SEED_SIZE).

@@ -3,8 +3,10 @@
 
 use bevy::prelude::*;
 
+use super::i18n;
 use super::theme::{self, UiTheme};
 use super::{CloseButton, Popup, UiState};
+use crate::net::agent_hud::AgentHud;
 use crate::net::apply::LiveAgentTag;
 use crate::world::cam_follow::CamFollow;
 use crate::world::pick::Selection;
@@ -30,6 +32,24 @@ pub struct SelName;
 pub struct SelStatus;
 #[derive(Component)]
 pub struct SelFollowChip;
+/// 목표 문장 한 줄(FE CharsPopup 목표 표시 패리티)
+#[derive(Component)]
+pub struct SelGoal;
+/// 욕구 바 컨테이너(라이브 전용 — 데모는 숨기고 안내 문구)
+#[derive(Component)]
+pub struct SelNeeds;
+/// 욕구 바 채움 노드(인덱스 = 욕구 4종 순서)
+#[derive(Component)]
+pub struct SelNeedFill(usize);
+/// 욕구 바 트랙(배경)
+#[derive(Component)]
+pub struct SelNeedTrack;
+/// 욕구 수치 텍스트
+#[derive(Component)]
+pub struct SelNeedVal(usize);
+/// 데모(비라이브) 안내 문구
+#[derive(Component)]
+pub struct SelLiveHint;
 /// 선택 해제 버튼
 #[derive(Component)]
 pub struct SelClearButton;
@@ -123,6 +143,40 @@ pub fn spawn(
                 .with_children(|info| {
                     info.spawn((SelName, Text::new(""), theme.title(12.0)));
                     info.spawn((SelStatus, Text::new(""), theme.label(10.0)));
+                    // 욕구 바 4종(라이브) — 배고픔/갈증/피로/추위, 70 초과 빨강(FE 패리티)
+                    info.spawn((SelNeeds, Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(3.0),
+                        ..default()
+                    }, Visibility::Hidden))
+                        .with_children(|needs| {
+                            for i in 0..4 {
+                                needs.spawn(Node {
+                                    flex_direction: FlexDirection::Row,
+                                    align_items: AlignItems::Center,
+                                    column_gap: Val::Px(6.0),
+                                    ..default()
+                                })
+                                .with_children(|r| {
+                                    r.spawn((Text::new(i18n::need_label(i)), theme.text(8.0, theme::INK400)));
+                                    r.spawn((SelNeedTrack, Node {
+                                        flex_grow: 1.0,
+                                        height: Val::Px(4.0),
+                                        ..default()
+                                    }, BackgroundColor(theme::INK800)))
+                                        .with_children(|t| {
+                                            t.spawn((SelNeedFill(i), Node {
+                                                width: Val::Percent(0.0),
+                                                height: Val::Percent(100.0),
+                                                ..default()
+                                            }, BackgroundColor(theme::ACCENT)));
+                                        });
+                                    r.spawn((SelNeedVal(i), Text::new("—"), theme.text(8.0, theme::INK200)));
+                                });
+                            }
+                        });
+                    info.spawn((SelLiveHint, Text::new("라이브 접속 시 욕구·목표가 표시된다"), theme.text(8.0, theme::INK400), Visibility::Hidden));
+                    info.spawn((SelGoal, Text::new(""), theme.text(9.0, theme::INK400)));
                 });
             p.spawn((
                 SelFollowChip,
@@ -159,7 +213,7 @@ pub fn spawn(
 pub fn refresh_list(
     state: Res<UiState>,
     theme: Res<UiTheme>,
-    villagers: Query<(Entity, &Villager, Option<&LiveAgentTag>)>,
+    villagers: Query<(Entity, &Villager, Option<&LiveAgentTag>, Option<&AgentHud>)>,
     mut q_root: Query<&mut Visibility, (With<CharsPopupRoot>, Without<SelPanel>)>,
     q_list: Query<(Entity, Option<&Children>), (With<CharsList>, Without<CharsPopupRoot>)>,
     mut commands: Commands,
@@ -177,21 +231,31 @@ pub fn refresh_list(
         return;
     }
 
-    // 서명 계산 + 행 데이터 수집(id·이름·상태 — 이름순 정렬)
+    // 서명 계산 + 행 데이터 수집(id·이름·행동·목표 — 이름순 정렬).
+    // 행 라벨은 FE 규약대로 act_label(actType||status) — 서버 status 구값 보정.
     let mut sig_new = String::new();
-    let mut rows: Vec<(Entity, String, String, String)> = villagers
+    let mut rows: Vec<(Entity, String, String, String, String)> = villagers
         .iter()
-        .map(|(e, v, tag)| {
+        .map(|(e, v, tag, hud)| {
             let id = tag
                 .map(|t| t.0.clone())
                 .unwrap_or_else(|| format!("demo:{}", e.index()));
+            let act = i18n::act_label(&hud
+                .map(|h| h.act_type.as_str())
+                .filter(|a| !a.is_empty())
+                .unwrap_or(&v.status));
+            let goal = hud
+                .map(|h| i18n::goal_text(&h.goal_key, &h.goal_text))
+                .unwrap_or_default();
             sig_new.push_str(&id);
             sig_new.push('|');
             sig_new.push_str(&v.name);
             sig_new.push('|');
-            sig_new.push_str(&v.status);
+            sig_new.push_str(&act);
+            sig_new.push('|');
+            sig_new.push_str(&goal);
             sig_new.push('\n');
-            (e, id, v.name.clone(), v.status.clone())
+            (e, id, v.name.clone(), act, goal)
         })
         .collect();
     rows.sort_by(|a, b| a.2.cmp(&b.2));
@@ -208,23 +272,34 @@ pub fn refresh_list(
     for c in stale {
         commands.entity(c).despawn();
     }
-    for (e, id, name, status) in rows {
+    for (e, id, name, act, goal) in rows {
         let row = commands
             .spawn((
                 CharRow(e, id),
                 Button,
                 Node {
+                    flex_direction: FlexDirection::Column,
                     padding: UiRect::axes(Val::Px(9.0), Val::Px(6.0)),
-                    column_gap: Val::Px(8.0),
-                    align_items: AlignItems::Baseline,
+                    row_gap: Val::Px(2.0),
                     ..default()
                 },
                 BackgroundColor(theme::INK800),
                 Interaction::default(),
             ))
             .with_children(|r| {
-                r.spawn((Text::new(name), theme.label(11.0)));
-                r.spawn((Text::new(status), theme.text(9.0, theme::INK400)));
+                r.spawn(Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: Val::Px(8.0),
+                    align_items: AlignItems::Baseline,
+                    ..default()
+                })
+                .with_children(|top| {
+                    top.spawn((Text::new(name), theme.label(11.0)));
+                    top.spawn((Text::new(act), theme.text(9.0, theme::INK400)));
+                });
+                if !goal.is_empty() {
+                    r.spawn((Text::new(goal), theme.text(9.0, theme::INK400)));
+                }
             })
             .observe(on_row_click)
             .id();
@@ -255,23 +330,78 @@ fn on_clear_click(_: On<Pointer<Click>>, mut sel: ResMut<Selection>) {
     sel.entity = None;
 }
 
-/// 하단 선택 패널 갱신 — 이름·상태·추적 칩 표시(선택 해제는 위 시스템이).
+/// 하단 선택 패널 갱신 — 이름·행동·목표·욕구 바(라이브)·추적 칩 표시.
 #[allow(clippy::type_complexity)]
 pub fn refresh_sel_panel(
     sel: Res<Selection>,
     follow: Res<CamFollow>,
-    villagers: Query<&Villager>,
+    villagers: Query<(&Villager, Option<&AgentHud>)>,
     mut q_panel: Query<
         &mut Visibility,
         (
             With<SelPanel>,
             Without<CharsPopupRoot>,
             Without<SelFollowChip>,
+            Without<SelNeeds>,
+            Without<SelLiveHint>,
         ),
     >,
-    mut q_name: Query<&mut Text, (With<SelName>, Without<SelStatus>)>,
-    mut q_status: Query<&mut Text, (With<SelStatus>, Without<SelName>)>,
-    mut q_chip: Query<&mut Visibility, (With<SelFollowChip>, Without<SelPanel>)>,
+    mut q_name: Query<
+        &mut Text,
+        (
+            With<SelName>,
+            Without<SelStatus>,
+            Without<SelGoal>,
+            Without<SelNeedVal>,
+        ),
+    >,
+    mut q_status: Query<
+        &mut Text,
+        (
+            With<SelStatus>,
+            Without<SelName>,
+            Without<SelGoal>,
+            Without<SelNeedVal>,
+        ),
+    >,
+    mut q_goal: Query<
+        &mut Text,
+        (
+            With<SelGoal>,
+            Without<SelName>,
+            Without<SelStatus>,
+            Without<SelNeedVal>,
+        ),
+    >,
+    mut q_chip: Query<
+        &mut Visibility,
+        (
+            With<SelFollowChip>,
+            Without<SelPanel>,
+            Without<SelNeeds>,
+            Without<SelLiveHint>,
+        ),
+    >,
+    mut q_needs: Query<
+        &mut Visibility,
+        (
+            With<SelNeeds>,
+            Without<SelPanel>,
+            Without<SelFollowChip>,
+            Without<SelLiveHint>,
+        ),
+    >,
+    mut q_hint: Query<
+        &mut Visibility,
+        (
+            With<SelLiveHint>,
+            Without<SelPanel>,
+            Without<SelFollowChip>,
+            Without<SelNeeds>,
+        ),
+    >,
+    mut q_fills: Query<(&SelNeedFill, &mut Node, &mut BackgroundColor), Without<SelNeedVal>>,
+    mut q_vals: Query<(&SelNeedVal, &mut Text), Without<SelNeedFill>>,
 ) {
     let Some(entity) = sel.entity.filter(|e| villagers.get(*e).is_ok()) else {
         if let Ok(mut v) = q_panel.single_mut() {
@@ -279,7 +409,7 @@ pub fn refresh_sel_panel(
         }
         return;
     };
-    let v = villagers.get(entity).expect("방금 확인함");
+    let (v, hud) = villagers.get(entity).expect("방금 확인함");
     if let Ok(mut p) = q_panel.single_mut() {
         *p = Visibility::Visible;
     }
@@ -289,10 +419,49 @@ pub fn refresh_sel_panel(
         **t = v.name.clone();
     }
     if let Ok(mut t) = q_status.single_mut() {
-        let label = theme::status_label(&v.status);
+        let label = i18n::act_label(&hud
+            .map(|h| h.act_type.as_str())
+            .filter(|a| !a.is_empty())
+            .unwrap_or(&v.status));
         if **t != label {
             **t = label;
         }
+    }
+    // 욕구 바·목표 — 라이브(AgentHud)만. 데모는 안내 문구(정직 표시).
+    let live = hud.is_some();
+    if let Ok(mut n) = q_needs.single_mut() {
+        *n = if live { Visibility::Visible } else { Visibility::Hidden };
+    }
+    if let Ok(mut h) = q_hint.single_mut() {
+        *h = if live { Visibility::Hidden } else { Visibility::Visible };
+    }
+    if let Some(hud) = hud {
+        for (mark, mut node, mut bg) in &mut q_fills {
+            let value = hud.needs[mark.0].clamp(0.0, 100.0);
+            node.width = Val::Percent(value);
+            // 70 초과 빨강(FE red-400 근사)
+            *bg = BackgroundColor(if value > 70.0 {
+                Color::srgb(0.96, 0.42, 0.42)
+            } else {
+                theme::ACCENT
+            });
+        }
+        for (mark, mut t) in &mut q_vals {
+            let s = format!("{}", hud.needs[mark.0].round() as u32);
+            if **t != s {
+                **t = s;
+            }
+        }
+        if let Ok(mut t) = q_goal.single_mut() {
+            let goal = i18n::goal_text(&hud.goal_key, &hud.goal_text);
+            if **t != goal {
+                **t = goal;
+            }
+        }
+    } else if let Ok(mut t) = q_goal.single_mut()
+        && !t.is_empty()
+    {
+        **t = String::new();
     }
     if let Ok(mut c) = q_chip.single_mut() {
         *c = if follow.active {

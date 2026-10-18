@@ -268,6 +268,11 @@ pub fn sync_agents(
         if v.status != a.status {
             v.status = a.status.clone();
         }
+        // 활동 코드(actType) — 애님(Interact/Wave)·UI 라벨의 원천. 매 틱 반영.
+        let act = a.act_type.clone().unwrap_or_default();
+        if v.act != act {
+            v.act = act;
+        }
     }
 
     // 신규 — 기존 id 사전 조회(O(1)), 프레임당 O(N×M) 순회 제거
@@ -308,8 +313,10 @@ pub fn sync_agents(
                     target_h: crate::world::villager::VILLAGER_H,
                     name: a.name.clone(),
                     status: a.status.clone(),
+                    act: a.act_type.clone().unwrap_or_default(),
                 },
                 LiveAgentTag(a.id.clone()),
+                super::agent_hud::AgentHud::default(),
                 bevy::world_serialization::WorldAssetRoot(scene),
                 Transform::from_translation(Vec3::new(a.x, ground, a.y)),
             ))

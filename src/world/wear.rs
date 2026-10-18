@@ -25,12 +25,13 @@ pub enum WearSlot {
 }
 
 impl WearSlot {
-    /// 부착 대상 본 이름 — Kenney Mini Characters 7본 리그 규격.
-    fn bone(self) -> &'static str {
+    /// 부착 대상 본 이름 후보 — Quaternius 표준 리그 우선, UE5 마네킹
+    /// (Universal Base Characters)·Kenney 7본 폴백.
+    fn bones(self) -> &'static [&'static str] {
         match self {
-            Self::Eyes => "head",
-            Self::HandRight => "arm-right",
-            Self::HandLeft => "arm-left",
+            Self::Eyes => &["Head", "head"],
+            Self::HandRight => &["LowerArm.R", "hand_r", "arm-right"],
+            Self::HandLeft => &["LowerArm.L", "hand_l", "arm-left"],
         }
     }
 
@@ -121,7 +122,9 @@ pub fn apply_wears(
                 continue;
             };
             for slot in &wanted {
-                if slot.bone() == name.as_str() && !bones.iter().any(|(b, _)| b == slot) {
+                if slot.bones().contains(&name.as_str())
+                    && !bones.iter().any(|(b, _)| b == slot)
+                {
                     bones.push((*slot, child));
                 }
             }

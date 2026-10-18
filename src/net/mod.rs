@@ -64,6 +64,27 @@ pub struct LiveAgent {
     pub _act_type_r: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub look: Option<String>,
+    /// 행동 진행률 0..1(머리 위 링) — 룸 스키마 actProgress.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub act_progress: Option<f32>,
+    /// 목표 영문 정본(표시는 goal_key 렌더 우선, 이건 폴백).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub goal_text: Option<String>,
+    /// 목표 폴백 키(goal.*) — 네이티브 렌더 우선 경로(§17.44).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub goal_key: Option<String>,
+    /// 욕구 4종(0..100) — AgentHud.needs로.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hunger: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thirst: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fatigue: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub warmth: Option<f32>,
+    /// 인벤토리 JSON {item: qty}.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inv_json: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -123,16 +144,23 @@ impl Plugin for NetPlugin {
         app.init_resource::<FrameQueue>()
             .init_resource::<NetState>()
             .init_resource::<NetLinkPhase>()
+            .init_resource::<feed::FeedQueues>()
+            .init_resource::<feed::PollStore>()
+            .init_resource::<feed::ChatLog>()
+            .init_resource::<feed::EventLog>()
+            .init_resource::<feed::ToastQ>()
             .add_systems(Startup, (connect_bridge, apply::prime_live_world).chain())
             .add_systems(
                 Update,
                 (
                     update_link_phase,
                     drain_frames,
+                    feed::drain_feeds,
                     apply::prime_live_world,
                     apply::sync_daynight,
                     resources::sync_resources,
                     apply::sync_agents,
+                    agent_hud::sync_agent_hud,
                     apply::live_move,
                     resources::live_res_move,
                     apply::debug_goto_animal,
@@ -175,13 +203,20 @@ fn connect_bridge(queue: Res<FrameQueue>) {
 
 /// 네이티브 기동 — colyseus-lite(ws-link) 접속 스레드(spawn 후 링크 단계·
 /// 프레임은 자원으로 흘러온다). 실패·끊김은 스레드 안에서 백오프 재접속.
+/// HTTP 폴러(백로그·관계·생활기록)도 함께 띄운다.
 #[cfg(not(target_arch = "wasm32"))]
-fn connect_bridge(queue: Res<FrameQueue>, phase: Res<NetLinkPhase>) {
+fn connect_bridge(
+    queue: Res<FrameQueue>,
+    phase: Res<NetLinkPhase>,
+    feeds: Res<feed::FeedQueues>,
+    store: Res<feed::PollStore>,
+) {
     if std::env::var("TF_NO_NET").is_ok() {
         info!("[net] TF_NO_NET — 접속 스킵(데모 진단)");
         return;
     }
-    native_conn::spawn(queue.clone(), Arc::clone(&phase.0));
+    native_conn::spawn(queue.clone(), Arc::clone(&phase.0), feeds.clone());
+    http_poll::spawn(feeds.clone(), store.clone(), Arc::clone(&phase.0));
 }
 
 /// 링크 단계(원자값) → NetState.status. drain_frames가 성공 시 CONNECTED를
@@ -226,7 +261,13 @@ pub fn drain_frames(queue: Res<FrameQueue>, phase: Res<NetLinkPhase>, mut net: R
 
 /// 라이브 적용 로직(지형 프라임·시간·주민)
 pub mod apply;
+pub mod agent_hud;
 pub mod dbg_gate;
+/// 관전 피드(채팅·이벤트·관계·생활기록) 버퍼와 드레인
+pub mod feed;
+/// HTTP 관전 폴러(백로그·관계·생활기록) — 네이티브 전용
+#[cfg(not(target_arch = "wasm32"))]
+pub mod http_poll;
 /// 네이티브 라이브 접속(colyseus-lite) — wasm은 JS sink 경로
 #[cfg(not(target_arch = "wasm32"))]
 pub mod native_conn;
