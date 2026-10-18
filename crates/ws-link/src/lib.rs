@@ -109,7 +109,7 @@ pub fn spawn_link(cfg: WsConfig) -> (LinkHandle, mpsc::Receiver<LinkEvent>) {
             let Ok(rt) = rt else {
                 return;
             };
-            let _ = rt.block_on(run(cfg, cmd_rx, ev_tx, connected));
+            rt.block_on(run(cfg, cmd_rx, ev_tx, connected));
         });
     (handle, ev_rx)
 }

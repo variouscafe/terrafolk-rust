@@ -90,11 +90,10 @@ fn decode_stream(state: &mut SchemaState, bytes: &[u8], root: u32) -> Result<(),
                     format!("타입 {} 필드 {idx} 미지정 — 스키마 불일치", def.id)
                 })?;
                 if op == OP_DELETE {
-                    if let Some(RefNode::Struct { fields, .. }) = state.arena.get_mut(&current) {
-                        if idx < fields.len() {
+                    if let Some(RefNode::Struct { fields, .. }) = state.arena.get_mut(&current)
+                        && idx < fields.len() {
                             fields[idx] = None;
                         }
-                    }
                     continue;
                 }
                 let value = read_field_value(state, &field.kind, op & OP_ADD != 0, bytes, &mut off)?;
@@ -131,8 +130,8 @@ fn decode_stream(state: &mut SchemaState, bytes: &[u8], root: u32) -> Result<(),
                                 .map(|(_, k)| k.clone()),
                             _ => None,
                         });
-                    if let Some(key) = key {
-                        if let Some(RefNode::Map {
+                    if let Some(key) = key
+                        && let Some(RefNode::Map {
                             index_key,
                             entries,
                             ..
@@ -141,7 +140,6 @@ fn decode_stream(state: &mut SchemaState, bytes: &[u8], root: u32) -> Result<(),
                             index_key.retain(|(w, _)| *w != wire);
                             entries.retain(|(k, _)| *k != key);
                         }
-                    }
                     continue;
                 }
                 let key = if b & OP_ADD != 0 {
@@ -168,8 +166,8 @@ fn decode_stream(state: &mut SchemaState, bytes: &[u8], root: u32) -> Result<(),
                             .map(|(_, k)| k.clone()),
                         _ => None,
                     });
-                    if let Some(old) = old_key {
-                        if let Some(RefNode::Map {
+                    if let Some(old) = old_key
+                        && let Some(RefNode::Map {
                             index_key,
                             entries,
                             ..
@@ -178,7 +176,6 @@ fn decode_stream(state: &mut SchemaState, bytes: &[u8], root: u32) -> Result<(),
                             index_key.retain(|(w, _)| *w != wire);
                             entries.retain(|(k, _)| *k != old);
                         }
-                    }
                 }
                 let value = read_child_value(state, child, bytes, &mut off)?;
                 if let Some(RefNode::Map {
@@ -225,11 +222,10 @@ fn decode_stream(state: &mut SchemaState, bytes: &[u8], root: u32) -> Result<(),
                     }
                     OP_DELETE => {
                         let idx = notepack::read_number(bytes, &mut off)? as usize;
-                        if let Some(RefNode::Array { items, .. }) = state.arena.get_mut(&current) {
-                            if idx < items.len() {
+                        if let Some(RefNode::Array { items, .. }) = state.arena.get_mut(&current)
+                            && idx < items.len() {
                                 items.remove(idx);
                             }
-                        }
                     }
                     OP_MOVE | OP_DELETE_AND_MOVE | OP_MOVE_AND_ADD => {
                         // 배열 이동 계열 — 본 서버(reflection 포함)는 ADD만
@@ -280,20 +276,17 @@ fn read_field_value(
                 *off += 1;
                 let _ = notepack::read_number(bytes, off)?; // 컬렉션 타입id(무시)
             }
-            if !state.arena.contains_key(&ref_id) {
-                let node = match kind {
-                    FieldKind::MapOf(_) => RefNode::Map {
-                        child: *child,
-                        index_key: Vec::new(),
-                        entries: Vec::new(),
-                    },
-                    _ => RefNode::Array {
-                        child: *child,
-                        items: Vec::new(),
-                    },
-                };
-                state.arena.insert(ref_id, node);
-            }
+            state.arena.entry(ref_id).or_insert_with(|| match kind {
+                FieldKind::MapOf(_) => RefNode::Map {
+                    child: *child,
+                    index_key: Vec::new(),
+                    entries: Vec::new(),
+                },
+                _ => RefNode::Array {
+                    child: *child,
+                    items: Vec::new(),
+                },
+            });
             Ok(Value::Ref(ref_id))
         }
     }

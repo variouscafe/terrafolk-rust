@@ -148,7 +148,7 @@ pub fn read_value(bytes: &[u8], off: &mut usize) -> Result<serde_json::Value, St
             *off -= 1;
             V::String(read_string(bytes, off)?)
         }
-        0xC4 | 0xC5 | 0xC6 => {
+        0xC4..=0xC6 => {
             // bin — 이 방언에선 미사용(길이만 건너뛴다)
             let len = match b {
                 0xC4 => {
