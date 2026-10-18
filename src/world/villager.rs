@@ -403,7 +403,9 @@ fn finish_villager_setup(
 /// 애님 연결·스킨·재질 알파 모드를 콘솔에 기록한다.
 pub fn villager_render_probe(
     time: Res<Time>,
+    day: Res<crate::world::daynight::DayTime>,
     q_root: Query<(Entity, &LiveAgentTag, Has<VillagerAnims>), With<Villager>>,
+    q_tr: Query<&Transform, With<Villager>>,
     children: Query<&Children>,
     players: Query<(Entity, &AnimationPlayer)>,
     skinned: Query<(Entity, &bevy::mesh::skinning::SkinnedMesh)>,
@@ -434,9 +436,17 @@ pub fn villager_render_probe(
         let playing = children
             .iter_descendants(e)
             .any(|c| players.get(c).is_ok_and(|(_, p)| !p.all_paused()));
+        let fit = q_tr.get(e).map(|t| {
+            format!(
+                "sc={:.2} pos=({:.1},{:.1},{:.1})",
+                t.scale.x, t.translation.x, t.translation.y, t.translation.z
+            )
+        });
         info!(
-            "[probe] {} anims={} playing={} meshes={} skinned={} alpha={:?}",
-            tag.0, anims, playing, n_mesh, n_skinned, alpha_modes
+            "[probe] {} anims={} playing={} meshes={} skinned={} alpha={:?} {} t={:.0}h",
+            tag.0, anims, playing, n_mesh, n_skinned, alpha_modes,
+            fit.unwrap_or_else(|_| "no-tr".into()),
+            day.hour
         );
     }
 }
