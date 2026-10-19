@@ -45,9 +45,7 @@ pub fn attach_tint(
 
 /// 시각 → 틴트 색 갱신 — 낮(0.3~0.7)=은은한 웜, 새벽/해질=웜, 밤=딥블루.
 pub fn update_tint(gt: Res<GameTime>, mut q: Query<&mut Sprite, With<NightTint>>) {
-    if !gt.is_changed() {
-        return;
-    }
+    // 매 프레임 갱신(쿼드 1개 — 비용 무시) — 신규 부착 분기에서도 즉시 착색
     let (a, [r, g, b]) = tint(gt.t);
     for mut s in &mut q {
         s.color = Color::srgba(r, g, b, a);

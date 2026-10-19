@@ -76,10 +76,7 @@ impl Plugin for UiPlugin {
             .init_resource::<toasts::ToastQ>()
             .init_resource::<minimap::MinimapBake>()
             .add_plugins(bevy_egui::EguiPlugin::default())
-            .add_systems(
-                Startup,
-                (fonts::install_korean_font, theme::apply),
- )
+            .add_systems(Startup, (fonts::install_korean_font, theme::apply))
             .add_systems(
                 EguiPrimaryContextPass,
                 (
