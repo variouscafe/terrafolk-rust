@@ -35,8 +35,8 @@ const DISPLAYS: [(&str, &str); 2] = [
     ("models/qubase/ubase-female.glb", "models/qubase/hair-buns.glb"),
 ];
 
-/// 전시 키(미터) — 주민(1.62)보다 살짝 작게.
-const DISPLAY_H: f32 = 1.4;
+/// 전시 키(미터) — 주민(1.38)보다 살짝 작게(2026-10-19 동반 축소).
+const DISPLAY_H: f32 = 1.25;
 
 /// 콩눈 캘리브레이션(Head 본 로컬 단위 — UE5 리그 원본 스케일 기준,
 /// 2026-10-19 흰 점 픽셀·비전 실측으로 위치 확정).

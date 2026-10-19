@@ -8,7 +8,6 @@ use bevy::camera::ScalingMode;
 use bevy::core_pipeline::tonemapping::DebandDither;
 use bevy::input::gestures::PinchGesture;
 use bevy::input::mouse::AccumulatedMouseScroll;
-use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
 use bevy::render::view::ColorGrading;
 
@@ -97,11 +96,10 @@ pub fn spawn_camera(mut commands: Commands) {
         Camera3d::default(),
         ortho_projection(),
         tr,
-        // 후처리 — DebandDither(하늘 밴딩 제거), ColorGrading(무드),
-        // Bloom(모닥불 불꽃 번짐).
+        // 후처리 — DebandDither(하늘 밴딩 제거)만. Bloom은 2026-10-19 아트
+        // 방향(플랫·클린 렌더)에서 제거 — 그랩패스 절감 겸용.
         DebandDither::Enabled,
         ColorGrading::default(),
-        Bloom::NATURAL,
     ));
 }
 

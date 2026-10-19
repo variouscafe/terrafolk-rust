@@ -14,6 +14,7 @@ pub mod legacy_world;
 pub mod materials_guard;
 pub mod models;
 pub mod occlusion;
+pub mod outfit;
 pub mod overlay;
 pub mod pick;
 pub mod precip;

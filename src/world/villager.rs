@@ -12,8 +12,8 @@ use std::time::Duration;
 use super::data::WorldData;
 
 const WALK_TIME: f32 = 0.85;
-/// 주민 키 목표(미터)
-pub const VILLAGER_H: f32 = 1.62;
+/// 주민 키 목표(미터) — 2026-10-19 사용자 요청 축소(1.62→1.38)
+pub const VILLAGER_H: f32 = 1.38;
 
 /// 모델 전방 보정 — Quaternius 리깅는 +Z 전방(실측 후 조정)
 const MODEL_YAW: f32 = 0.0;
