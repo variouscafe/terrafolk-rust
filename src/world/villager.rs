@@ -481,3 +481,34 @@ pub fn animate_states(
         }
     }
 }
+
+/// 화면 밖 주민 애님 일시정지 — 카메라 시야(정사영) 밖 주민은
+/// AnimationPlayer를 pause해 샘플링 비용을 끊는다(2026-10-19 아키텍처 검토
+/// 반영 — 대규모 월드 CPU 절감). 이동 자체는 계속돼 화면 복귀 시 위치만
+/// 갱신되고, 포즈는 재개 다음 프레임에 수렴한다. 렌더 컬링은 별도로
+/// 이미 동작하므로 이 시스템은 CPU 애님 비용만 담당.
+pub fn throttle_offscreen_anims(
+    rig: Res<super::camera_rig::CameraRig>,
+    q: Query<(&Transform, &VillagerAnims)>,
+    mut players: Query<&mut AnimationPlayer>,
+) {
+    // 시야 반경 근사 — 세로 시야(VIEW_H×zoom)의 대각 여유 계수. 줌아웃
+    // (zoom 최대 4.2 → ~74m)까지 커버한다.
+    let view_r = super::camera_rig::VIEW_H * rig.zoom * 0.8;
+    for (tr, anims) in &q {
+        let off = tr.translation.xz().distance(rig.target) > view_r;
+        if let Ok(mut player) = players.get_mut(anims.player_e) {
+            // 0.19은 애님별 pause — 재생 중 전체에 일괄 적용(전환 중 복수 클립).
+            let any_live = player.playing_animations().any(|(_, a)| !a.is_paused());
+            if off && any_live {
+                for (_, a) in player.playing_animations_mut() {
+                    a.pause();
+                }
+            } else if !off && !any_live {
+                for (_, a) in player.playing_animations_mut() {
+                    a.resume();
+                }
+            }
+        }
+    }
+}
