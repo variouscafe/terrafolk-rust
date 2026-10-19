@@ -67,6 +67,12 @@
         <canvas id="bevy"></canvas>
         <div id="gldiag"></div>
         <div id="status">v3.4-019 부팅…</div>
+        <!-- 라이브 브리지 — colyseus.js(벤더 UMD) 먼저, worldsim.js가 DOMContentLoaded에
+             접속. Rust(wasm)는 Startup에 window.terrafolk.setSink(fn) 등록 — 늦게 등록돼도
+             worldsim.js가 lastMap을 캐시해 매 스냅숏 map을 재전송하므로 첫 상태 유실 없음.
+             ?live=0이면 worldsim.js가 접속 자체를 중단(데모 강제). -->
+        <script src="assets/web/colyseus.js"></script>
+        <script src="assets/web/worldsim.js"></script>
         <script>
             // GL 실측 진단 — 렌더러명·GL 에러 누적(2초 주기). Rust 상태줄과 별도 라인.
             function __countGlErrs(gl) {

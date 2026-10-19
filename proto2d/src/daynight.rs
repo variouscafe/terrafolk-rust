@@ -76,9 +76,16 @@ fn tint(t: f32) -> (f32, [f32; 3]) {
 
 pub fn advance(
     time: Res<Time>,
+    net: Option<Res<crate::net::NetState>>,
     mut gt: ResMut<GameTime>,
     mut q: Query<&mut BackgroundColor, With<NightTint>>,
 ) {
+    // 라이브 접속 중은 서버가 시간 정본 — 로컬 진행 정지(net/apply::sync_daynight)
+    if let Some(net) = net
+        && net.status == crate::net::NetStatus::Connected
+    {
+        return;
+    }
     gt.t += time.delta_secs() / DAY_SECS;
     if gt.t >= 1.0 {
         gt.t -= 1.0;

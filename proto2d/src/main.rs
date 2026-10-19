@@ -6,6 +6,7 @@ mod daynight;
 mod ground;
 mod hud;
 mod mapdata;
+mod net;
 mod props;
 
 use bevy::prelude::*;
@@ -23,6 +24,24 @@ pub struct Exp(pub char);
 /// r/s/t 실험 상태 노트 — 상태표시줄에 표시(스폰/재기입 완료 시점 판별)
 #[derive(Resource, Default)]
 pub struct ProbeNote(pub String);
+
+/// 지면 스킨 초기값 — 웹 ?exp=w · 네이티브 TF_SKIN=snow(눈 프리뷰·E2E 게이트).
+/// 라이브 접속 후엔 계절·날씨가 덮어쓴다(net/apply::sync_daynight).
+fn initial_skin(_exp: char) -> ground::GroundSkin {
+    #[cfg(target_arch = "wasm32")]
+    {
+        if _exp == 'w' {
+            return ground::GroundSkin::Snow;
+        }
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        if std::env::var("TF_SKIN").as_deref() == Ok("snow") {
+            return ground::GroundSkin::Snow;
+        }
+    }
+    ground::GroundSkin::Normal
+}
 
 fn url_exp() -> char {
     #[cfg(target_arch = "wasm32")]
@@ -50,6 +69,7 @@ fn main() {
     let exp = url_exp();
     let mut app = App::new();
     app.insert_resource(Exp(exp))
+        .insert_resource(initial_skin(exp))
         .insert_resource(ClearColor(Color::srgb(0.13, 0.18, 0.11))) // 진단성 있는 깊은 초록
         .insert_resource(cam::TapPos::default())
         .insert_resource(ProbeNote::default())
@@ -94,9 +114,11 @@ fn main() {
                 spawn_exp_probes,
             ),
         )
+        .add_plugins(net::NetPlugin)
         .add_systems(
             Update,
             (
+                net::chat::fade,
                 cam::pan_zoom,
                 cam::touch_gestures,
                 cam::delayed_camera,

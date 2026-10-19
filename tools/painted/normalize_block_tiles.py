@@ -123,11 +123,21 @@ def bleed(im):
 
 
 def main():
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--only', default=None,
+                    help='처리 대상 글롭(예: "iso_snow_*.png") — 기존 타일 재스냅'
+                         ' 수축 방지. 없으면 전체(신규 타일만 통과시킬 때 사용).')
+    args = ap.parse_args()
     # forest_3 제외 — 큰 나무(수관+뾰족 밑동) 장식 타일이라 블럭 기하가 없음.
     # 지형 평면 계약 밖(향후 props 소재). 나머지 23장이 평면을 구성한다.
     skip = {'iso_forest_3.png'}
-    files = sorted(f for f in glob.glob(os.path.join(TILES, 'iso_*.png'))
-                   if os.path.basename(f) not in skip)
+    import fnmatch
+    files = sorted(
+        f for f in glob.glob(os.path.join(TILES, 'iso_*.png'))
+        if os.path.basename(f) not in skip
+        and (args.only is None or fnmatch.fnmatch(os.path.basename(f), args.only))
+    )
     if not files:
         sys.exit(f'타일 없음: {TILES}')
     ok = True

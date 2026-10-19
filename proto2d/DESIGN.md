@@ -63,6 +63,23 @@ proto2d/src/
 결정론(시드 고정) — 재생성 시 동일 산출. **룩의 단일 기준 = CLAUDE.md 레퍼런스
 이미지**(핸드페인트 cozy 아이소).
 
+## 4.5 라이브 모드 (2026-10-19 추가)
+
+- **접속**: root 클라이언트 net 계약 축소 미러(`src/net/` — FrameQueue→drain→적용).
+  네이티브=colyseus-lite 스레드(관전 티켓·무인증), 웹=worldsim.js 포크
+  (assets/web/ — chat sink 인젤로프·?live=0 스위치가 원본과의 전체 diff).
+- **프라임**: mapJson(Tiled) 1회 → 데모 철거(GroundTile/DemoProp/DemoAgent)
+  → `mapdata::set_live_map`(OnceLock — 이후 불변) → 라이브 지형 스폰.
+- **주민**: 서버 목적지 등속 트윈 1.25타일/s·facing→LPC 행·AgentGrace 5s.
+  **lookJson 한계**: uuid 해시로 기존 8시트 결정론 선택 — 부품 합성(원본 FE
+  tf-look)은 미구현, 승격 시 과제.
+- **자원**: kind/species/stateJson → 프롭 매핑(net/live_props.rs). 동물 배위는
+  RoamTo 트윈(§17.64). 건축 LONGHOUSE·WAREHOUSE는 assetgen Tier2(ComfyUI)
+  스프라이트 — `core/prop2d.py`가 하단 접지 크롭으로 납품.
+- **계절·날씨**: winter/snow → GroundSkin::Snow(육지 GID 전부 iso_snow —
+  assetgen 하이브리드). ?exp=w(TF_SKIN=snow)로 프리뷰.
+- **채팅**: 수신 → 주민 머리 위 말풍선(6s·페이드). 송신 UI는 미구현.
+
 ## 5. 데이터 흐름
 
 - **v0(프로토타입)**: `include_str!` 맵(GID)·villagers.json(생성Manifest) —
