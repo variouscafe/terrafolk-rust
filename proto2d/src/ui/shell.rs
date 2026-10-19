@@ -26,7 +26,7 @@ pub fn top_bar(
             ui.label(clock_text(gt.day, gt.t));
             // 접속 배지 — 라이브 ● / 접속중 ◌ / 데모
             let (badge, color) = match net.as_ref().map(|n| n.status) {
-                Some(NetStatus::Connected) => ("● LIVE", egui::Color32::from_rgb(90, 220, 120)),
+                Some(NetStatus::Connected) => ("● LIVE", super::theme::LIVE_GREEN),
                 Some(NetStatus::Connecting) | Some(NetStatus::Reconnecting) => {
                     ("◌ 접속중", egui::Color32::from_rgb(230, 190, 80))
                 }
