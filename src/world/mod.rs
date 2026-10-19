@@ -15,6 +15,7 @@ pub mod materials_guard;
 pub mod models;
 pub mod occlusion;
 pub mod outfit;
+pub mod outline;
 pub mod overlay;
 pub mod pick;
 pub mod precip;
@@ -83,6 +84,14 @@ impl Plugin for WorldPlugin {
         app.add_systems(Update, legacy_world::prime_legacy_world);
         app.add_systems(Update, animal_anim::play_animal_idles);
         app.add_systems(Update, chibi::chibiify);
+        app.add_systems(
+            Update,
+            (
+                outfit::vary_outfits,
+                outfit::spawn_blob_shadows,
+                outline::attach_outlines,
+            ),
+        );
         app.add_systems(
             Update,
             (

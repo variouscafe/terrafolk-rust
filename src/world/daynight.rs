@@ -210,10 +210,13 @@ pub fn apply_sky(
     if let Ok(mut light) = light_q.single_mut() {
         let c = lerp3(lerp3(NOON, DUSK, dusk_w), MOON, night);
         light.color = Color::srgb(c[0], c[1], c[2]);
-        light.illuminance = 21000.0 * (1.0 - night * 0.9) * dim;
+        // 2026-10-19 카툰 방향 — 태양 낮추고 앰비언트 올려 명암 평탄화(플랫 톤).
+        light.illuminance = 15000.0 * (1.0 - night * 0.9) * dim;
     }
 
-    const SKY_DAY: [f32; 3] = [0.60, 0.78, 0.95];
+    // 2026-10-19 아트 방향 — 낮 하늘 크림톤(레퍼런스 #F5E6D3 근사, 눈부심
+    // 방지로 한 단계 누름).
+    const SKY_DAY: [f32; 3] = [0.93, 0.88, 0.80];
     const SKY_DUSK: [f32; 3] = [0.66, 0.46, 0.36];
     const SKY_NIGHT: [f32; 3] = [0.04, 0.055, 0.12];
     let mut sky = lerp3(lerp3(SKY_DAY, SKY_DUSK, dusk_w), SKY_NIGHT, night);
@@ -224,7 +227,7 @@ pub fn apply_sky(
     sky = lerp3(sky, [0.74, 0.79, 0.9], cool);
 
     clear.0 = Color::srgb(sky[0], sky[1], sky[2]);
-    ambient.brightness = (70.0 + (1.0 - night) * 160.0) * (0.55 + 0.45 * dim);
+    ambient.brightness = (110.0 + (1.0 - night) * 170.0) * (0.55 + 0.45 * dim);
     ambient.color = Color::srgb(
         lerp3([1.0, 0.96, 0.88], [0.45, 0.55, 0.85], night)[0],
         lerp3([1.0, 0.96, 0.88], [0.45, 0.55, 0.85], night)[1],
