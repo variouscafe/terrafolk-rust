@@ -5,12 +5,14 @@ use bevy::prelude::*;
 use bevy_egui::egui;
 
 use super::ctx;
+use super::i18n::{Tr, tr};
 use crate::daynight::GameTime;
 
 pub fn dial(
     mut contexts: bevy_egui::EguiContexts,
     gt: Res<GameTime>,
     net: Option<Res<crate::net::NetState>>,
+    ui_state: bevy::ecs::system::Res<crate::ui::UiState>,
 ) {
     let Some(c) = ctx(&mut contexts) else { return };
     // 접속 배지 옆 작은 다이얼 — 상단바와 겹치지 않는 우상단 고정
@@ -18,7 +20,20 @@ pub fn dial(
         .anchor(egui::Align2::RIGHT_TOP, egui::vec2(-8.0, 34.0))
         .show(&c, |ui| {
             let r = 26.0;
-            let (rect, _) = ui.allocate_exact_size(egui::vec2(r * 2.0, r * 2.0), egui::Sense::hover());
+            let (rect, resp) =
+                ui.allocate_exact_size(egui::vec2(r * 2.0, r * 2.0), egui::Sense::hover());
+            // 일출/일몰 툴팁 — 서버 정본(분 → HH:MM)
+            if let Some((sr, ss)) = net
+                .as_ref()
+                .and_then(|n| n.frame.as_ref())
+                .and_then(|f| f.sunrise.zip(f.sunset))
+            {
+                let fmt = |m: u16| format!("{:02}:{:02}", m / 60, m % 60);
+                let text = tr(ui_state.lang, Tr::SunTimes)
+                    .replacen("{}", &fmt(sr), 1)
+                    .replacen("{}", &fmt(ss), 1);
+                resp.on_hover_text(text);
+            }
             let center = rect.center();
             let p = ui.painter();
             // 배경 원 — 낮(상)/밤(하) 반원

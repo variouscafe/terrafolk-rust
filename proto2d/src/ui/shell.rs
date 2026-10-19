@@ -4,7 +4,7 @@
 use bevy::prelude::*;
 use bevy_egui::egui;
 
-use super::i18n::{Tr, tr, trf};
+use super::i18n::{Tr, tr, trf, status_label};
 use super::{UiState, ctx};
 use crate::agents::{Agent, Selected};
 use crate::cam::ManualUntil;
@@ -79,12 +79,14 @@ pub fn villagers_panel(
                 if sel.is_some() {
                     selected_entity = Some(e);
                 }
-                let status = frame
+                let raw_status = frame
                     .and_then(|f| tag.as_ref().and_then(|t| f.agents.iter().find(|la| la.id == t.0)))
                     .map(|la| la.status.clone())
                     .unwrap_or_else(|| {
                         if _a.rest > 0.0 { "idle".into() } else { "moving".into() }
                     });
+                let localized = status_label(lang, &raw_status);
+                let status = if localized.is_empty() { raw_status } else { localized.to_owned() };
                 let is_sel = sel.is_some();
                 let label = format!("{} · {}", _a.name, status);
                 if ui.selectable_label(is_sel, label).clicked() {
