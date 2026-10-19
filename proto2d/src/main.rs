@@ -10,6 +10,7 @@ mod net;
 mod nightglow;
 mod props;
 mod ui;
+mod weather;
 
 use bevy::prelude::*;
 
@@ -103,7 +104,8 @@ fn main() {
         ))
         .insert_resource(cam::DragState { total: 0.0 })
         .insert_resource(cam::ManualUntil(0.0))
-        .insert_resource(daynight::GameTime { day: 0, t: 0.35 }) // 08:24 시작
+        .insert_resource(daynight::GameTime { day: 0, t: 0.35 })
+        .init_resource::<weather::WeatherKind>() // 08:24 시작
         .add_systems(
             Startup,
             (
@@ -125,6 +127,9 @@ fn main() {
                 ambient::update_fireflies,
                 nightglow::attach,
                 nightglow::update,
+                weather::attach,
+                weather::sync,
+                weather::fall,
                 ambient::drift_clouds,
                 daynight::attach_tint,
                 daynight::update_tint,
