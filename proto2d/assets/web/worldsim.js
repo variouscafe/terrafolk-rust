@@ -272,7 +272,7 @@
       // 채팅 — 발화 원문 우선(§17.55). 화면 표현은 3D 씬 말풍선(tf-world-ui.js)
       // 와 대화 로그(ui.js)가 담당 — FE와 동일(워드 HUD 줄은 폐지, §17.44 포트).
       room.onMessage('chat', function (m) {
-        if (sink) { try { sink(JSON.stringify({ tf: 'chat', row: m })); } catch (e) {} }
+        if (sink) { try { sink(JSON.stringify({ tf: 'chat', row: m })); } catch (err) { console.warn('[worldsim] chat sink 오류', err); } }
         for (const fn of chatRowListeners) {
           try { fn(m); } catch (e) { console.error('[worldsim] ui 수신기 오류', e); }
         }
@@ -280,6 +280,7 @@
       });
       // 이벤트 — 하이라이트 토스트(tf-world-ui.js)·기록 팝업이 소비.
       room.onMessage('event', function (e) {
+        if (sink) { try { sink(JSON.stringify({ tf: 'event', row: e })); } catch (err) { console.warn('[worldsim] event sink 오류', err); } }
         if (window.TF_UI) window.TF_UI.feed.event(e);
       });
       room.onLeave(function () {

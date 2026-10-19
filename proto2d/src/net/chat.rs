@@ -23,7 +23,9 @@ const MAX_BUBBLES: usize = 8;
 /// 채팅 큐 drain → 말풍선 스폰(스피커 agent_id 매칭. 미매칭은 버림)
 pub fn drain_and_bubble(
     mut commands: Commands,
+    time: Res<Time>,
     chats: Res<ChatQueue>,
+    mut log: ResMut<crate::ui::ChatLog>,
     assets: Res<AssetServer>,
     q_agents: Query<(Entity, &LiveAgentTag), With<Agent>>,
     q_bubbles: Query<(Entity, &BubbleOf)>,
@@ -36,6 +38,20 @@ pub fn drain_and_bubble(
     };
     if rows.is_empty() {
         return;
+    }
+    // UI 채팅 패널 피드 — 말풍선과 별개 로그(최근 60행)
+    let now = time.elapsed_secs();
+    for r in &rows {
+        log.rows.push(crate::ui::ChatLogRow {
+            time: now,
+            agent_id: r.agent_id.clone(),
+            speaker: r.speaker.clone(),
+            text: r.text.clone(),
+        });
+    }
+    let len = log.rows.len();
+    if len > 60 {
+        log.rows.drain(0..len - 60);
     }
     let font = assets.load("fonts/NotoSansKR-Regular.otf");
     for row in rows {
