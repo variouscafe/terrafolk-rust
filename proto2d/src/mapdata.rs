@@ -21,11 +21,42 @@ pub fn map() -> &'static [u8] {
 }
 
 pub fn gid(x: i32, y: i32) -> u8 {
+    // 라이브 맵 우선 — 프라임 시 1회 세팅(이후 불변, fullStateOnly 계약)
+    if let Some(m) = LIVE.get() {
+        if (0..m.w).contains(&x) && (0..m.h).contains(&y) {
+            return m.gids[(y * m.w + x) as usize];
+        }
+        return 0;
+    }
     if (0..MAP_W).contains(&x) && (0..MAP_H).contains(&y) {
         map()[(y * MAP_W + x) as usize]
     } else {
         0
     }
+}
+
+/// 라이브 맵 — mapJson(Tiled) 프라임 시 1회 적재. 이후 불변이라 OnceLock.
+pub struct LiveMap {
+    pub w: i32,
+    pub h: i32,
+    pub gids: Vec<u8>,
+}
+
+static LIVE: OnceLock<LiveMap> = OnceLock::new();
+
+/// 라이브 맵 설치(1회) — 성공 여부 반환(이미 설치됐으면 false)
+pub fn set_live_map(w: usize, h: usize, gids: Vec<u8>) -> bool {
+    LIVE.set(LiveMap {
+        w: w as i32,
+        h: h as i32,
+        gids,
+    })
+    .is_ok()
+}
+
+/// 현재 맵 크기 — 라이브 우선, 데모 폴백
+pub fn dims() -> (i32, i32) {
+    LIVE.get().map(|m| (m.w, m.h)).unwrap_or((MAP_W, MAP_H))
 }
 
 /// 물(1)·범위 밖(0) 제외 — 주민·마을 배치 기준

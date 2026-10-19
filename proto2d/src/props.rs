@@ -14,11 +14,16 @@ pub struct Campfire {
     pub frames: [Handle<Image>; 3],
 }
 
+/// 데모 산포 소품 태그 — 라이브 프라임 시 일괄 철거용
+#[derive(Component)]
+pub struct DemoProp;
+
 pub fn spawn(mut commands: Commands, assets: Res<AssetServer>) {
     let shadow: Handle<Image> = assets.load("shadow.png");
     let mut rng = XorShift::new(2026_1019 ^ 0xBEEF);
-    for y in 0..MAP_H {
-        for x in 0..MAP_W {
+    let (mw, mh) = dims();
+    for y in 0..mh {
+        for x in 0..mw {
             let (path, prob, sw): (&str, f32, f32) = match gid(x, y) {
                 3 => ("props/tree_broadleaf.png", 0.085, 120.0), // forest
                 5 => ("props/boulder.png", 0.06, 80.0),           // rock
@@ -28,7 +33,8 @@ pub fn spawn(mut commands: Commands, assets: Res<AssetServer>) {
             if rng.next_f32() >= prob {
                 continue;
             }
-            spawn_prop(&mut commands, &shadow, assets.load(path), x, y, sw);
+            let e = spawn_prop(&mut commands, &shadow, assets.load(path), x, y, sw);
+            commands.entity(e).insert(DemoProp);
         }
     }
 
@@ -42,7 +48,8 @@ pub fn spawn(mut commands: Commands, assets: Res<AssetServer>) {
         (-4, 2, "props/grave.png", 56.0),
         (1, -4, "props/stash.png", 56.0),
     ] {
-        spawn_prop(&mut commands, &shadow, assets.load(path), cx + dx, cy + dy, sw);
+        let e = spawn_prop(&mut commands, &shadow, assets.load(path), cx + dx, cy + dy, sw);
+        commands.entity(e).insert(DemoProp);
     }
 
     // 모닥불(3프레임 애님)
@@ -54,6 +61,7 @@ pub fn spawn(mut commands: Commands, assets: Res<AssetServer>) {
     let (px, py) = tile_center(cx, cy);
     commands
         .spawn((
+            DemoProp,
             Campfire {
                 frames: frames.clone(),
             },
@@ -75,21 +83,43 @@ pub fn spawn(mut commands: Commands, assets: Res<AssetServer>) {
         ));
 }
 
-fn spawn_prop(
+pub fn spawn_prop(
     commands: &mut Commands,
     shadow: &Handle<Image>,
     image: Handle<Image>,
     x: i32,
     y: i32,
     shadow_w: f32,
-) {
-    let (px, py) = tile_center(x, y);
+) -> Entity {
+    spawn_prop_ex(commands, shadow, image, x as f32, y as f32, shadow_w, None, 1.0, Color::WHITE)
+}
+
+/// 소품 스폰 확장 — 그리드 연속 좌표·월드 크기 오버라이드·스케일·틴트.
+/// 라이브 자원(건축물 custom_size·미완공 회색조·성장 나무 축소)이 쓴다.
+pub fn spawn_prop_ex(
+    commands: &mut Commands,
+    shadow: &Handle<Image>,
+    image: Handle<Image>,
+    gx: f32,
+    gy: f32,
+    shadow_w: f32,
+    custom: Option<Vec2>,
+    scale: f32,
+    color: Color,
+) -> Entity {
+    let (px, py) = project(gx, gy);
     commands
         .spawn((
-            Transform::from_xyz(px, -py - TH * 0.25, z_of(py)),
+            Transform {
+                translation: Vec3::new(px, -py - TH * 0.25, z_of(py)),
+                scale: Vec3::splat(scale),
+                ..default()
+            },
             Anchor::BOTTOM_CENTER,
             Sprite {
                 image,
+                color,
+                custom_size: custom,
                 ..default()
             },
         ))
@@ -101,7 +131,8 @@ fn spawn_prop(
                 color: Color::srgba(0.02, 0.015, 0.0, 0.38),
                 ..default()
             },
-        ));
+        ))
+        .id()
 }
 
 /// 모닥불 애님 — 0.15초/프레임 순환

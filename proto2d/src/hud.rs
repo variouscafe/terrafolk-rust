@@ -53,13 +53,25 @@ pub fn spawn(mut commands: Commands, assets: Res<AssetServer>) {
         ));
 }
 
-pub fn clock_update(gt: Res<GameTime>, mut q: Query<&mut Text, With<ClockText>>) {
-    if !gt.is_changed() {
+pub fn clock_update(
+    gt: Res<GameTime>,
+    net: Option<Res<crate::net::NetState>>,
+    mut q: Query<&mut Text, With<ClockText>>,
+) {
+    let net_changed = net.as_ref().map(|n| n.is_changed()).unwrap_or(false);
+    if !gt.is_changed() && !net_changed {
         return;
     }
     let minutes = (gt.t * 24.0 * 60.0) as u32;
     let (hh, mm) = (minutes / 60, minutes % 60);
+    // 접속 배지 — 라이브면 ● LIVE, 접속 중이면 ◌, 데모면 데모 표기
+    let badge = match net.as_ref().map(|n| n.status) {
+        Some(crate::net::NetStatus::Connected) => " · ● LIVE",
+        Some(crate::net::NetStatus::Connecting) => " · ◌ 접속중",
+        Some(crate::net::NetStatus::Reconnecting) => " · ◌ 재접속",
+        _ => " · 데모",
+    };
     if let Ok(mut t) = q.single_mut() {
-        **t = format!("{}일차 {:02}:{:02}", gt.day + 1, hh, mm).into();
+        **t = format!("{}일차 {:02}:{:02}{}", gt.day + 1, hh, mm, badge).into();
     }
 }

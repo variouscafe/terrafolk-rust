@@ -7380,9 +7380,14 @@ name = "terrafolk_proto2d"
 version = "0.1.0"
 dependencies = [
  "bevy 0.19.1",
+ "colyseus-lite",
  "console_error_panic_hook",
+ "js-sys",
+ "log",
+ "reqwest",
  "serde",
  "serde_json",
+ "tokio",
  "wasm-bindgen",
  "web-sys",
 ]

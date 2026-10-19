@@ -11,13 +11,17 @@ pub struct Agent {
     pub name: String,
     pub gx: f32,
     pub gy: f32,
-    tx: f32,
-    ty: f32,
-    rest: f32,
-    dir: usize,
-    anim: f32,
+    pub tx: f32,
+    pub ty: f32,
+    pub rest: f32,
+    pub dir: usize,
+    pub anim: f32,
     rng: XorShift,
 }
+
+/// 데모 배회 AI 전용 태그 — 라이브 주민은 wander를 돌리지 않는다
+#[derive(Component)]
+pub struct DemoAgent;
 
 #[derive(Component)]
 pub struct Selected;
@@ -38,25 +42,119 @@ struct VillagerDef {
     fps: f32,
 }
 
+/// LPC 시트 라이브러리 — 데모/라이브 스폰 공용(Startup 1회 빌드)
+#[derive(Resource)]
+pub struct SheetLibrary {
+    pub sheets: Vec<SheetDef>,
+    pub shadow: Handle<Image>,
+}
+
+pub struct SheetDef {
+    pub name: String,
+    pub image: Handle<Image>,
+    pub layout: Handle<TextureAtlasLayout>,
+    pub cols: usize,
+}
+
+/// lookJson.uuid(실패 시 id) → 시트 인덱스 — 결정론(같은 uuid = 같은 외형).
+/// len은 SheetLibrary 길이(하드코딩 금지 — villagers.json 시트 수와 정합).
+pub fn sheet_for(key: &str, len: usize) -> usize {
+    let mut h: u32 = 2166136261;
+    for b in key.bytes() {
+        h ^= b as u32;
+        h = h.wrapping_mul(16777619);
+    }
+    (h as usize) % len.max(1)
+}
+
+/// villagers.json에서 시트 라이브러리 빌드
+pub fn build_library(
+    assets: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+) -> SheetLibrary {
+    let defs: Vec<VillagerDef> =
+        serde_json::from_str(include_str!("../assets/lpc/villagers.json")).unwrap();
+    let sheets = defs
+        .into_iter()
+        .map(|def| SheetDef {
+            name: def.name,
+            image: assets.load(def.file),
+            layout: layouts.add(TextureAtlasLayout::from_grid(
+                UVec2::splat(def.frame as u32),
+                def.cols as u32,
+                4,
+                None,
+                None,
+            )),
+            cols: def.cols,
+        })
+        .collect();
+    SheetLibrary {
+        sheets,
+        shadow: assets.load("shadow.png"),
+    }
+}
+
+/// 라이브 주민용 Agent 생성자 — 배회 rng는 미사용(더미)
+pub fn live_agent(name: &str, gx: f32, gy: f32, moving: bool, dir: usize) -> Agent {
+    Agent {
+        name: name.to_owned(),
+        gx,
+        gy,
+        tx: gx,
+        ty: gy,
+        rest: if moving { 0.0 } else { 1.0 },
+        dir,
+        anim: 0.0,
+        rng: XorShift::new(1),
+    }
+}
+
+/// 시트 스폰 공용 헬퍼 — 스프라이트+그림자(Agent는 호출자 값으로 삽입)
+pub fn spawn_sheet(
+    commands: &mut Commands,
+    lib: &SheetLibrary,
+    sheet: usize,
+    agent: Agent,
+) -> Entity {
+    let def = &lib.sheets[sheet % lib.sheets.len()];
+    let (px, py) = project(agent.gx, agent.gy);
+    commands
+        .spawn((
+            agent,
+            Transform::from_xyz(px, -py - TH * 0.25, z_of(py)),
+            Anchor::BOTTOM_CENTER,
+            Sprite {
+                image: def.image.clone(),
+                texture_atlas: Some(TextureAtlas {
+                    layout: def.layout.clone(),
+                    index: 2 * def.cols, // 하 방향 프레임0
+                }),
+                ..default()
+            },
+        ))
+        .with_child((
+            Transform::from_xyz(0.0, 4.0, -0.2),
+            Sprite {
+                image: lib.shadow.clone(),
+                custom_size: Some(Vec2::new(66.0, 25.0)),
+                color: Color::srgba(0.02, 0.015, 0.0, 0.38),
+                ..default()
+            },
+        ))
+        .id()
+}
+
 pub fn spawn(
     mut commands: Commands,
     assets: Res<AssetServer>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    let defs: Vec<VillagerDef> =
-        serde_json::from_str(include_str!("../assets/lpc/villagers.json")).unwrap();
-    let shadow: Handle<Image> = assets.load("shadow.png");
+    let lib = build_library(&assets, &mut layouts);
     let font = assets.load("fonts/NotoSansKR-Regular.otf");
     let (cx, cy) = village_center();
     let mut rng = XorShift::new(777);
-    for (i, def) in defs.into_iter().enumerate() {
-        let layout = layouts.add(TextureAtlasLayout::from_grid(
-            UVec2::splat(def.frame as u32),
-            def.cols as u32,
-            4,
-            None,
-            None,
-        ));
+    for i in 0..lib.sheets.len() {
         // 마을 중심 주변 walkable 스폰
         let (sx, sy) = loop {
             let x = cx + rng.range_i32(-6, 6);
@@ -66,7 +164,7 @@ pub fn spawn(
             }
         };
         let mut a = Agent {
-            name: def.name.clone(),
+            name: lib.sheets[i].name.clone(),
             gx: sx as f32,
             gy: sy as f32,
             tx: sx as f32,
@@ -77,31 +175,12 @@ pub fn spawn(
             rng: XorShift::new(1000 + i as u32),
         };
         pick_target(&mut a);
-        let (px, py) = tile_center(sx, sy);
-        commands
-            .spawn((
-                a,
-                Transform::from_xyz(px, -py - TH * 0.25, z_of(py)),
-                Anchor::BOTTOM_CENTER,
-                Sprite {
-                    image: assets.load(def.file),
-                    texture_atlas: Some(TextureAtlas {
-                        layout,
-                        index: 2 * def.cols, // 하 방향 프레임0
-                    }),
-                    ..default()
-                },
-            ))
-            .with_child((
-                Transform::from_xyz(0.0, 4.0, -0.2),
-                Sprite {
-                    image: shadow.clone(),
-                    custom_size: Some(Vec2::new(66.0, 25.0)),
-                    color: Color::srgba(0.02, 0.015, 0.0, 0.38),
-                    ..default()
-                },
-            ));
+        let e = spawn_sheet(&mut commands, &lib, i, a);
+        commands.entity(e).insert(DemoAgent);
     }
+
+    // 라이브 스폰용 리소스로도 등록(핸들 재사용 — 추가 로드 없음)
+    commands.insert_resource(lib);
 
     // 선택 마커 — 링 + 이름 라벨(평시 숨김)
     commands
@@ -143,8 +222,8 @@ fn pick_target(a: &mut Agent) {
     a.rest += 0.5; // 못 찾으면 좀 더 쉰다
 }
 
-/// 배회 — 그리드 좌표 이동 → 아이소 투영 반영(y-sort z 포함)
-pub fn wander(time: Res<Time>, mut q: Query<(&mut Agent, &mut Transform)>) {
+/// 배회(데모 전용) — 그리드 좌표 이동 → 아이소 투영 반영(y-sort z 포함)
+pub fn wander(time: Res<Time>, mut q: Query<(&mut Agent, &mut Transform), With<DemoAgent>>) {
     let dt = time.delta_secs();
     for (mut a, mut tr) in &mut q {
         if a.rest > 0.0 {
