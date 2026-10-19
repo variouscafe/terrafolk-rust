@@ -28,6 +28,8 @@ impl WeatherKind {
 pub(crate) struct WeatherParticle {
     /// 종류별 속도 계수(0..1 랜덤)
     pub k: f32,
+    /// 기준 x(눈 흔들림 오프셋의 원점 — 누적 표류 방지)
+    pub base_x: f32,
 }
 
 #[derive(Component)]
@@ -61,21 +63,23 @@ pub fn sync(
     mut current: Local<WeatherKind>,
     mut inited: Local<bool>,
 ) {
-    if !weather.is_changed() && *inited {
+    if !weather.is_changed() && *inited && *current == *weather {
         return;
     }
     *inited = true;
     if *current == *weather {
         return;
     }
-    *current = *weather;
     // 기존 파티클 철거
     for (e, _) in &particles {
         commands.entity(e).despawn();
     }
+    // 레이어(카메라)가 아직 없으면 *current 커밋하지 않는다 — 다음 프레임 재시행
+    // (지연 카메라 스폰 레이스 방지)
     let Ok((layer, _)) = layers.single() else {
         return;
     };
+    *current = *weather;
     let mut rng = mapdata_rng();
     match *weather {
         WeatherKind::Clear => {}
@@ -86,7 +90,7 @@ pub fn sync(
                 let y = rng.next_f32() * 1200.0 - 600.0;
                 let k = 0.7 + rng.next_f32() * 0.6;
                 commands.entity(layer).with_child((
-                    WeatherParticle { k },
+                    WeatherParticle { k, base_x: x },
                     // 빗줄기 — 가늘고 긴 사각형, 바람 기울임
                     Transform::from_xyz(x, y, 600.0)
                         .with_rotation(Quat::from_rotation_z(0.18)),
@@ -104,7 +108,7 @@ pub fn sync(
                 let y = rng.next_f32() * 1200.0 - 600.0;
                 let k = 0.5 + rng.next_f32() * 0.8;
                 commands.entity(layer).with_child((
-                    WeatherParticle { k },
+                    WeatherParticle { k, base_x: x },
                     Transform::from_xyz(x, y, 600.0),
                     Sprite {
                         color: Color::srgba(1.0, 1.0, 1.0, 0.85),
@@ -130,7 +134,8 @@ pub fn fall(time: Res<Time>, weather: Res<WeatherKind>, mut q: Query<(&WeatherPa
     for (p, mut tr) in &mut q {
         tr.translation.y -= speed * p.k * time.delta_secs();
         if sway > 0.0 {
-            tr.translation.x += (t * 1.3 + p.k * 9.0).sin() * sway * time.delta_secs();
+            // 기준 x + 사인 오프셋 — 흔들려도 밴드 안 유지(누적 표류 없음)
+            tr.translation.x = p.base_x + (t * 1.3 + p.k * 9.0).sin() * 40.0;
         }
         if tr.translation.y < -650.0 {
             tr.translation.y = 650.0;

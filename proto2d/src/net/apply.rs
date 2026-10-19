@@ -130,12 +130,15 @@ pub fn sync_daynight(
     let snow = f.season == "winter" || f.weather.as_deref() == Some("snow");
     let want = if snow { GroundSkin::Snow } else { GroundSkin::Normal };
     let want = override_skin.0.unwrap_or(want);
-    if let Some(w) = f.weather.as_deref() {
-        let kind = crate::weather::WeatherKind::from_server_pub(w);
-        if *weather != kind {
-            info!("[net] 날씨 → {w:?}");
-            *weather = kind;
-        }
+    // 필드 부재(None)도 맑음으로 정본 반영 — 이전 날씨가 남지 않게
+    let kind = f
+        .weather
+        .as_deref()
+        .map(crate::weather::WeatherKind::from_server_pub)
+        .unwrap_or(crate::weather::WeatherKind::Clear);
+    if *weather != kind {
+        info!("[net] 날씨 → {:?}", f.weather);
+        *weather = kind;
     }
     if *skin != want {
         info!("[net] 계절 {} · 날씨 {:?} → 스킨 {want:?}", f.season, f.weather);
