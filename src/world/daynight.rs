@@ -79,7 +79,7 @@ pub fn spawn_sun(
         commands.spawn((
             MoonDisc,
             Transform::from_scale(Vec3::splat(5.0)),
-            Mesh3d(meshes.add(Mesh::from(bevy::math::primitives::Circle::new(1.0)))),
+            Mesh3d(meshes.add(Mesh::from(bevy::shape::Circle::new(1.0)))),
             MeshMaterial3d(mats.add(StandardMaterial {
                 base_color: Color::srgb(0.91, 0.93, 0.96),
                 unlit: true,
@@ -88,7 +88,7 @@ pub fn spawn_sun(
             Visibility::Hidden,
         ));
         // 별 — 상반구 90개, 절대각 카메라를 향한 작은 쿼드(루트가 카메라 추적)
-        let star_mesh = meshes.add(Mesh::from(bevy::math::primitives::Circle::new(0.30)));
+        let star_mesh = meshes.add(Mesh::from(bevy::shape::Circle::new(0.30)));
         let star_mat = mats.add(StandardMaterial {
             base_color: Color::srgb(0.80, 0.85, 0.94),
             unlit: true,

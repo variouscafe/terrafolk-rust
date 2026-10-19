@@ -29,16 +29,15 @@ fn main() {
         // 세계 관전에 부적합(2026-10-17 실측: 무입력 시 정지 프레임, CPU 0%).
         // game 프리셋 = 포커스 중 Continuous + 백그라운드 60Hz 폴.
         .insert_resource(WinitSettings::game())
-        .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    resizable: false,
-                    mode: WindowMode::BorderlessFullscreen(MonitorSelection::Current),
-                    ..default()
-                }),
+        // 0.20 — 그룹 빌더와 플러그인 혼합 튜플 add_plugins 불가, 분리 등록.
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                resizable: false,
+                mode: WindowMode::BorderlessFullscreen(MonitorSelection::Current),
                 ..default()
             }),
-            GamePlugin,
-        ))
+            ..default()
+        }))
+        .add_plugins(GamePlugin)
         .run();
 }

@@ -28,7 +28,7 @@ pub struct TerrainExtension {
 
 impl MaterialExtension for TerrainExtension {
     fn fragment_shader() -> ShaderRef {
-        "shaders/terrain_splat.wgsl".into()
+        "shaders/terrain_splat.wesl".into()
     }
 }
 

@@ -51,14 +51,15 @@ pub fn setup(app: &mut App) {
 /// bevy가 예상 밖 포맷을 골랐는지 즉시 확인.
 #[cfg(target_os = "android")]
 fn log_surface_format(
-    windows: ResMut<bevy::render::view::window::ExtractedWindows>,
+    windows: Query<&bevy::render::view::window::ExtractedWindow>,
     mut done: Local<bool>,
 ) {
     if *done {
         return;
     }
     *done = true;
-    for w in windows.windows.values() {
+    // 0.20 — ExtractedWindows 리소스 폐지, 엔티티 컴포넌트로 조회.
+    for w in &windows {
         match &w.swap_chain_texture_format {
             Some(fmt) => info!(
                 "[diag] 스왑체인 포맷={fmt:?} {}x{}",

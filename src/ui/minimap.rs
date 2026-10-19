@@ -7,6 +7,7 @@
 use bevy::asset::RenderAssetUsages;
 use bevy::image::Image;
 use bevy::prelude::*;
+use bevy::ui_widgets::Button; // 0.20: prelude의 Button은 deprecated alias
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::ui::RelativeCursorPosition;
 use std::collections::HashMap;
@@ -146,7 +147,7 @@ pub fn spawn_minimap(
 /// 추적 해제·관성 정리까지 동일 규약). Interaction 폴링이 아닌 확정 이벤트
 /// 옵저버 — 빠른 탭 유실 방지(native-ui 레시피).
 fn on_map_tap(
-    trigger: On<Pointer<Click>>,
+    trigger: On<PointerClick>,
     q_map: Query<&RelativeCursorPosition, With<MinimapMap>>,
     world: Res<WorldData>,
     pan: ResMut<PanBridge>,

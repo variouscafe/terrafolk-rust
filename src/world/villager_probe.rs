@@ -83,7 +83,7 @@ pub fn villager_render_probe(
         let center = world.size as f32 / 2.0;
         if mode == "cube" {
             commands.spawn((
-                Mesh3d(meshes.add(Mesh::from(bevy::math::primitives::Cuboid::new(
+                Mesh3d(meshes.add(Mesh::from(bevy::shape::Cuboid::new(
                     1.5, 1.5, 1.5,
                 )))),
                 MeshMaterial3d(mats.add(StandardMaterial {
