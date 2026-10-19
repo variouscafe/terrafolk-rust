@@ -76,7 +76,7 @@ impl Plugin for UiPlugin {
             .init_resource::<toasts::ToastQ>()
             .init_resource::<minimap::MinimapBake>()
             .add_plugins(bevy_egui::EguiPlugin::default())
-            .add_systems(Startup, (fonts::install_korean_font, theme::apply))
+            .add_systems(Startup, (fonts::install_korean_font, theme::apply, responsive_defaults))
             .add_systems(
                 EguiPrimaryContextPass,
                 (
@@ -106,4 +106,16 @@ pub(crate) fn ctx(contexts: &mut EguiContexts) -> Option<egui::Context> {
 pub(crate) fn clock_text(day: u32, t: f32) -> String {
     let minutes = (t * 24.0 * 60.0) as u32;
     format!("{}일차 {:02}:{:02}", day + 1, minutes / 60, minutes % 60)
+}
+
+/// 모바일 반응형 기본값 — 좁은 화면(폰)은 사이드 패널·미니맵 접기 시작.
+/// 상단바 토글로 언제든 전개 가능(기능 손실 없음).
+fn responsive_defaults(mut ui_state: ResMut<UiState>, windows: Query<&Window, With<bevy::window::PrimaryWindow>>) {
+    let Ok(w) = windows.single() else { return };
+    if w.width() < 700.0 {
+        ui_state.show_villagers = false;
+        ui_state.show_minimap = false;
+        ui_state.show_chat = false;
+        info!("[ui] 모바일 레이아웃 — 패널 접힘 기본");
+    }
 }

@@ -7,6 +7,7 @@ mod daynight;
 mod ground;
 mod mapdata;
 mod net;
+mod nightglow;
 mod props;
 mod ui;
 
@@ -122,6 +123,8 @@ fn main() {
             (
                 ambient::sway_trees,
                 ambient::update_fireflies,
+                nightglow::attach,
+                nightglow::update,
                 ambient::drift_clouds,
                 daynight::attach_tint,
                 daynight::update_tint,
