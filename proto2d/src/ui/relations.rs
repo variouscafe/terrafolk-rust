@@ -61,7 +61,7 @@ pub fn panel(
                         let warmth = r.warmth.clamp(0.0, 1.0);
                         let bars = (warmth * 10.0) as usize;
                         ui.label(
-                            egui::RichText::new(format!("{} {:.2}", "❤".repeat(bars.max(1)), warmth))
+                            egui::RichText::new(format!("{} {:.2}", "♥".repeat(bars.max(1)), warmth))
                                 .small()
                                 .color(egui::Color32::from_rgb(235, 130, 120)),
                         );

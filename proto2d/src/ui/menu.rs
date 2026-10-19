@@ -23,7 +23,7 @@ pub fn panel(
     egui::Area::new(egui::Id::new("menu_btn"))
         .anchor(egui::Align2::LEFT_TOP, egui::vec2(8.0, 34.0))
         .show(&c, |ui| {
-            if ui.button("☰").clicked() {
+            if ui.button("≡").clicked() {
                 *show = !*show;
             }
         });

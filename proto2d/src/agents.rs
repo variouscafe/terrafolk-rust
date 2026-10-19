@@ -303,6 +303,7 @@ fn pick_and_apply(
 pub fn select_on_click(
     mut commands: Commands,
     time: Res<Time>,
+    mut egui_ctx: bevy_egui::EguiContexts,
     buttons: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     camera_q: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
@@ -312,6 +313,10 @@ pub fn select_on_click(
     mut manual: ResMut<crate::cam::ManualUntil>,
 ) {
     if !buttons.just_released(MouseButton::Left) || drag.total > 5.0 {
+        return;
+    }
+    // egui가 포인터를 쓰는 중(패널 클릭)이면 월드 선택 아님 — 세지 않게 가드
+    if crate::ui::egui_owns_input(&mut egui_ctx) {
         return;
     }
     let Ok(window) = windows.single() else { return };
@@ -325,6 +330,7 @@ pub fn select_on_click(
 pub fn select_on_tap(
     mut commands: Commands,
     time: Res<Time>,
+    mut egui_ctx: bevy_egui::EguiContexts,
     mut tap: ResMut<crate::cam::TapPos>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     camera_q: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
@@ -333,6 +339,9 @@ pub fn select_on_tap(
     mut manual: ResMut<crate::cam::ManualUntil>,
 ) {
     let Some(screen) = tap.0.take() else { return };
+    if crate::ui::egui_owns_input(&mut egui_ctx) {
+        return;
+    }
     let Ok((camera, cam_tf)) = camera_q.single() else { return };
     let _ = windows;
     let Ok(world) = camera.viewport_to_world_2d(cam_tf, screen) else { return };
