@@ -4,6 +4,7 @@
 use bevy::prelude::*;
 use bevy_egui::egui;
 
+use super::i18n::{Tr, tr};
 use super::{ChatLog, EventLog, UiState, ctx};
 use crate::agents::Agent;
 use crate::net::apply::LiveAgentTag;
@@ -28,13 +29,13 @@ pub fn panel(
     egui::Panel::bottom("chat")
         .default_size(150.0)
         .show(&c, |ui| {
-            ui.heading("💬 채팅");
+            ui.heading(tr(ui_state.lang, Tr::Chat));
             egui::ScrollArea::vertical()
                 .max_height(90.0)
                 .stick_to_bottom(true)
                 .show(ui, |ui| {
                     if log.rows.is_empty() {
-                        ui.weak("(대기 중… 주민들이 대화하면 여기에 표시됩니다)");
+                        ui.weak(tr(ui_state.lang, Tr::ChatWaiting));
                     }
                     for r in &log.rows {
                         ui.label(
@@ -49,11 +50,11 @@ pub fn panel(
                 ui.add_enabled(
                     enabled,
                     egui::TextEdit::singleline(&mut *draft)
-                        .hint_text("선택한 주민에게 말걸기…")
+                        .hint_text(tr(ui_state.lang, Tr::ChatHint))
                         .desired_width(ui.available_width() - 70.0),
                 );
                 if ui
-                    .add_enabled(enabled, egui::Button::new("보내기"))
+                    .add_enabled(enabled, egui::Button::new(tr(ui_state.lang, Tr::ChatSend)))
                     .clicked()
                     || (enabled && ui.input(|i| i.key_pressed(egui::Key::Enter)))
                 {
@@ -105,11 +106,11 @@ pub fn events_panel(
         return;
     }
     let Some(c) = ctx(&mut contexts) else { return };
-    egui::Window::new("📜 이벤트")
+    egui::Window::new(tr(ui_state.lang, Tr::Events))
         .default_width(340.0)
         .show(&c, |ui| {
             if log.rows.is_empty() {
-                ui.weak("(이벤트 없음)");
+                ui.weak(tr(ui_state.lang, Tr::EventsEmpty));
             }
             egui::ScrollArea::vertical()
                 .max_height(260.0)

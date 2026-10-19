@@ -4,6 +4,7 @@
 use bevy::prelude::*;
 use bevy_egui::egui;
 
+use super::i18n::{Tr, tr};
 use super::{UiState, ctx};
 use crate::agents::Agent;
 use crate::cam::{ManualUntil, TapPos};
@@ -69,7 +70,7 @@ pub fn panel(
     }
     let Some(tex) = bake.texture.as_ref() else { return };
 
-    egui::Window::new("🗺 미니맵")
+    egui::Window::new(tr(ui_state.lang, Tr::Minimap))
         .anchor(egui::Align2::LEFT_BOTTOM, egui::vec2(8.0, -40.0))
         .collapsible(true)
         .resizable(false)

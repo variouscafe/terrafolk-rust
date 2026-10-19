@@ -4,6 +4,7 @@
 use bevy::prelude::*;
 use bevy_egui::egui;
 
+use super::i18n::{Tr, tr};
 use super::{UiState, ctx};
 use crate::net::{NetState, NetStatus, PollQueuesRes, RelRow};
 
@@ -39,16 +40,16 @@ pub fn panel(
         .map(|q| q.clone())
         .unwrap_or_default();
 
-    egui::Window::new("🤝 관계")
+    egui::Window::new(tr(ui_state.lang, Tr::Relations))
         .anchor(egui::Align2::RIGHT_TOP, egui::vec2(-240.0, 34.0))
         .default_width(300.0)
         .show(&c, |ui| {
             if rows.is_empty() && !connected {
-                ui.weak("라이브 접속 시 표시됩니다");
+                ui.weak(tr(ui_state.lang, Tr::RelWaitLive));
             } else if rows.is_empty() && cfg!(target_arch = "wasm32") {
-                ui.weak("관계 상세는 네이티브 앱에서 제공(웹은 라이브 관전만)");
+                ui.weak(tr(ui_state.lang, Tr::RelNativeOnly));
             } else if rows.is_empty() {
-                ui.weak("(관계 집계 대기 중…)");
+                ui.weak(tr(ui_state.lang, Tr::RelWaitData));
             }
             egui::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
                 for r in &rows {

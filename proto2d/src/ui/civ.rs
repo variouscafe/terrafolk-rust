@@ -4,6 +4,7 @@
 use bevy::prelude::*;
 use bevy_egui::egui;
 
+use super::i18n::{Tr, tr, trf};
 use super::{UiState, ctx};
 use crate::net::NetState;
 
@@ -49,21 +50,21 @@ pub fn panel(
     }
     let rows: &[InventionRow] = cache.as_ref().map(|(_, r)| r.as_slice()).unwrap_or(&[]);
 
-    egui::Window::new("🏛 문명")
+    egui::Window::new(tr(ui_state.lang, Tr::Civ))
         .anchor(egui::Align2::RIGHT_TOP, egui::vec2(-240.0, 34.0))
         .default_width(300.0)
         .show(&c, |ui| {
-            ui.label(format!("발명 {}건", rows.len()));
+            ui.label(trf(ui_state.lang, Tr::CivCount, &rows.len().to_string()));
             ui.separator();
             if rows.is_empty() {
-                ui.weak("(아직 발명이 없다 — 주민들이 연구 중…)");
+                ui.weak(tr(ui_state.lang, Tr::CivEmpty));
             }
             egui::ScrollArea::vertical().max_height(320.0).show(ui, |ui| {
                 for r in rows.iter().rev() {
                     ui.strong(&r.name);
                     let mut meta = Vec::new();
                     if let Some(d) = r.day {
-                        meta.push(format!("{d}일차"));
+                        meta.push(trf(ui_state.lang, Tr::CivDayN, &d.to_string()));
                     }
                     if let Some(inv) = &r.inventor {
                         meta.push(format!("by {inv}"));

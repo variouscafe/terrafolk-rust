@@ -4,6 +4,7 @@
 use bevy::prelude::*;
 use bevy_egui::egui;
 
+use super::i18n::{Tr, tr, trf};
 use super::ctx;
 use crate::net::live_props::LiveResourceTag;
 
@@ -33,6 +34,7 @@ struct TipState {
 #[allow(clippy::type_complexity)] // Bevy 파라미터 — 창·카메라·자원 동시 참조
 pub fn show(
     mut contexts: bevy_egui::EguiContexts,
+    ui_state: bevy::ecs::system::Res<crate::ui::UiState>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     camera_q: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
     res_q: Query<(&Transform, &LiveResourceTag), Without<Camera2d>>,
@@ -69,16 +71,17 @@ pub fn show(
         .as_deref()
         .and_then(|s| serde_json::from_str(s).ok())
         .unwrap_or_default();
+    let lang = ui_state.lang;
     let kind_label = match r.kind.as_str() {
-        "tree" => "나무",
-        "plant" => "식물",
-        "gold_vein" => "금맥",
-        "animal" => "동물",
-        "campfire" => "모닥불",
-        "hut" => "건축물",
-        "grave" => "무덤",
-        "stash" => "저장고",
-        "relic" => "유물",
+        "tree" => tr(lang, Tr::TipTree),
+        "plant" => tr(lang, Tr::TipPlant),
+        "gold_vein" => tr(lang, Tr::TipGoldVein),
+        "animal" => tr(lang, Tr::TipAnimal),
+        "campfire" => tr(lang, Tr::TipCampfire),
+        "hut" => tr(lang, Tr::TipHut),
+        "grave" => tr(lang, Tr::TipGrave),
+        "stash" => tr(lang, Tr::TipStash),
+        "relic" => tr(lang, Tr::TipRelic),
         other => other,
     };
     egui::Area::new(egui::Id::new("res_tooltip"))
@@ -90,22 +93,22 @@ pub fn show(
                 ui.set_min_width(150.0);
                 ui.strong(format!("{kind_label} #{}", r.id));
                 if let Some(n) = &st.name {
-                    ui.label(format!("이름: {n}"));
+                    ui.label(trf(lang, Tr::TipName, n));
                 }
                 if let Some(o) = &st.owner_name {
-                    ui.label(format!("주인: {o}"));
+                    ui.label(trf(lang, Tr::TipOwner, o));
                 }
                 if let Some(m) = st.maturity {
-                    ui.label(format!("성장: {}/3", m.min(3)));
+                    ui.label(trf(lang, Tr::TipMaturity, &m.min(3).to_string()));
                 }
                 if let Some(a) = st.available {
-                    ui.label(if a { "수확 가능" } else { "재생 중" });
+                    ui.label(if a { tr(lang, Tr::TipHarvest) } else { tr(lang, Tr::TipRegrow) });
                 }
                 if let Some(alive) = st.alive {
-                    ui.label(if alive { "생명: 살아있음" } else { "생명: 죽음" });
+                    ui.label(if alive { tr(lang, Tr::TipAlive) } else { tr(lang, Tr::TipDead) });
                 }
                 if let Some(s) = &st.stage {
-                    let mut line = format!("공사: {s}");
+                    let mut line = trf(lang, Tr::TipBuild, s);
                     if let Some(t) = &st.bld_type {
                         line.push_str(&format!(" ({t})"));
                     }

@@ -7,6 +7,7 @@ pub mod chat;
 pub mod civ;
 pub mod daydial;
 pub mod fonts;
+pub mod i18n;
 pub mod menu;
 pub mod minimap;
 pub mod relations;
@@ -50,6 +51,7 @@ pub struct UiState {
     pub show_minimap: bool,
     pub show_civ: bool,
     pub show_relations: bool,
+    pub lang: i18n::Lang,
 }
 
 impl Default for UiState {
@@ -61,6 +63,7 @@ impl Default for UiState {
             show_minimap: true,
             show_civ: false,
             show_relations: false,
+            lang: i18n::Lang::default(),
         }
     }
 }
@@ -102,11 +105,7 @@ pub(crate) fn ctx(contexts: &mut EguiContexts) -> Option<egui::Context> {
     contexts.ctx_mut().ok().cloned()
 }
 
-/// 시계 문자열(공통) — GameTime → "N일차 HH:MM"
-pub(crate) fn clock_text(day: u32, t: f32) -> String {
-    let minutes = (t * 24.0 * 60.0) as u32;
-    format!("{}일차 {:02}:{:02}", day + 1, minutes / 60, minutes % 60)
-}
+
 
 /// 모바일 반응형 기본값 — 좁은 화면(폰)은 사이드 패널·미니맵 접기 시작.
 /// 상단바 토글로 언제든 전개 가능(기능 손실 없음).
