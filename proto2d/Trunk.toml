@@ -1,0 +1,6 @@
+# wasm-opt은 README 배포 절차대로 검증 플래그(-Os+strip)로 수동 실행 — trunk 자체 최적화는 끔.
+[build]
+public_url = "./"
+
+[serve]
+port = 8090
