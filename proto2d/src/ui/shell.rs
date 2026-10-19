@@ -36,6 +36,8 @@ pub fn top_bar(
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.toggle_value(&mut ui_state.show_events, "📜 이벤트");
                 ui.toggle_value(&mut ui_state.show_minimap, "🗺 미니맵");
+                ui.toggle_value(&mut ui_state.show_civ, "🏛 문명");
+                ui.toggle_value(&mut ui_state.show_relations, "🤝 관계");
                 ui.toggle_value(&mut ui_state.show_chat, "💬 채팅");
                 ui.toggle_value(&mut ui_state.show_villagers, "👥 주민");
             });
@@ -54,6 +56,7 @@ pub fn villagers_panel(
     mut commands: Commands,
     agents_q: Query<(Entity, &Agent, Option<&LiveAgentTag>, Option<&Selected>)>,
     mut manual: ResMut<ManualUntil>,
+    polls: Res<crate::net::PollQueuesRes>,
     ui_state: Res<UiState>,
 ) {
     if !ui_state.show_villagers {
@@ -121,6 +124,15 @@ pub fn villagers_panel(
                 need("갈증", la.thirst);
                 need("피로", la.fatigue);
                 need("체온", la.warmth);
+                // 생활기록(선택 주민) — 네이티브 폴러, 최근 8행 역순
+                let hist = polls.history.lock().map(|q| q.clone()).unwrap_or_default();
+                if !hist.is_empty() {
+                    ui.separator();
+                    ui.strong("생활기록");
+                    for h in hist.iter().rev().take(8) {
+                        ui.small(format!("[{}] {}", h.type_, h.text));
+                    }
+                }
             }
         });
 }

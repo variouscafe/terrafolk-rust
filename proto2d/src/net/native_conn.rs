@@ -60,7 +60,7 @@ fn run_blocking(queue: FrameQueue, phase: Arc<AtomicU8>, chats: ChatQueue, event
 
 /// 로컬 백엔드 우선 프로브 — 데스크톱 개발 무설정. 127.0.0.1 거부는 즉시
 /// 실패라 실기기 체감 지연 없음.
-fn pick_bases() -> (&'static str, &'static str) {
+pub(crate) fn pick_bases() -> (&'static str, &'static str) {
     use std::net::TcpStream;
     let addr: std::net::SocketAddr = "127.0.0.1:8892".parse().expect("주소");
     let local = TcpStream::connect_timeout(&addr, Duration::from_millis(600)).is_ok();
@@ -181,16 +181,7 @@ async fn once(
                             .unwrap_or_default()
                             .to_owned(),
                     };
-                    if !row.text.is_empty() {
-                        if let Ok(mut q) = chats.inner.lock() {
-                            // 말풍선 폭주 방지 — 최근 16행
-                            q.push(row);
-                            let len = q.len();
-                            if len > 16 {
-                                q.drain(0..len - 16);
-                            }
-                        }
-                    }
+                    super::chat_row_push(chats, row);
                 }
                 "event" => {
                     // 관전 타임라인 — wasm 경로와 동일 서식(단일 원천)

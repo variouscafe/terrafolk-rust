@@ -4,12 +4,15 @@
 //! 셸(상단바·주민 패널)은 shell.rs, 채팅은 chat.rs — 500줄 규칙 분리.
 
 pub mod chat;
+pub mod civ;
 pub mod daydial;
 pub mod fonts;
 pub mod menu;
 pub mod minimap;
+pub mod relations;
 pub mod shell;
 pub mod toasts;
+pub mod tooltip;
 
 use bevy::prelude::*;
 use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
@@ -44,6 +47,8 @@ pub struct UiState {
     pub show_villagers: bool,
     pub show_events: bool,
     pub show_minimap: bool,
+    pub show_civ: bool,
+    pub show_relations: bool,
 }
 
 impl Default for UiState {
@@ -53,6 +58,8 @@ impl Default for UiState {
             show_villagers: true,
             show_events: false,
             show_minimap: true,
+            show_civ: false,
+            show_relations: false,
         }
     }
 }
@@ -80,6 +87,9 @@ impl Plugin for UiPlugin {
                     daydial::dial,
                     menu::panel,
                     toasts::show,
+                    civ::panel,
+                    relations::panel,
+                    tooltip::show,
                 ),
             )
             .add_systems(Update, toasts::collect);
