@@ -4,6 +4,7 @@
 use bevy::prelude::*;
 use bevy_egui::egui;
 
+use super::i18n::{Lang, Tr, tr};
 use super::ctx;
 use crate::ground::GroundSkin;
 
@@ -15,6 +16,7 @@ pub fn panel(
     mut contexts: bevy_egui::EguiContexts,
     mut override_skin: ResMut<SkinOverride>,
     mut skin: ResMut<GroundSkin>,
+    mut ui_state: ResMut<crate::ui::UiState>,
     mut show: Local<bool>,
 ) {
     let Some(c) = ctx(&mut contexts) else { return };
@@ -33,22 +35,30 @@ pub fn panel(
         .show(&c, |ui| {
             egui::Frame::popup(ui.style()).show(ui, |ui| {
                 ui.set_min_width(230.0);
-                ui.heading("메뉴");
+                let lang = ui_state.lang;
+                ui.heading(tr(lang, Tr::Menu));
+                // 언어 토글 — 한/EN 즉시 전환
+                ui.horizontal(|ui| {
+                    if ui.selectable_label(lang == Lang::Ko, "한국어").clicked() {
+                        ui_state.lang = Lang::Ko;
+                    }
+                    if ui.selectable_label(lang == Lang::En, "English").clicked() {
+                        ui_state.lang = Lang::En;
+                    }
+                });
                 // 눈 스킨 강제 — 체크 해제하면 계절 자동 복귀
                 let mut snow = override_skin.0 == Some(GroundSkin::Snow);
-                if ui.checkbox(&mut snow, "❄ 눈 스킨(강제)").changed() {
+                if ui.checkbox(&mut snow, tr(lang, Tr::MenuSnow)).changed() {
                     override_skin.0 = snow.then_some(GroundSkin::Snow);
                     // 데모·오프라인에선 sync_daynight가 안 돌아도 즉시 반영
                     *skin = override_skin.0.unwrap_or(GroundSkin::Normal);
                 }
                 ui.separator();
-                ui.weak(format!(
-                    "패널: 주민·채팅·이벤트·미니맵 — 상단바 토글로 제어"
-                ));
+
                 ui.separator();
-                ui.weak("Terrafolk 2D proto — 라이브 관전");
-                ui.weak("드래그 팬 · 휠 줌 · 주민 클릭 선택/추적");
-                if ui.button("닫기").clicked() {
+                ui.weak(tr(lang, Tr::MenuHint1));
+                ui.weak(tr(lang, Tr::MenuHint2));
+                if ui.button(tr(lang, Tr::MenuClose)).clicked() {
                     *show = false;
                 }
             });
