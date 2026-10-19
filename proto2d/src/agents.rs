@@ -338,10 +338,11 @@ pub fn select_on_tap(
     mut marker: Query<&mut Visibility, With<SelectionMarker>>,
     mut manual: ResMut<crate::cam::ManualUntil>,
 ) {
-    let Some(screen) = tap.0.take() else { return };
+    // egui 점유 중엔 tap을 소비하지 않는다(다른 소비자가 있을 수 있음)
     if crate::ui::egui_owns_input(&mut egui_ctx) {
         return;
     }
+    let Some(screen) = tap.0.take() else { return };
     let Ok((camera, cam_tf)) = camera_q.single() else { return };
     let _ = windows;
     let Ok(world) = camera.viewport_to_world_2d(cam_tf, screen) else { return };

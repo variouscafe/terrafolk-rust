@@ -37,10 +37,7 @@ pub fn touch_gestures(
 ) {
     let Ok((mut tr, mut proj)) = camera.single_mut() else { return };
     // egui가 포인터를 쓰는 중이면 제스처 스킵(UI 탭이 판으로 세지 않게)
-    if bevy_egui::EguiContexts::ctx_mut(&mut egui_ctx)
-        .map(|c| c.egui_wants_pointer_input())
-        .unwrap_or(false)
-    {
+    if crate::ui::egui_owns_input(&mut egui_ctx) {
         return;
     }
     let mut pan = Vec2::ZERO;
