@@ -4,8 +4,12 @@
 //! 셸(상단바·주민 패널)은 shell.rs, 채팅은 chat.rs — 500줄 규칙 분리.
 
 pub mod chat;
+pub mod daydial;
 pub mod fonts;
+pub mod menu;
+pub mod minimap;
 pub mod shell;
+pub mod toasts;
 
 use bevy::prelude::*;
 use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
@@ -39,6 +43,7 @@ pub struct UiState {
     pub show_chat: bool,
     pub show_villagers: bool,
     pub show_events: bool,
+    pub show_minimap: bool,
 }
 
 impl Default for UiState {
@@ -47,6 +52,7 @@ impl Default for UiState {
             show_chat: true,
             show_villagers: true,
             show_events: false,
+            show_minimap: true,
         }
     }
 }
@@ -58,12 +64,25 @@ impl Plugin for UiPlugin {
         app.init_resource::<ChatLog>()
             .init_resource::<EventLog>()
             .init_resource::<UiState>()
+            .init_resource::<menu::SkinOverride>()
+            .init_resource::<toasts::ToastQ>()
+            .init_resource::<minimap::MinimapBake>()
             .add_plugins(bevy_egui::EguiPlugin::default())
             .add_systems(Startup, fonts::install_korean_font)
             .add_systems(
                 EguiPrimaryContextPass,
-                (shell::top_bar, shell::villagers_panel, chat::panel, chat::events_panel),
-            );
+                (
+                    shell::top_bar,
+                    shell::villagers_panel,
+                    chat::panel,
+                    chat::events_panel,
+                    minimap::panel,
+                    daydial::dial,
+                    menu::panel,
+                    toasts::show,
+                ),
+            )
+            .add_systems(Update, toasts::collect);
     }
 }
 

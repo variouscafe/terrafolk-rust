@@ -35,6 +35,7 @@ pub fn top_bar(
             ui.colored_label(color, badge);
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.toggle_value(&mut ui_state.show_events, "📜 이벤트");
+                ui.toggle_value(&mut ui_state.show_minimap, "🗺 미니맵");
                 ui.toggle_value(&mut ui_state.show_chat, "💬 채팅");
                 ui.toggle_value(&mut ui_state.show_villagers, "👥 주민");
             });
