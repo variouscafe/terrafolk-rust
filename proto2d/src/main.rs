@@ -109,7 +109,6 @@ fn main() {
                 ground::spawn.run_if(|e: Res<Exp>| !matches!(e.0, 'h' | 'p' | 'r' | 's' | 't' | 'u' | 'v' | 'x')),
                 props::spawn.run_if(|e: Res<Exp>| !matches!(e.0, 'h' | 'p' | 'r' | 's' | 't' | 'u' | 'v' | 'x')),
                 agents::spawn.run_if(|e: Res<Exp>| !matches!(e.0, 'h' | 'p' | 'r' | 's' | 't' | 'u' | 'v' | 'x')),
-                daynight::spawn,
                 spawn_exp_probes,
             ),
         )
@@ -130,6 +129,8 @@ fn main() {
                 agents::animate,
                 props::animate_campfire,
                 ground::water_frames,
+                daynight::attach_tint,
+                daynight::update_tint,
                 daynight::advance,
                 agents::select_on_click,
                 agents::select_on_tap,

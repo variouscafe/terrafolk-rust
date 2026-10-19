@@ -11,6 +11,7 @@ pub mod menu;
 pub mod minimap;
 pub mod relations;
 pub mod shell;
+pub mod theme;
 pub mod toasts;
 pub mod tooltip;
 
@@ -75,7 +76,7 @@ impl Plugin for UiPlugin {
             .init_resource::<toasts::ToastQ>()
             .init_resource::<minimap::MinimapBake>()
             .add_plugins(bevy_egui::EguiPlugin::default())
-            .add_systems(Startup, fonts::install_korean_font)
+            .add_systems(Startup, (fonts::install_korean_font, theme::apply))
             .add_systems(
                 EguiPrimaryContextPass,
                 (
