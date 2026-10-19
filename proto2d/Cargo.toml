@@ -1,0 +1,25 @@
+[package]
+name = "terrafolk_proto2d"
+version = "0.1.0"
+publish = false
+edition = "2024"
+
+# 2D 도트 프로토타입 — 원본 FE(../terrafolk 웹) 픽셀 룩 패리티.
+# 루트 워크스페이스 프로파일(release=크기 우선) 공유.
+[dependencies]
+bevy = { version = "0.19.1", default-features = false, features = [
+    "2d",
+    "png",
+    "bevy_asset",
+    "bevy_text",
+    "bevy_ui",
+    "bevy_ui_render",
+    "webgl2", # wasm 기본 WebGPU 우선 → 실브라우저에서 빈 회면(2026-10-19 실측). GL 강제.
+] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+console_error_panic_hook = "0.1"
+web-sys = { version = "0.3", features = ["console", "Window", "Document", "HtmlDocument", "Element", "Node", "Location"] }
+wasm-bindgen = "0.2"
