@@ -4,6 +4,7 @@
 //! 서명(탭·페이지·행 수·마지막 행 신원) 변화 시에만 재구성.
 
 use bevy::prelude::*;
+use bevy::ui_widgets::Button; // 0.20: prelude의 Button은 deprecated alias
 
 use super::i18n;
 use super::theme::{self, UiTheme};
@@ -174,7 +175,7 @@ fn page_btn(f: &mut ChildSpawnerCommands, theme: &UiTheme, marker: impl Componen
     });
 }
 
-fn on_tab_click(trigger: On<Pointer<Click>>, tabs: Query<&LogTabBtn>, mut ui: ResMut<LogUi>) {
+fn on_tab_click(trigger: On<PointerClick>, tabs: Query<&LogTabBtn>, mut ui: ResMut<LogUi>) {
     if let Ok(btn) = tabs.get(trigger.entity) {
         ui.tab = btn.0;
         ui.page = 0;
@@ -182,7 +183,7 @@ fn on_tab_click(trigger: On<Pointer<Click>>, tabs: Query<&LogTabBtn>, mut ui: Re
 }
 
 fn on_page_click(
-    trigger: On<Pointer<Click>>,
+    trigger: On<PointerClick>,
     prev: Query<(), With<LogPrevBtn>>,
     mut ui: ResMut<LogUi>,
 ) {
@@ -193,7 +194,7 @@ fn on_page_click(
     }
 }
 
-fn on_close_click(_: On<Pointer<Click>>, mut state: ResMut<UiState>) {
+fn on_close_click(_: On<PointerClick>, mut state: ResMut<UiState>) {
     state.popup = None;
 }
 

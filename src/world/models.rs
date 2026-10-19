@@ -281,7 +281,7 @@ pub fn spawn_campfire_fire(
     let flame = commands
         .spawn((
             CampfireFlame,
-            Mesh3d(meshes.add(Mesh::from(bevy::math::primitives::Sphere::new(0.20)))),
+            Mesh3d(meshes.add(Mesh::from(bevy::shape::Sphere::new(0.20)))),
             MeshMaterial3d(mats.add(StandardMaterial {
                 base_color: Color::BLACK,
                 emissive: FLAME_COLOR * 5.0,

@@ -3,7 +3,7 @@
 //! 새벽부터 낮에만 활동(밤 소멸), 겨울엔 절반이 휴면(남하) — FE 계절 규칙.
 //! 새는 절대각 카메라를 향한 작은 실루엣 쿼드, 날개짓은 세로 스케일 펄스.
 
-use bevy::math::primitives::Circle;
+use bevy::shape::Circle;
 use bevy::prelude::*;
 
 use super::data::WorldData;

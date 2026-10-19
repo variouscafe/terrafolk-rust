@@ -16,3 +16,4 @@ terrafolk-*.apk
 terrafolk-*.apk.idsig
 tools/quaternius-pool/
 proto2d/dist/
+tools/ubase-pool/*.zip

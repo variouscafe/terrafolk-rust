@@ -2,6 +2,7 @@
 //! 목록 탭 → 기존 pick::Selection 체인 재사용(링+카메라 추적 자동).
 
 use bevy::prelude::*;
+use bevy::ui_widgets::Button; // 0.20: prelude의 Button은 deprecated alias
 
 use super::i18n;
 use super::theme::{self, UiTheme};
@@ -324,7 +325,7 @@ pub fn refresh_list(
 /// 행 클릭 옵저버 — Interaction 폴링은 빠른 탭에서 Pressed 창을 놓친다
 /// (에뮬레이터 tap=눌림+해제 동일 프레임). Pointer<Click>은 확정 이벤트.
 fn on_row_click(
-    trigger: On<Pointer<Click>>,
+    trigger: On<PointerClick>,
     mut sel: ResMut<Selection>,
     mut state: ResMut<UiState>,
     rows: Query<&CharRow>,
@@ -343,7 +344,7 @@ fn on_row_click(
 pub struct SelChatButton;
 
 /// 하단 패널 해제 칩 — 선택 해제. 행 선택과 동일하게 확정 클릭 이벤트.
-fn on_clear_click(_: On<Pointer<Click>>, mut sel: ResMut<Selection>) {
+fn on_clear_click(_: On<PointerClick>, mut sel: ResMut<Selection>) {
     sel.id = None;
     sel.entity = None;
 }

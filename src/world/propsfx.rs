@@ -3,7 +3,7 @@
 //! 유물: 지면 위 sin 부유 + 느린 자전(주민 시선 유도). 광맥: emissive
 //! 스파크 쿼드가 밝기를 맥동 — Bloom이 점멸로 읽힌다(Blend 불가 대응).
 
-use bevy::math::primitives::Rectangle;
+use bevy::shape::Rectangle;
 use bevy::prelude::*;
 
 /// 유물 부유 — 기준 높이에서 sin 오실레이션.
