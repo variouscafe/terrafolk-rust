@@ -233,7 +233,7 @@ pub fn auto_greet(
         .iter()
         .find(|(_, _, t)| t.is_some())
         .map(|(e, _, t)| (e, t.unwrap().0.clone()))
-        .or_else(|| villagers.iter().next().map(|(e, v, _)| (e, format!("demo:{}", e.index()))));
+        .or_else(|| villagers.iter().next().map(|(e, _v, _)| (e, format!("demo:{}", e.index()))));
     let Some((entity, id)) = pick else { return; };
     sel.id = Some(id.clone());
     sel.entity = Some(entity);

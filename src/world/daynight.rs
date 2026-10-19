@@ -67,7 +67,9 @@ pub fn spawn_sun(
     commands.spawn((
         Sun,
         DirectionalLight {
-            shadow_maps_enabled: true,
+            // 2026-10-19 아트 방향 — 그림자 맵 폐지, 캐릭터 발밑 블롭으로
+            // 대체(outfit.rs 인접 blob_shadow). 섀도 패스 절감.
+            shadow_maps_enabled: false,
             ..default()
         },
         Transform::default(),
