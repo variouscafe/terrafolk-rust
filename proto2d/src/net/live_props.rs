@@ -137,13 +137,13 @@ fn visual(kind: &str, species: &str, st: &ResState) -> Option<Visual> {
             match bld_type {
                 "WINDBREAK" => Some(v("props/windbreak.png", 90.0)),
                 "LONGHOUSE" => Some(Visual {
-                    // 생성 스프라이트 종횡비(512×491) 보존 — 발판 3×2 위 비율
-                    custom: Some(Vec2::new(288.0, 276.0)),
+                    // 생성 스프라이트 종횡비(398×405) 보존 — 발판 3×2 위 비율
+                    custom: Some(Vec2::new(288.0, 293.0)),
                     ..v("props/longhouse.png", 170.0)
                 }),
                 "WAREHOUSE" => Some(Visual {
-                    // 477×390 종횡비 보존 — 발판 3×3
-                    custom: Some(Vec2::new(344.0, 281.0)),
+                    // 398×438 종횡비 보존 — 발판 3×3
+                    custom: Some(Vec2::new(344.0, 379.0)),
                     ..v("props/warehouse.png", 200.0)
                 }),
                 _ => Some(v("props/hut.png", 150.0)),
