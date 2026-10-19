@@ -100,6 +100,16 @@ impl Plugin for UiPlugin {
     }
 }
 
+/// egui가 포인터/키보드를 점유 중인가 — 월드 입력(클릭 선택·탭·WASD 판)은
+/// 이때 스킵해야 UI 조작이 세지 않는다(패널 클릭 → 즉시 선택 해제 사고 방지).
+pub fn egui_owns_input(contexts: &mut bevy_egui::EguiContexts) -> bool {
+    contexts
+        .ctx_mut()
+        .ok()
+        .map(|c| c.egui_wants_pointer_input() || c.wants_keyboard_input())
+        .unwrap_or(false)
+}
+
 /// egui 컨텍스트 헬퍼 — 멀티패스 프라이머리 컨텍스트 획득
 pub(crate) fn ctx(contexts: &mut EguiContexts) -> Option<egui::Context> {
     contexts.ctx_mut().ok().cloned()

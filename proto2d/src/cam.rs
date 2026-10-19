@@ -28,6 +28,7 @@ pub struct DelayedCamera {
 /// 터치 제스처 — 한 손가락 드래그 팬 · 두 손가락 핀치 줌 · 탭 선택.
 /// TouchInput 메시지 스트림으로 상태 추적(활성 터치 맵).
 pub fn touch_gestures(
+    mut egui_ctx: bevy_egui::EguiContexts,
     mut camera: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
     mut manual: ResMut<ManualUntil>,
     mut tap: ResMut<TapPos>,
@@ -35,6 +36,10 @@ pub fn touch_gestures(
     mut active: Local<std::collections::HashMap<u64, (Vec2, Vec2, f32)>>, // id → (pos, start, drift)
 ) {
     let Ok((mut tr, mut proj)) = camera.single_mut() else { return };
+    // egui가 포인터를 쓰는 중이면 제스처 스킵(UI 탭이 판으로 세지 않게)
+    if crate::ui::egui_owns_input(&mut egui_ctx) {
+        return;
+    }
     let mut pan = Vec2::ZERO;
     let mut zoom: f32 = 1.0;
 
@@ -137,6 +142,7 @@ pub fn delayed_camera(
 
 pub fn pan_zoom(
     time: Res<Time>,
+    mut egui_ctx: bevy_egui::EguiContexts,
     mut zoom_inited: Local<bool>,
     keys: Res<ButtonInput<KeyCode>>,
     buttons: Res<ButtonInput<MouseButton>>,
@@ -164,6 +170,10 @@ pub fn pan_zoom(
         }
     }
 
+    // egui 키보드 점유(채팅 입력 등) 중엔 WASD 판 금지
+    if crate::ui::egui_owns_input(&mut egui_ctx) {
+        return;
+    }
     let mut v = Vec2::ZERO;
     if keys.any_pressed([KeyCode::KeyW, KeyCode::ArrowUp]) {
         v.y += 1.0;
