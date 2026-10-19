@@ -35,6 +35,9 @@ pub fn spawn(mut commands: Commands, assets: Res<AssetServer>) {
             }
             let e = spawn_prop(&mut commands, &shadow, assets.load(path), x, y, sw);
             commands.entity(e).insert(DemoProp);
+            if path.contains("tree_") {
+                commands.entity(e).insert(crate::ambient::insert_sway(x, y));
+            }
         }
     }
 

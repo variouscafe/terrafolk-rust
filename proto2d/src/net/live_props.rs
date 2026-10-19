@@ -264,6 +264,9 @@ pub fn sync(
             v.color,
         );
         commands.entity(e).insert((LiveResourceTag(r.id), LiveResMeta(sig)));
+        if v.path.contains("tree_") {
+            commands.entity(e).insert(crate::ambient::insert_sway(r.x as i32, r.y as i32));
+        }
         if v.animal {
             commands.entity(e).insert(RoamTo {
                 cur: (gx, gy),
