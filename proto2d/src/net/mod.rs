@@ -12,6 +12,10 @@ pub mod apply;
 pub mod chat;
 pub mod live_props;
 
+/// HTTP 관전 폴러(백로그·관계·생활기록) — 네이티브 전용
+#[cfg(not(target_arch = "wasm32"))]
+pub mod http_poll;
+
 /// 네이티브 라이브 접속(colyseus-lite) — wasm은 JS sink 경로
 #[cfg(not(target_arch = "wasm32"))]
 pub mod native_conn;
@@ -35,6 +39,21 @@ pub struct ChatRow {
 #[derive(Resource, Clone, Default)]
 pub struct ChatQueue {
     pub inner: Arc<Mutex<Vec<ChatRow>>>,
+}
+
+/// 채팅 큐 푸시 헬퍼 — 상한 16행 유지(스레드·폴러 공용)
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))] // wasm은 폴러 없음
+pub(crate) fn chat_row_push(q: &ChatQueue, row: ChatRow) {
+    if row.text.is_empty() {
+        return;
+    }
+    if let Ok(mut q) = q.inner.lock() {
+        q.push(row);
+        let len = q.len();
+        if len > 16 {
+            q.drain(0..len - 16);
+        }
+    }
 }
 
 /// 라이브 이벤트 행(스레드 → ECS) — 이벤트 로그 패널 소스
@@ -156,6 +175,45 @@ pub struct TiledLayer {
     pub data: Vec<u8>,
 }
 
+/// 관계 행(REST /relations — 폴러가 채움)
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct RelRow {
+    #[serde(rename = "aId")]
+    pub a_id: String,
+    #[serde(rename = "bId")]
+    pub b_id: String,
+    #[serde(default)]
+    pub warmth: f32,
+    #[serde(default)]
+    pub chats: u32,
+    #[serde(default)]
+    pub trades: u32,
+}
+
+/// 생활기록 행(REST /agents/{id}/history)
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct HistRow {
+    /// 서버 타임스탬프 — 표시 형식화 예약
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub ts: String,
+    #[serde(rename = "type", default)]
+    pub type_: String,
+    #[serde(default)]
+    pub text: String,
+}
+
+/// 폴러 큐(스레드 → ECS) — wasm에선 항상 빈 상태(패널이 안내 문구 표시)
+#[derive(Resource, Clone, Default)]
+pub struct PollQueuesRes {
+    pub relations: Arc<Mutex<Vec<RelRow>>>,
+    pub history: Arc<Mutex<Vec<HistRow>>>,
+}
+
+/// 선택 주민 id 공유(UI → 폴러)
+#[derive(Resource, Clone, Default)]
+pub struct SelectedAgentRes(pub Arc<Mutex<Option<String>>>);
+
 pub struct NetPlugin;
 
 impl Plugin for NetPlugin {
@@ -163,6 +221,8 @@ impl Plugin for NetPlugin {
         app.init_resource::<FrameQueue>()
             .init_resource::<ChatQueue>()
             .init_resource::<EventQueue>()
+            .init_resource::<PollQueuesRes>()
+            .init_resource::<SelectedAgentRes>()
             .init_resource::<NetState>()
             .init_resource::<NetLinkPhase>()
             .add_systems(Startup, connect_bridge)
@@ -180,6 +240,7 @@ impl Plugin for NetPlugin {
                     live_props::roam_move,
                     chat::drain_and_bubble,
                     drain_events,
+                    mirror_selected_agent,
                 )
                     .chain(),
             );
@@ -234,12 +295,23 @@ fn connect_bridge(
     phase: Res<NetLinkPhase>,
     chats: Res<ChatQueue>,
     events: Res<EventQueue>,
+    polls: Res<PollQueuesRes>,
+    selected: Res<SelectedAgentRes>,
 ) {
     if std::env::var("TF_NO_NET").is_ok() {
         info!("[net] TF_NO_NET — 접속 스킵(데모 진단)");
         return;
     }
+    let (api, ws) = native_conn::pick_bases();
     native_conn::spawn(queue.clone(), Arc::clone(&phase.0), chats.clone(), events.clone());
+    http_poll::spawn(
+        Arc::clone(&phase.0),
+        chats.clone(),
+        api,
+        polls.clone(),
+        selected.clone(),
+    );
+    let _ = ws;
 }
 
 /// 링크 단계(원자값) → NetState.status. drain_frames가 성공 시 CONNECTED를
@@ -334,6 +406,17 @@ impl From<ChatRowSer> for ChatRow {
             speaker: r.speaker.unwrap_or_default(),
             text: r.text.unwrap_or_default(),
         }
+    }
+}
+
+/// 선택 주민 id를 폴러 공유 변수로 미러(http_poll이 history 대상 결정)
+fn mirror_selected_agent(
+    selected_q: Query<&apply::LiveAgentTag, With<crate::agents::Selected>>,
+    sel: Res<SelectedAgentRes>,
+) {
+    let id = selected_q.iter().next().map(|t| t.0.clone());
+    if let Ok(mut g) = sel.0.lock() {
+        *g = id;
     }
 }
 
