@@ -16,6 +16,9 @@
   let room = null;
   let retryTimer = null;
   let retry = 0;
+  // 접속 진행 중 가드 — boot()의 connect가 티켓 fetch 중일 때 wake()(visibility
+  // change·online)가 alive=false를 보고 재접속해 룸이 2개 열리는 경합 방지.
+  let connecting = false;
   let alive = false;
   let lastMap = null; // mapJson은 fullStateOnly — 최초 1회만 오므로 캐시
   const names = {}; // agent id → 표시명(채팅 스피커)
@@ -214,6 +217,7 @@
   // ── 접속(지수 백오프 + 탭 복귀 즉시 재시도, docs §17.29) ──
   function scheduleRetry() {
     alive = false;
+    connecting = false;
     room = null;
     retry += 1;
     const wait = Math.min(3000 * 2 ** (retry - 1), 30000);
@@ -236,6 +240,8 @@
       return;
     }
     try {
+      if (connecting || alive) return; // 진행 중/연결됨 — 중복 접속 차단
+      connecting = true;
       clearTimeout(retryTimer);
       // 티켓 — 로그인이면 인증 티켓(스코프 user), 아니면 관전 티켓(비로그인 게이트 예외).
       // 토큰 만료·갱신 실패는 관전으로 강등(세션은 authFetch가 정리)
@@ -258,6 +264,7 @@
       ui.base = apiBase; // 백로그 fetch 등 ui.js가 직접 쓰는 API 베이스
       setStatus(true);
       alive = true;
+      connecting = false;
       retry = 0;
 
       room.onStateChange(function (st) {
