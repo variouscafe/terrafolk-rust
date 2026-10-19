@@ -347,7 +347,10 @@ fn drain_frames(
     };
     let mut last_frame: Option<String> = None;
     for s in drained {
-        if s.len() > 12 && s[2..8].contains("\"tf\"") {
+        // 인젤로프 판별 — 접두 "{\"tf\""로 시작해야 한다. 예전 s[2..8] 검사는
+        // 여는 따옴표가 인덱스 1이라 절대 매치되지 않아 채팅·이벤트가 전부
+        // LiveFrame 파서로 새고 스냅숏을 덮어썼다(2026-10-20 실측).
+        if s.len() > 12 && s.starts_with("{\"tf\"") {
             // 채팅 인젤로프 — ChatQueue로
             if s.contains("\"chat\"")
                 && let Ok(env) = serde_json::from_str::<ChatEnvelope>(&s)

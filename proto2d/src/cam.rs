@@ -85,7 +85,9 @@ pub fn touch_gestures(
         let scale = match &mut *proj {
             Projection::Orthographic(o) => {
                 if zoom != 1.0 {
-                    o.scale = (o.scale / zoom).clamp(0.6, 2.8);
+                    // zoom = old_d/new_d — 벌리면 <1. 곱해야 벌리기=확대가 된다.
+                    // (나누면 벌리기=축소로 반전 — 휠 반전과 같은 결함, 같이 교정)
+                    o.scale = (o.scale * zoom).clamp(0.6, 2.8);
                 }
                 o.scale
             }
@@ -163,10 +165,12 @@ pub fn pan_zoom(
         }
     }
 
-    // 줌 — 휠 (scale 작을수록 확대)
+    // 줌 — 휠 (scale 작을수록 확대). winit 웹은 DOM deltaY를 반전해 네이티브
+    // 관례(휠 업=+y)로 정규화하므로 부호를 minus로 — 휠 업=확대가 표준 UX.
+    // (2026-10-20 실측: plus였을 때 휠 업=축소로 반전 동작)
     for e in wheel.read() {
         if let Projection::Orthographic(ref mut o) = *proj {
-            o.scale = (o.scale * (1.0 + e.y * 0.0015)).clamp(0.6, 2.8);
+            o.scale = (o.scale * (1.0 - e.y * 0.0015)).clamp(0.6, 2.8);
         }
     }
 

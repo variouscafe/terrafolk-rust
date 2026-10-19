@@ -79,7 +79,11 @@ impl Plugin for UiPlugin {
             .init_resource::<toasts::ToastQ>()
             .init_resource::<minimap::MinimapBake>()
             .add_plugins(bevy_egui::EguiPlugin::default())
-            .add_systems(Startup, (fonts::install_korean_font, theme::apply, responsive_defaults))
+            // 폰트 설치는 Update — 에셋이 비동기라 Startup 1회로는 절대 로드 전
+            // 완료 못 함(웹 전체 두부 원인, 2026-10-20 실측). done 플래그로
+            // 설치 후엔 매 프레임 조기 반환.
+            .add_systems(Startup, (theme::apply, responsive_defaults))
+            .add_systems(Update, fonts::install_korean_font)
             .add_systems(
                 EguiPrimaryContextPass,
                 (
