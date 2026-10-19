@@ -116,6 +116,7 @@ pub fn sync_daynight(
     mut day: ResMut<GameTime>,
     mut skin: ResMut<GroundSkin>,
     override_skin: Res<crate::ui::menu::SkinOverride>,
+    mut weather: ResMut<crate::weather::WeatherKind>,
 ) {
     if net.status != NetStatus::Connected {
         return;
@@ -129,6 +130,13 @@ pub fn sync_daynight(
     let snow = f.season == "winter" || f.weather.as_deref() == Some("snow");
     let want = if snow { GroundSkin::Snow } else { GroundSkin::Normal };
     let want = override_skin.0.unwrap_or(want);
+    if let Some(w) = f.weather.as_deref() {
+        let kind = crate::weather::WeatherKind::from_server_pub(w);
+        if *weather != kind {
+            info!("[net] 날씨 → {w:?}");
+            *weather = kind;
+        }
+    }
     if *skin != want {
         info!("[net] 계절 {} · 날씨 {:?} → 스킨 {want:?}", f.season, f.weather);
         *skin = want;
