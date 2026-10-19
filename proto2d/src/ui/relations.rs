@@ -5,31 +5,23 @@ use bevy::prelude::*;
 use bevy_egui::egui;
 
 use super::{UiState, ctx};
-use crate::agents::Agent;
 use crate::net::{NetState, NetStatus, PollQueuesRes, RelRow};
 
-/// id → 이름 매핑(프레임 에이전트 우선, 데모 주민 폴백)
-fn name_of(
-    id: &str,
-    frame_agents: &[crate::net::LiveAgent],
-    agents: &Query<&Agent>,
-) -> String {
-    if let Some(a) = frame_agents.iter().find(|a| a.id == id) {
-        return a.name.clone();
-    }
-    if let Some(a) = agents.iter().find(|a| a.name == id) {
-        return a.name.clone();
-    }
-    id.chars().take(8).collect()
+/// id → 이름 매핑 — 라이브 프레임 에이전트 기준(관계는 라이브 전용 데이터라
+/// 프레임에 없는 id는 잘라 표기)
+fn name_of(id: &str, frame_agents: &[crate::net::LiveAgent]) -> String {
+    frame_agents
+        .iter()
+        .find(|a| a.id == id)
+        .map(|a| a.name.clone())
+        .unwrap_or_else(|| id.chars().take(8).collect())
 }
 
-#[allow(clippy::type_complexity)] // Bevy 파라미터 — 프레임·주민·큐 동시 참조
 pub fn panel(
     mut contexts: bevy_egui::EguiContexts,
     ui_state: Res<UiState>,
     net: Option<Res<NetState>>,
     polls: Res<PollQueuesRes>,
-    agents_q: Query<&Agent>,
 ) {
     if !ui_state.show_relations {
         return;
@@ -51,17 +43,17 @@ pub fn panel(
         .anchor(egui::Align2::RIGHT_TOP, egui::vec2(-240.0, 34.0))
         .default_width(300.0)
         .show(&c, |ui| {
-            if !cfg!(target_arch = "wasm32") && connected && rows.is_empty() {
-                ui.weak("(관계 집계 대기 중…)");
-            } else if cfg!(target_arch = "wasm32") && rows.is_empty() {
+            if rows.is_empty() && !connected {
+                ui.weak("라이브 접속 시 표시됩니다");
+            } else if rows.is_empty() && cfg!(target_arch = "wasm32") {
                 ui.weak("관계 상세는 네이티브 앱에서 제공(웹은 라이브 관전만)");
             } else if rows.is_empty() {
-                ui.weak("(아직 관계 없음)");
+                ui.weak("(관계 집계 대기 중…)");
             }
             egui::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
                 for r in &rows {
-                    let a = name_of(&r.a_id, frame_agents, &agents_q);
-                    let b = name_of(&r.b_id, frame_agents, &agents_q);
+                    let a = name_of(&r.a_id, frame_agents);
+                    let b = name_of(&r.b_id, frame_agents);
                     ui.label(format!("{} ↔ {}", a, b));
                     ui.horizontal(|ui| {
                         // 온기 게이지 — 0..1 가정(서버 스케일은 표시 시각화로 흡수)

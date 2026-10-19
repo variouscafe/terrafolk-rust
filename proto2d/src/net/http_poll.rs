@@ -52,10 +52,11 @@ async fn run(
     else {
         return;
     };
-    // 채팅 백로그 1회 시드(최근 60행)
+    // 채팅 백로그 1회 시드 — 서버는 최신순이므로 앞 16행(=최신)을 시계순으로.
+    // 큐 상한 16과 충돌하지 않게 전량 푸시 후 밀림 없음.
     if let Ok(rows) = fetch_chat_backlog(&http, api).await {
-        info!("[http] 채팅 백로그 {}행", rows.len());
-        for r in rows.into_iter().rev() {
+        info!("[http] 채팅 백로그 {}행 중 최신 16행 시드", rows.len());
+        for r in rows.into_iter().take(16).rev() {
             chat_row_push(&chats, r);
         }
     }

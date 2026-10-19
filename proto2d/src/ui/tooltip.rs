@@ -58,10 +58,9 @@ pub fn show(
             best = Some((d, tr, tag));
         }
     }
-    let Some((_, _, _tag)) = best else { return };
+    let Some((_, _, tag)) = best else { return };
     // stateJson은 프레임 resources에서 해당 id 조회
     let Some(frame) = state_cache.frame.as_ref() else { return };
-    let (_d, _tr, tag) = best.unwrap();
     let Some(r) = frame.resources.iter().find(|r| r.id == tag.0) else {
         return;
     };
