@@ -76,6 +76,14 @@ pub enum Tr {
     TipAlive,
     TipDead,
     TipBuild, // "공사: {s}"
+    // 주민 상태(서버 고정 어휘 idle|moving|acting|thinking|sleeping)
+    StIdle,
+    StMoving,
+    StActing,
+    StThinking,
+    StSleeping,
+    // 다이얼 툴팁 — 일출/일몰(분 단위 → HH:MM은 호출측)
+    SunTimes, // "일출 {} · 일몰 {}"
 }
 
 /// 번역 조회 — 키별 (ko, en) 쌍
@@ -140,6 +148,12 @@ pub fn tr(lang: Lang, key: Tr) -> &'static str {
         Tr::TipAlive => ("생명: 살아있음", "Alive"),
         Tr::TipDead => ("생명: 죽음", "Dead"),
         Tr::TipBuild => ("공사: {}", "Build: {}"),
+        Tr::StIdle => ("휴식", "Idle"),
+        Tr::StMoving => ("이동", "Moving"),
+        Tr::StActing => ("행동", "Acting"),
+        Tr::StThinking => ("생각", "Thinking"),
+        Tr::StSleeping => ("취침", "Sleeping"),
+        Tr::SunTimes => ("일출 {} · 일몰 {}", "Sunrise {} · Sunset {}"),
     };
     match lang {
         Lang::Ko => ko,
@@ -150,4 +164,17 @@ pub fn tr(lang: Lang, key: Tr) -> &'static str {
 /// 편의 — 언어로 바로 포맷되는 문자열(자리표 비포함 키)
 pub fn trf(lang: Lang, key: Tr, arg: &str) -> String {
     tr(lang, key).replace("{}", arg)
+}
+
+/// 서버 상태 문자열 → 현지화 라벨(미지 어휘는 원문 통과)
+pub fn status_label(lang: Lang, status: &str) -> &'static str {
+    match status {
+        "idle" => tr(lang, Tr::StIdle),
+        "moving" => tr(lang, Tr::StMoving),
+        "acting" => tr(lang, Tr::StActing),
+        "thinking" => tr(lang, Tr::StThinking),
+        "sleeping" => tr(lang, Tr::StSleeping),
+        // 서버가 새 어휘를 보내면 원문 그대로(깨짐 없음)
+        _ => "",
+    }
 }
