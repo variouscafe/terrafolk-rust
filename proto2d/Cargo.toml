@@ -12,12 +12,16 @@ bevy = { version = "0.19.1", default-features = false, features = [
     "png",
     "bevy_asset",
     "bevy_text",
-    "bevy_ui",
-    "bevy_ui_render",
     "webgl2", # wasm 기본 WebGPU 우선 → 실브라우저에서 빈 회면(2026-10-19 실측). GL 강제.
 ] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+bevy_egui = { version = "0.40", default-features = false, features = [
+    "render",
+    "manage_clipboard", # 채팅 입력 붙여넣기
+    "default_fonts",    # 라틴 기본(한글은 런트임 에셋 폰트 — fonts.rs)
+    "open_url",
+] }  # bevy 0.19 정확 대응 — bevy_ui·picking 등 미사용 피처 제거로 wasm 다이어트(CF 25MiB)
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1"

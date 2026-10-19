@@ -4,10 +4,10 @@ mod agents;
 mod cam;
 mod daynight;
 mod ground;
-mod hud;
 mod mapdata;
 mod net;
 mod props;
+mod ui;
 
 use bevy::prelude::*;
 
@@ -109,12 +109,12 @@ fn main() {
                 ground::spawn.run_if(|e: Res<Exp>| !matches!(e.0, 'h' | 'p' | 'r' | 's' | 't' | 'u' | 'v' | 'x')),
                 props::spawn.run_if(|e: Res<Exp>| !matches!(e.0, 'h' | 'p' | 'r' | 's' | 't' | 'u' | 'v' | 'x')),
                 agents::spawn.run_if(|e: Res<Exp>| !matches!(e.0, 'h' | 'p' | 'r' | 's' | 't' | 'u' | 'v' | 'x')),
-                hud::spawn,
                 daynight::spawn,
                 spawn_exp_probes,
             ),
         )
         .add_plugins(net::NetPlugin)
+        .add_plugins(ui::UiPlugin)
         .add_systems(
             Update,
             (
@@ -131,7 +131,6 @@ fn main() {
                 props::animate_campfire,
                 ground::water_frames,
                 daynight::advance,
-                hud::clock_update,
                 agents::select_on_click,
                 agents::select_on_tap,
                 agents::marker_follow,

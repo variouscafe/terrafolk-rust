@@ -37,6 +37,12 @@ pub struct ChatQueue {
     pub inner: Arc<Mutex<Vec<ChatRow>>>,
 }
 
+/// 라이브 이벤트 행(스레드 → ECS) — 이벤트 로그 패널 소스
+#[derive(Resource, Clone, Default)]
+pub struct EventQueue {
+    pub inner: Arc<Mutex<Vec<String>>>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NetStatus {
     Idle,
@@ -156,6 +162,7 @@ impl Plugin for NetPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<FrameQueue>()
             .init_resource::<ChatQueue>()
+            .init_resource::<EventQueue>()
             .init_resource::<NetState>()
             .init_resource::<NetLinkPhase>()
             .add_systems(Startup, connect_bridge)
@@ -172,6 +179,7 @@ impl Plugin for NetPlugin {
                     apply::live_move,
                     live_props::roam_move,
                     chat::drain_and_bubble,
+                    drain_events,
                 )
                     .chain(),
             );
@@ -221,12 +229,17 @@ fn url_live_off() -> bool {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn connect_bridge(queue: Res<FrameQueue>, phase: Res<NetLinkPhase>, chats: Res<ChatQueue>) {
+fn connect_bridge(
+    queue: Res<FrameQueue>,
+    phase: Res<NetLinkPhase>,
+    chats: Res<ChatQueue>,
+    events: Res<EventQueue>,
+) {
     if std::env::var("TF_NO_NET").is_ok() {
         info!("[net] TF_NO_NET — 접속 스킵(데모 진단)");
         return;
     }
-    native_conn::spawn(queue.clone(), Arc::clone(&phase.0), chats.clone());
+    native_conn::spawn(queue.clone(), Arc::clone(&phase.0), chats.clone(), events.clone());
 }
 
 /// 링크 단계(원자값) → NetState.status. drain_frames가 성공 시 CONNECTED를
@@ -250,6 +263,7 @@ fn update_link_phase(phase: Res<NetLinkPhase>, mut net: ResMut<NetState>) {
 fn drain_frames(
     queue: Res<FrameQueue>,
     chats: Res<ChatQueue>,
+    events: Res<EventQueue>,
     phase: Res<NetLinkPhase>,
     mut net: ResMut<NetState>,
 ) {
@@ -261,10 +275,22 @@ fn drain_frames(
     };
     let mut last_frame: Option<String> = None;
     for s in drained {
-        if s.len() > 12 && s[2..8].contains("\"tf\"") && s.contains("\"chat\"") {
-            if let Ok(env) = serde_json::from_str::<ChatEnvelope>(&s) {
+        if s.len() > 12 && s[2..8].contains("\"tf\"") {
+            // 채팅 인젤로프 — ChatQueue로
+            if s.contains("\"chat\"")
+                && let Ok(env) = serde_json::from_str::<ChatEnvelope>(&s)
+            {
                 if let Ok(mut q) = chats.inner.lock() {
                     q.push(env.row.into());
+                }
+                continue;
+            }
+            // 이벤트 인젤로프 — EventQueue로(drain_events가 UI 로그로)
+            if s.contains("\"event\"")
+                && let Ok(env) = serde_json::from_str::<EventEnvelope>(&s)
+            {
+                if let Ok(mut q) = events.inner.lock() {
+                    q.push(format_event(&env.row));
                 }
                 continue;
             }
@@ -308,5 +334,48 @@ impl From<ChatRowSer> for ChatRow {
             speaker: r.speaker.unwrap_or_default(),
             text: r.text.unwrap_or_default(),
         }
+    }
+}
+
+/// 이벤트 큐 drain — EventLog(UI 패널)로. wasm은 worldsim 포크의
+/// {tf:'event'} 인젤로프가 FrameQueue로, 여기 drain_frames와 합류한다.
+fn drain_events(queue: Res<EventQueue>, mut log: ResMut<crate::ui::EventLog>) {
+    let rows: Vec<String> = {
+        let Ok(mut q) = queue.inner.lock() else {
+            return;
+        };
+        q.drain(..).collect()
+    };
+    for r in rows {
+        log.rows.push(r);
+    }
+    let len = log.rows.len();
+    if len > 100 {
+        log.rows.drain(0..len - 100);
+    }
+}
+
+/// wasm 이벤트 인젤로프(worldsim 포크가 송출)
+#[derive(Deserialize)]
+struct EventEnvelope {
+    row: serde_json::Value,
+}
+
+/// 이벤트 JSON → 관전 타임라인 문자열(네이티브 native_conn과 동일 서식)
+pub(crate) fn format_event(row: &serde_json::Value) -> String {
+    let kind = row.get("kind").and_then(|v| v.as_str()).unwrap_or("?");
+    let text = row
+        .get("payload")
+        .and_then(|p| p.get("text").or_else(|| p.get("key")))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let agent = row.get("agent_id").and_then(|v| v.as_str()).unwrap_or("");
+    if text.is_empty() {
+        return format!("[{kind}]");
+    }
+    if agent.is_empty() {
+        format!("[{kind}] {text}")
+    } else {
+        format!("[{kind}] {agent}: {text}")
     }
 }
