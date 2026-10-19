@@ -111,7 +111,12 @@ pub fn prime(
 }
 
 /// 서버 시간 → GameTime(로컬 진행 정지 — 서버가 정본) + 계절·날씨 → 스킨.
-pub fn sync_daynight(net: Res<NetState>, mut day: ResMut<GameTime>, mut skin: ResMut<GroundSkin>) {
+pub fn sync_daynight(
+    net: Res<NetState>,
+    mut day: ResMut<GameTime>,
+    mut skin: ResMut<GroundSkin>,
+    override_skin: Res<crate::ui::menu::SkinOverride>,
+) {
     if net.status != NetStatus::Connected {
         return;
     }
@@ -120,9 +125,10 @@ pub fn sync_daynight(net: Res<NetState>, mut day: ResMut<GameTime>, mut skin: Re
     };
     day.day = f.day as u32;
     day.t = (f.hour as f32 * 60.0 + f.minute as f32) / 1440.0;
-    // 겨울 또는 폭설 → 설원(레퍼런스의 백색 대지). 그 외 계절은 스트레치.
+    // 겨울 또는 폭설 → 설원(레퍼런스의 백색 대지). 메뉴 강제(SkinOverride) 우선.
     let snow = f.season == "winter" || f.weather.as_deref() == Some("snow");
     let want = if snow { GroundSkin::Snow } else { GroundSkin::Normal };
+    let want = override_skin.0.unwrap_or(want);
     if *skin != want {
         info!("[net] 계절 {} · 날씨 {:?} → 스킨 {want:?}", f.season, f.weather);
         *skin = want;
