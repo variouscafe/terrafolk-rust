@@ -341,6 +341,7 @@ pub fn select_on_tap(
 
 /// 선택 마커 추적 — 링은 발밑, 이름은 머리 위
 pub fn marker_follow(
+    time: Res<Time>,
     selected: Query<(Entity, &Transform), (With<Selected>, Without<SelectionMarker>)>,
     agents: Query<&Agent>,
     mut marker: Query<&mut Transform, (With<SelectionMarker>, Without<Selected>)>,
@@ -349,6 +350,9 @@ pub fn marker_follow(
     let Some((e, st)) = selected.iter().next() else { return };
     if let Ok(mut m) = marker.single_mut() {
         m.translation = st.translation.truncate().extend(st.translation.z + 0.5);
+        // 선택 링 펄스 — 호흡듯 6% 스케일 (호버 대상 인지성)
+        let pulse = 1.0 + (time.elapsed_secs() * 3.2).sin() * 0.06;
+        m.scale = Vec3::splat(pulse);
     }
     if let (Ok(mut t), Ok(a)) = (name.single_mut(), agents.get(e)) {
         **t = a.name.clone().into();
