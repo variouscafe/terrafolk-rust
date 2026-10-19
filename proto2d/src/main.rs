@@ -1,6 +1,7 @@
 //! Terrafolk 2D proto — 원본 FE(웹) 2D 도트 룩의 Bevy 패리티 프로토타입.
 //! 레거시 맵(shared-map.json)·LPC 주민·픽셀 프롭을 정투형 타일 월드로 렌더.
 mod agents;
+mod ambient;
 mod cam;
 mod daynight;
 mod ground;
@@ -109,11 +110,24 @@ fn main() {
                 ground::spawn.run_if(|e: Res<Exp>| !matches!(e.0, 'h' | 'p' | 'r' | 's' | 't' | 'u' | 'v' | 'x')),
                 props::spawn.run_if(|e: Res<Exp>| !matches!(e.0, 'h' | 'p' | 'r' | 's' | 't' | 'u' | 'v' | 'x')),
                 agents::spawn.run_if(|e: Res<Exp>| !matches!(e.0, 'h' | 'p' | 'r' | 's' | 't' | 'u' | 'v' | 'x')),
+                ambient::spawn_fireflies,
+                ambient::spawn_clouds,
                 spawn_exp_probes,
             ),
         )
         .add_plugins(net::NetPlugin)
         .add_plugins(ui::UiPlugin)
+        .add_systems(
+            Update,
+            (
+                ambient::sway_trees,
+                ambient::update_fireflies,
+                ambient::drift_clouds,
+                daynight::attach_tint,
+                daynight::update_tint,
+                daynight::advance,
+            ),
+        )
         .add_systems(
             Update,
             (
@@ -129,9 +143,6 @@ fn main() {
                 agents::animate,
                 props::animate_campfire,
                 ground::water_frames,
-                daynight::attach_tint,
-                daynight::update_tint,
-                daynight::advance,
                 agents::select_on_click,
                 agents::select_on_tap,
                 agents::marker_follow,
