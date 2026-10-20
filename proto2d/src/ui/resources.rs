@@ -43,6 +43,7 @@ pub fn panel(
     ui_state: Res<UiState>,
     net: Option<Res<NetState>>,
     vocab: Res<Vocab>,
+    mut mt: ResMut<super::mt::MtCache>,
 ) {
     if !ui_state.show_resources {
         return;
@@ -169,14 +170,19 @@ pub fn panel(
                             });
                         ui.add_space(2.0);
                     }
-                    inv_chips(ui, lang, frame);
+                    inv_chips(ui, lang, &mut mt, frame);
                 });
         });
 }
 
 /// 마을의 발명 칩(레거시 res 팝업 '마을의 발명' 섹션 직역) — 이름 + 개선형 ↑,
 /// 호버에 발명가·목적. 아이콘 합성(assetgen)은 미지원 — 텍스트 칩.
-fn inv_chips(ui: &mut egui::Ui, lang: super::i18n::Lang, frame: &crate::net::LiveFrame) {
+fn inv_chips(
+    ui: &mut egui::Ui,
+    lang: super::i18n::Lang,
+    mt: &mut super::mt::MtCache,
+    frame: &crate::net::LiveFrame,
+) {
     super::widgets::section(ui, "⚒", &tr(lang, Tr::ResInventions));
     let rows: Vec<super::civ::InventionRow> = frame
         .inventions
@@ -208,6 +214,7 @@ fn inv_chips(ui: &mut egui::Ui, lang: super::i18n::Lang, frame: &crate::net::Liv
                 .response;
             let inv = r.inventor.as_deref().unwrap_or("");
             let purpose = r.purpose.as_deref().unwrap_or("");
+            let purpose = &mt.get(purpose, lang);
             let tip = match (inv.is_empty(), purpose.is_empty()) {
                 (false, false) => format!("{inv} — {purpose}"),
                 (false, true) => inv.to_owned(),

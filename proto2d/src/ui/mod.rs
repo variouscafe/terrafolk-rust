@@ -11,6 +11,7 @@ pub mod fonts;
 pub mod i18n;
 pub mod menu;
 pub mod minimap;
+pub mod mt;
 pub mod relations;
 pub mod relic;
 pub mod resources;
@@ -124,6 +125,7 @@ impl Plugin for UiPlugin {
             .init_resource::<EventLog>()
             .init_resource::<UiState>()
             .init_resource::<relic::RelicCard>()
+            .init_resource::<mt::MtCache>()
             .init_resource::<vocab::Vocab>()
             .init_resource::<menu::SkinOverride>()
             .init_resource::<toasts::ToastQ>()
@@ -146,6 +148,7 @@ impl Plugin for UiPlugin {
                     toasts::collect,
                     responsive_defaults,
                     debug_panel_cmds,
+                    mt::flush,
                 ),
             )
             .add_systems(

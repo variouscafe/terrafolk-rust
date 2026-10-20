@@ -11,6 +11,7 @@ use egui_phosphor::regular;
 use super::vocab::{Vocab, civ_score};
 use super::widgets::{chip, section};
 use super::{EventLog, UiState, ctx};
+use bevy::ecs::system::ResMut;
 use crate::net::NetState;
 
 /// inventionsJson 행 — docs §2.4(서버 serializeInventions)
@@ -49,6 +50,7 @@ pub fn panel(
     net: Option<Res<NetState>>,
     vocab: Res<Vocab>,
     events: Res<EventLog>,
+    mut mt: ResMut<super::mt::MtCache>,
     mut cache: Local<Option<(String, Vec<InventionRow>)>>,
     mut view: Local<CivView>,
 ) {
@@ -84,7 +86,7 @@ pub fn panel(
             if let Some(name) = view.detail.clone()
                 && let Some(r) = rows.iter().find(|r| r.name == name)
             {
-                inv_detail(ui, lang, &vocab, r, &mut |v| *view = CivView { detail: v });
+                inv_detail(ui, lang, &vocab, &mut mt, r, &mut |v| *view = CivView { detail: v });
                 return;
             }
             summary(ui, lang, &vocab, rows);
@@ -334,6 +336,7 @@ fn inv_detail(
     ui: &mut egui::Ui,
     lang: Lang,
     vocab: &Vocab,
+    mt: &mut super::mt::MtCache,
     r: &InventionRow,
     open: &mut dyn FnMut(Option<String>),
 ) {
@@ -390,6 +393,7 @@ fn inv_detail(
     }
     if let Some(p) = r.purpose.as_deref().filter(|s| !s.is_empty()) {
         ui.add_space(3.0);
-        ui.label(egui::RichText::new(p).size(11.0).color(theme::TEXT_WARM));
+        // 발명 목적은 영문 정본 — 표시 시점 MT(§17.51), 도착 전엔 원문
+        ui.label(egui::RichText::new(mt.get(p, lang)).size(11.0).color(theme::TEXT_WARM));
     }
 }
