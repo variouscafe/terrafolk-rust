@@ -76,8 +76,7 @@ pub fn title_bar_flat(ui: &mut egui::Ui, icon: &str, title: &str) {
         icon_chip_flat(ui, icon, 20.0);
         ui.label(
             egui::RichText::new(title)
-                .size(13.5)
-                .strong()
+                .font(theme::font_semi(13.5))
                 .color(theme::INK),
         );
     });
@@ -133,8 +132,7 @@ pub fn title_bar(ui: &mut egui::Ui, icon: &str, title: &str) {
         icon_chip(ui, icon, 20.0);
         ui.label(
             egui::RichText::new(title)
-                .size(13.5)
-                .strong()
+                .font(theme::font_semi(13.5))
                 .color(theme::INK),
         );
     });
@@ -147,8 +145,7 @@ pub fn section(ui: &mut egui::Ui, icon: &str, title: &str) {
         icon_chip(ui, icon, 16.0);
         ui.label(
             egui::RichText::new(title)
-                .size(12.5)
-                .strong()
+                .font(theme::font_semi(12.5))
                 .color(theme::INK),
         );
     });

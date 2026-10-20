@@ -9,6 +9,7 @@ use bevy_egui::egui;
 
 use super::i18n::{Tr, status_color, status_label, tr};
 use super::theme;
+use egui_phosphor::regular;
 use super::widgets;
 use super::{ChatLog, ChatLogRow, UiState, ctx, fmt_hhmm};
 use crate::agents::Agent;
@@ -44,7 +45,7 @@ pub fn panel(
         .show(&c, |ui| {
             ui.add_space(3.0);
             if !narrow {
-                widgets::title_bar_flat(ui, "話", tr(ui_state.lang, Tr::Chat));
+                widgets::title_bar_flat(ui, regular::CHAT_CIRCLE_TEXT, tr(ui_state.lang, Tr::Chat));
             }
             egui::ScrollArea::vertical()
                 .max_height(log_h)
@@ -377,7 +378,7 @@ fn mute_chip(ui: &mut egui::Ui) {
     p.text(
         c,
         egui::Align2::CENTER_CENTER,
-        "話",
+        regular::CHAT_CIRCLE_TEXT,
         egui::FontId::proportional(10.0),
         theme::TEXT_DIM,
     );

@@ -123,6 +123,11 @@ pub fn agent_ink(id: &str) -> egui::Color32 {
     agent_color(id)
 }
 
+/// 세미볼드 폰트 — 타이틀·헤더용(fonts.rs가 "semi" 패밀리 등장)
+pub fn font_semi(size: f32) -> egui::FontId {
+    egui::FontId::new(size, egui::FontFamily::Name("semi".into()))
+}
+
 /// 계절 라벨+색 — 레거시 FE season chip 직역(다크 위 비비드)
 pub fn season_mark(lang: crate::ui::i18n::Lang, season: &str) -> (&'static str, egui::Color32) {
     use crate::ui::i18n::{Tr, tr};
@@ -176,6 +181,15 @@ pub fn apply(mut contexts: EguiContexts, mut done: Local<bool>) {
     let Some(ctx) = contexts.ctx_mut().ok().cloned() else {
         return;
     };
+    // "semi" 패밀리 선바인딩 — 폰트 에셋 로드 전 1프레임에도 레이아웃이
+    // 돌아야 한다(epaint는 미바인딩 패밀리 참조 시 패닉). 임시로 기본 폰트를
+    // 물리고, 로드 후 fonts.rs가 진짜 SemiBold로 갈아끼운다.
+    let mut defs = egui::FontDefinitions::default();
+    defs.families.insert(
+        egui::FontFamily::Name("semi".into()),
+        vec!["Ubuntu-Light".into()],
+    );
+    ctx.set_fonts(defs);
     let mut vis = egui::Visuals::dark();
     vis.panel_fill = glass_dock();
     vis.window_fill = glass();

@@ -7,6 +7,7 @@ use bevy_egui::egui;
 
 use super::i18n::{Tr, tr, trf};
 use super::theme;
+use egui_phosphor::regular;
 use super::{UiState, ctx};
 use crate::daynight::GameTime;
 use crate::net::{NetState, NetStatus};
@@ -124,20 +125,20 @@ pub fn top_bar(
         .order(egui::Order::Foreground)
         .show(&c, |ui| {
             // 햄버거 — 한글 폰트 확보 글리프 三(삼획)
-            let menu_text = egui::RichText::new("三").size(12.0).color(theme::INK);
+            let menu_text = egui::RichText::new(regular::LIST).size(12.0).color(theme::INK);
             egui::menu::menu_button(ui, menu_text, |ui| {
                 ui.set_min_width(172.0);
                 let items = [
-                    (Tr::ToggleVillagers, "人"),
-                    (Tr::ToggleChat, "話"),
+                    (Tr::ToggleVillagers, regular::USERS),
+                    (Tr::ToggleChat, regular::CHAT_CIRCLE_TEXT),
                     (Tr::ToggleResources, "木"),
-                    (Tr::ToggleEvents, "史"),
+                    (Tr::ToggleEvents, regular::CLOCK_COUNTER_CLOCKWISE),
                     (Tr::ToggleCiv, "文"),
-                    (Tr::ToggleRelations, "緣"),
+                    (Tr::ToggleRelations, regular::LINK),
                     (Tr::ToggleEconomy, "貨"),
                     (Tr::ToggleMinimap, "圖"),
                     // ⚙(U+2699)은 폰트에 없다 — 설(設)으로
-                    (Tr::ToggleSettings, "設"),
+                    (Tr::ToggleSettings, regular::GEAR),
                 ];
                 for (key, icon) in items {
                     if key == Tr::ToggleSettings {
