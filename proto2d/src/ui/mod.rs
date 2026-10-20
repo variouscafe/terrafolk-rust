@@ -140,6 +140,7 @@ impl Plugin for UiPlugin {
                     shell::top_bar,
                     villagers::panel,
                     chat::panel,
+                    chat::conversation,
                     events::panel,
                     minimap::panel,
                     menu::panel,

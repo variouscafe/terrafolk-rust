@@ -122,6 +122,7 @@ async function proxyRoute(route) {
     }
     if (s.wheel) await pg.mouse.wheel(s.wheel[0], s.wheel[1]);
     if (s.key) await pg.keyboard.press(s.key);
+    if (s.type) await pg.keyboard.insertText(s.type);
     if (s.fps) {
       rec.fps = await pg.evaluate(async (secs) => {
         return await new Promise((res) => {
@@ -134,6 +135,9 @@ async function proxyRoute(route) {
           })();
         });
       }, s.fps);
+    }
+    if (s.eval) {
+      rec.eval = await pg.evaluate(s.eval);
     }
     if (s.state) {
       rec.status = ((await pg.locator('#status').textContent().catch(() => '')) || '').slice(0, 160);
