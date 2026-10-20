@@ -22,13 +22,21 @@ pub fn top_bar(
     let lang = ui_state.lang;
     let frame = net.as_ref().and_then(|n| n.frame.as_ref());
     // 반응형 계층 — 폰 좁은 폭에서 정보 칩부터 줄인다(레거시 mobile과 동일 정보 유지)
-    let sw = c.screen_rect().width();
+    let sw = c.viewport_rect().width();
     let (show_brand, compact_clock, icon_only_weather) =
         if sw >= 560.0 { (true, false, false) } else if sw >= 420.0 { (false, false, true) } else { (false, true, true) };
+    // egui 0.36 — 패널은 루트 Ui 안에서(수동 생성, 결정론 rect)
+    let mut root = egui::Ui::new(
+        c.clone(),
+        egui::Id::new("topbar_root"),
+        egui::UiBuilder::new()
+            .layer_id(egui::LayerId::background())
+            .max_rect(c.viewport_rect()),
+    );
     egui::Panel::top("topbar")
-        .exact_height(38.0)
+        .exact_size(38.0)
         .frame(super::widgets::dock())
-        .show(&c, |ui| {
+        .show(&mut root, |ui| {
             ui.horizontal_centered(|ui| {
                 ui.add_space(6.0);
                 // 브랜드 — 골드 강조(좁은 화면 생략)
@@ -126,7 +134,7 @@ pub fn top_bar(
         .show(&c, |ui| {
             // 햄버거 — 한글 폰트 확보 글리프 三(삼획)
             let menu_text = egui::RichText::new(regular::LIST).size(12.0).color(theme::INK);
-            egui::menu::menu_button(ui, menu_text, |ui| {
+            ui.menu_button(menu_text, |ui| {
                 ui.set_min_width(172.0);
                 let items = [
                     (Tr::ToggleVillagers, regular::USERS),
@@ -169,7 +177,7 @@ pub fn top_bar(
                     }
                     if resp.clicked() {
                         menu_toggle(&mut ui_state, key, sw);
-                        ui.close_menu();
+                        ui.close();
                     }
                 }
             });

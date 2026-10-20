@@ -78,11 +78,11 @@ pub fn panel(
 
     egui::Window::new(tr(lang, Tr::ToggleResources))
         .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, -20.0))
-        .default_width((c.screen_rect().width() - 24.0).min(300.0))
+        .default_width((c.viewport_rect().width() - 24.0).min(300.0))
         .frame(card())
         .title_bar(false)
         .show(&c, |ui| {
-            ui.set_min_width((c.screen_rect().width() - 24.0).min(300.0).max(240.0));
+            ui.set_min_width((c.viewport_rect().width() - 24.0).min(300.0).max(240.0));
             super::widgets::title_bar(ui, "木", tr(lang, Tr::ToggleResources));
             ui.add_space(2.0);
             if stats.is_empty() {

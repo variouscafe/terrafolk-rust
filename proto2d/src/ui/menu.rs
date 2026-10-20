@@ -27,7 +27,7 @@ pub fn panel(
     let lang = ui_state.lang;
     egui::Window::new(tr(lang, Tr::ToggleSettings))
         .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, -20.0))
-        .default_width((c.screen_rect().width() - 24.0).min(250.0))
+        .default_width((c.viewport_rect().width() - 24.0).min(250.0))
         .frame(super::widgets::card())
         .title_bar(false)
         .show(&c, |ui| {

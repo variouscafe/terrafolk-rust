@@ -76,7 +76,7 @@ pub fn panel(
 
     egui::Window::new(tr(lang, Tr::Civ))
         .anchor(egui::Align2::CENTER_CENTER, egui::vec2(-20.0, 0.0))
-        .default_width((c.screen_rect().width() - 24.0).min(340.0))
+        .default_width((c.viewport_rect().width() - 24.0).min(340.0))
         .default_open(true)
         .frame(crate::ui::widgets::card())
         .title_bar(false)

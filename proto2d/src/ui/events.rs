@@ -52,7 +52,7 @@ pub fn panel(
     };
     egui::Window::new(tr(lang, Tr::Events))
         .anchor(egui::Align2::LEFT_TOP, egui::vec2(10.0, 242.0))
-        .default_width((c.screen_rect().width() - 20.0).min(360.0))
+        .default_width((c.viewport_rect().width() - 20.0).min(360.0))
         .frame(card())
         .title_bar(false)
         .show(&c, |ui| {

@@ -52,11 +52,14 @@ pub fn show(
     state_cache: bevy::ecs::system::Res<crate::net::NetState>,
 ) {
     let Some(c) = ctx(&mut contexts) else { return };
-    // egui가 마우스를 쓰는 중(패널 hover)이면 스킵 — 월드 툴팁만
-    if c.is_pointer_over_area() {
-        return;
-    }
     let Some(pointer) = c.pointer_hover_pos() else {
+        return;
+    };
+    // egui 계층 위(패널·창)면 스킵 — 월드 툴팁만(배경 계층=월드)
+    if c
+        .layer_id_at(pointer)
+        .is_some_and(|l| l.order != egui::Order::Background)
+    {
         return;
     };
     let Ok(window) = windows.single() else { return };

@@ -33,16 +33,34 @@ pub fn panel(
     let Some(c) = ctx(&mut contexts) else { return };
     let agents = live_agents(&net);
     // 모바일 — 컴팩트 바(레거시 ChatBar 직역: 로그 2-3행 + 입력행, 헤더 생략)
-    let narrow = c.screen_rect().width() < 760.0;
+    let narrow = c.viewport_rect().width() < 760.0;
     let (panel_h, log_h) = if narrow {
         (super::CHAT_H_NARROW, 38.0)
     } else {
         (super::CHAT_H_DESKTOP, 78.0)
     };
+    // egui 0.36 루트 Ui — 하단 도킹 rect(우측 주민 패널 폭 제외, 결정론)
+    let vp = c.viewport_rect();
+    let right = if ui_state.show_villagers && !narrow {
+        super::VILLAGERS_W
+    } else {
+        0.0
+    };
+    let dock_rect = egui::Rect::from_min_max(
+        egui::pos2(vp.left(), vp.bottom() - panel_h),
+        egui::pos2(vp.right() - right, vp.bottom()),
+    );
+    let mut root = egui::Ui::new(
+        c.clone(),
+        egui::Id::new("chatdock_root"),
+        egui::UiBuilder::new()
+            .layer_id(egui::LayerId::background())
+            .max_rect(dock_rect),
+    );
     egui::Panel::bottom("chat")
-        .exact_height(panel_h)
+        .exact_size(panel_h)
         .frame(widgets::dock_flat())
-        .show(&c, |ui| {
+        .show(&mut root, |ui| {
             ui.add_space(3.0);
             if !narrow {
                 widgets::title_bar_flat(ui, regular::CHAT_CIRCLE_TEXT, tr(ui_state.lang, Tr::Chat));
@@ -113,11 +131,11 @@ pub fn conversation(
     } else {
         theme::agent_color(id)
     };
-    let narrow = c.screen_rect().width() < 760.0;
+    let narrow = c.viewport_rect().width() < 760.0;
     // 남은 맵 영역의 중앙 하단에 배치 — 도킹 크기는 알려진 상수로 계산
     // (available_rect는 멀티패스 프레임에서 이전 패스 패널 할당이 애매해
     // 실측보다 결정론이 안전하다).
-    let screen = c.screen_rect();
+    let screen = c.viewport_rect();
     let right = if ui_state.show_villagers && !narrow {
         super::VILLAGERS_W
     } else {

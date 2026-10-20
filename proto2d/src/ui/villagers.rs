@@ -116,19 +116,19 @@ pub fn panel(
         });
     }
     let mut out = BodyOut { select: None, close: false };
-    let narrow = c.screen_rect().width() < 760.0;
+    let narrow = c.viewport_rect().width() < 760.0;
     if narrow {
         // 모바일 — 레거시 CharsPopup처럼 중앙 모달(맵 최대 확보·단일 창 정책 대상)
         egui::Window::new(tr(lang, Tr::Villagers))
             .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, -10.0))
-            .default_width((c.screen_rect().width() - 24.0).min(330.0))
+            .default_width((c.viewport_rect().width() - 24.0).min(330.0))
             .frame(card())
             .title_bar(false)
             .show(&c, |ui| {
-                ui.set_min_width((c.screen_rect().width() - 24.0).min(320.0).max(260.0));
+                ui.set_min_width((c.viewport_rect().width() - 24.0).min(320.0).max(260.0));
                 egui::ScrollArea::vertical()
                     .id_salt("vmodal")
-                    .max_height(c.screen_rect().height() * 0.66)
+                    .max_height(c.viewport_rect().height() * 0.66)
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
                         out = body(ui, lang, &vocab, frame, &polls, &rows, true);
@@ -136,10 +136,32 @@ pub fn panel(
             });
     } else {
         // 데스크톱 — 우측 도킹 패널(기존 레이아웃)
+        // egui 0.36 루트 Ui — 우측 도킹 rect(상단 바 38·채팅 바 제외, 결정론)
+        let vp = c.viewport_rect();
+        let chat_h = if ui_state.show_chat {
+            if narrow {
+                super::CHAT_H_NARROW
+            } else {
+                super::CHAT_H_DESKTOP
+            }
+        } else {
+            0.0
+        };
+        let dock_rect = egui::Rect::from_min_max(
+            egui::pos2(vp.right() - super::VILLAGERS_W, vp.top() + 38.0),
+            egui::pos2(vp.right(), vp.bottom() - chat_h),
+        );
+        let mut root = egui::Ui::new(
+            c.clone(),
+            egui::Id::new("villagers_root"),
+            egui::UiBuilder::new()
+                .layer_id(egui::LayerId::background())
+                .max_rect(dock_rect),
+        );
         egui::Panel::right("villagers")
-            .exact_width(super::VILLAGERS_W)
+            .exact_size(super::VILLAGERS_W)
             .frame(super::widgets::dock())
-            .show(&c, |ui| {
+            .show(&mut root, |ui| {
                 out = body(ui, lang, &vocab, frame, &polls, &rows, false);
             });
     }

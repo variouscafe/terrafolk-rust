@@ -253,7 +253,7 @@ fn spawn_probe(
 struct ProbeCard;
 
 fn on_hover(
-    _hover: On<Pointer<Over>>,
+    _hover: On<PointerOver>,
     mut q: Query<&mut Text, With<ProbeCount>>,
 ) {
     if let Ok(mut text) = q.single_mut() {
@@ -264,7 +264,7 @@ fn on_hover(
 
 /// 송신 버튼 클릭 — 카운터 증가로 인터랙션 실측(웹 포인터 이벤트 경로)
 fn on_click(
-    click: On<Pointer<Click>>,
+    click: On<PointerClick>,
     mut q: Query<(&mut ProbeCount, &mut Text), With<ProbeToggle>>,
 ) {
     if let Ok((mut count, mut text)) = q.single_mut() {

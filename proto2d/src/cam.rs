@@ -66,11 +66,8 @@ pub fn touch_gestures(
             // 창·메뉴·토스트 계층 위 — UI
             Some(l) if l.order != Order::Background => true,
             // 배경 계층 — 도킹 패널 영역이면 UI, 중앙(패널 제외)이면 월드.
-            // available_rect가 정확히 '패널 뺀 중앙'(deprecated 표기는 이동
-            // 권고일 뿐 — 대안 content_rect는 안전영역이라 의미가 다르다)
             Some(_) => {
-                #[expect(deprecated)]
-                !c.available_rect().contains(pos)
+                !c.content_rect().contains(pos)
             }
             None => false,
         }

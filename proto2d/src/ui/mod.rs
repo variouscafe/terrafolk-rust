@@ -202,7 +202,7 @@ pub fn egui_owns_input(contexts: &mut bevy_egui::EguiContexts) -> bool {
     contexts
         .ctx_mut()
         .ok()
-        .map(|c| c.egui_wants_pointer_input() || c.wants_keyboard_input())
+        .map(|c| c.egui_wants_pointer_input() || c.egui_wants_keyboard_input())
         .unwrap_or(false)
 }
 
