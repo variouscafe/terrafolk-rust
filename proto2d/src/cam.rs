@@ -9,6 +9,11 @@ pub struct DragState {
     pub total: f32,
 }
 
+/// 줌 한도(직교 scale — 작을수록 확대). 상한 4.5는 1024px 뷰포트에서
+/// 지도 x폭의 ~27%가 보이는 조망(2026-10-20 상향 2.8→4.5).
+const ZOOM_MIN: f32 = 0.6;
+const ZOOM_MAX: f32 = 4.5;
+
 #[derive(Resource)]
 pub struct ManualUntil(pub f32);
 
@@ -124,14 +129,16 @@ pub fn touch_gestures(
         let scale = match &mut *proj {
             Projection::Orthographic(o) => {
                 if zoom != 1.0 {
-                    o.scale = (o.scale * zoom).clamp(0.6, 2.8);
+                    o.scale = (o.scale * zoom).clamp(ZOOM_MIN, ZOOM_MAX);
                 }
                 o.scale
             }
             _ => 1.0,
         };
-        tr_.translation.x += pan.x / scale;
-        tr_.translation.y += pan.y / scale;
+        // 그랩 팬 — 화면 px당 월드 단위는 scale에 비례(축소=scale↑=넓게
+        // 보임)하므로 곱셈 보상. 나눗셈이면 축소할수록 손가락보다 느려진다.
+        tr_.translation.x += pan.x * scale;
+        tr_.translation.y += pan.y * scale;
         let (ex, ey) = world_extent();
         tr_.translation.x = tr_.translation.x.clamp(-ex, ex);
         tr_.translation.y = tr_.translation.y.clamp(-ey, 320.0);
@@ -207,7 +214,7 @@ pub fn pan_zoom(
     // (2026-10-20 실측: plus였을 때 휠 업=축소로 반전 동작)
     for e in wheel.read() {
         if let Projection::Orthographic(ref mut o) = *proj {
-            o.scale = (o.scale * (1.0 - e.y * 0.0015)).clamp(0.6, 2.8);
+            o.scale = (o.scale * (1.0 - e.y * 0.0015)).clamp(ZOOM_MIN, ZOOM_MAX);
         }
     }
 
@@ -229,25 +236,29 @@ pub fn pan_zoom(
         v.x += 1.0;
     }
 
-    // 드래그 팬 — 그랩 방향(화면 dx→월드 −x, dy→월드 +y), 줌 보상
+    // 드래그 팬 — 그랩 방향(화면 dx→월드 −x, dy→월드 +y). 줌 보상은
+    // 곱셈(축소=scale↑=px당 월드↑ — 1:1 그랩)이고 dt를 곱하지 않는다:
+    // mouse.delta는 이미 이번 프레임 누적분이라 dt를 곱하면 프레임레이트
+    // 배만 느려진다(구현 결함 — 축소 시 특히 체감, 2026-10-20 수정).
     let scale = match &*proj {
         Projection::Orthographic(o) => o.scale,
         _ => 1.0,
     };
+    let mut drag_v = Vec2::ZERO;
     if buttons.pressed(MouseButton::Left) {
         drag.total += mouse.delta.length();
         if drag.total > 5.0 {
-            v += Vec2::new(-mouse.delta.x, mouse.delta.y) / scale;
+            drag_v = Vec2::new(-mouse.delta.x, mouse.delta.y) * scale;
         }
     } else {
         drag.total = 0.0;
     }
 
-    if v != Vec2::ZERO {
+    if v != Vec2::ZERO || drag_v != Vec2::ZERO {
         manual.0 = time.elapsed_secs() + 1.5;
-        let speed = if buttons.pressed(MouseButton::Left) { 1.0 } else { 620.0 };
-        tr.translation.x += v.x * speed * dt;
-        tr.translation.y += v.y * speed * dt;
+        // 키보드는 속도×dt, 드래그는 화면 이동량 그대로(서로 별개 경로)
+        tr.translation.x += v.x * 620.0 * dt + drag_v.x;
+        tr.translation.y += v.y * 620.0 * dt + drag_v.y;
     }
 
     // 아이소 월드 경계 클램프(y는 위쪽이 −py → [−여유, 최대+여유])
