@@ -262,12 +262,17 @@ pub fn animate(mut q: Query<(&Agent, &mut Sprite)>) {
     }
 }
 
-/// 공통 픽킹 — 반경 내 최근접 주민 토글(재클릭 해제) + 선택 시 추적 재개
+/// 공통 픽킹 — 반경 내 최근접 주민 토글(재클릭 해제) + 선택 시 추적 재개.
+/// 주민이 아니면 유물(relic) 픽(§17.38) — 근접 relic 탭/클릭으로 발명품
+/// 카드를 연다. 빈 땅 탭은 선택·카드 모두 끈다(레거시 단일 창 정책).
 #[allow(clippy::too_many_arguments)]
 fn pick_and_apply(
     commands: &mut Commands,
     world: Vec2,
     agents_q: &Query<(Entity, &Transform, Option<&Selected>), With<Agent>>,
+    res_q: &Query<(&crate::net::live_props::LiveResourceTag, &Transform)>,
+    net: Option<&crate::net::NetState>,
+    relic: &mut crate::ui::relic::RelicCard,
     marker: &mut Query<&mut Visibility, With<SelectionMarker>>,
     manual: &mut crate::cam::ManualUntil,
     now: f32,
@@ -297,6 +302,53 @@ fn pick_and_apply(
     if let Ok(mut vis) = marker.single_mut() {
         *vis = if show { Visibility::Visible } else { Visibility::Hidden };
     }
+    // 유물 픽 — 주민이 잡히지 않았을 때만(주민이 우선).
+    if best.is_none() {
+        if let Some(info) = pick_relic(world, res_q, net) {
+            relic.0 = Some(info);
+            return;
+        }
+    }
+    relic.0 = None;
+}
+
+/// 근접 relic 탐색 — 자원 엔티티 중 kind=relic의 최근접(반경 64). stateJson의
+/// by·purpose·based_on을 카드로 싣는다(레거시 select-relic 페이로드 동일).
+fn pick_relic(
+    world: Vec2,
+    res_q: &Query<(&crate::net::live_props::LiveResourceTag, &Transform)>,
+    net: Option<&crate::net::NetState>,
+) -> Option<crate::ui::relic::RelicInfo> {
+    let frame = net?.frame.as_ref()?;
+    let mut best: Option<(u32, f32)> = None;
+    for (tag, tr) in res_q {
+        let d = tr.translation.truncate().distance(world);
+        if d < 64.0 && best.map(|(_, bd)| d < bd).unwrap_or(true) {
+            best = Some((tag.0, d));
+        }
+    }
+    let id = best?.0;
+    let r = frame.resources.iter().find(|r| r.id == id)?;
+    if r.kind != "relic" {
+        return None;
+    }
+    let st = r
+        .state
+        .as_deref()
+        .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
+        .unwrap_or(serde_json::Value::Null);
+    let s = |k: &str| {
+        st.get(k)
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_owned()
+    };
+    Some(crate::ui::relic::RelicInfo {
+        name: r.species.clone(),
+        by: s("by"),
+        purpose: s("purpose"),
+        based_on: s("based_on"),
+    })
 }
 
 /// 클릭 선택 — 드래그가 아니었을 때만.
@@ -309,6 +361,9 @@ pub fn select_on_click(
     camera_q: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
     drag: Res<crate::cam::DragState>,
     agents_q: Query<(Entity, &Transform, Option<&Selected>), With<Agent>>,
+    res_q: Query<(&crate::net::live_props::LiveResourceTag, &Transform)>,
+    net: Option<Res<crate::net::NetState>>,
+    mut relic: ResMut<crate::ui::relic::RelicCard>,
     mut marker: Query<&mut Visibility, With<SelectionMarker>>,
     mut manual: ResMut<crate::cam::ManualUntil>,
 ) {
@@ -323,7 +378,17 @@ pub fn select_on_click(
     let Some(cursor) = window.cursor_position() else { return };
     let Ok((camera, cam_tf)) = camera_q.single() else { return };
     let Ok(world) = camera.viewport_to_world_2d(cam_tf, cursor) else { return };
-    pick_and_apply(&mut commands, world, &agents_q, &mut marker, &mut manual, time.elapsed_secs());
+    pick_and_apply(
+        &mut commands,
+        world,
+        &agents_q,
+        &res_q,
+        net.as_deref(),
+        &mut relic,
+        &mut marker,
+        &mut manual,
+        time.elapsed_secs(),
+    );
 }
 
 /// 터치 탭 선택 — touch_gestures가 기록한 탭 좌표 소비
@@ -334,6 +399,9 @@ pub fn select_on_tap(
     mut tap: ResMut<crate::cam::TapPos>,
     camera_q: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
     agents_q: Query<(Entity, &Transform, Option<&Selected>), With<Agent>>,
+    res_q: Query<(&crate::net::live_props::LiveResourceTag, &Transform)>,
+    net: Option<Res<crate::net::NetState>>,
+    mut relic: ResMut<crate::ui::relic::RelicCard>,
     mut marker: Query<&mut Visibility, With<SelectionMarker>>,
     mut manual: ResMut<crate::cam::ManualUntil>,
 ) {
@@ -343,7 +411,17 @@ pub fn select_on_tap(
     let Some(screen) = tap.0.take() else { return };
     let Ok((camera, cam_tf)) = camera_q.single() else { return };
     let Ok(world) = camera.viewport_to_world_2d(cam_tf, screen) else { return };
-    pick_and_apply(&mut commands, world, &agents_q, &mut marker, &mut manual, time.elapsed_secs());
+    pick_and_apply(
+        &mut commands,
+        world,
+        &agents_q,
+        &res_q,
+        net.as_deref(),
+        &mut relic,
+        &mut marker,
+        &mut manual,
+        time.elapsed_secs(),
+    );
 }
 
 /// 선택 마커 추적 — 링은 발밑, 이름은 머리 위

@@ -12,6 +12,7 @@ pub mod i18n;
 pub mod menu;
 pub mod minimap;
 pub mod relations;
+pub mod relic;
 pub mod resources;
 pub mod shell;
 pub mod theme;
@@ -122,6 +123,7 @@ impl Plugin for UiPlugin {
         app.init_resource::<ChatLog>()
             .init_resource::<EventLog>()
             .init_resource::<UiState>()
+            .init_resource::<relic::RelicCard>()
             .init_resource::<vocab::Vocab>()
             .init_resource::<menu::SkinOverride>()
             .init_resource::<toasts::ToastQ>()
@@ -161,6 +163,7 @@ impl Plugin for UiPlugin {
                     relations::panel,
                     resources::panel,
                     economy::panel,
+                    relic::show,
                     tooltip::show,
                 ),
             );
