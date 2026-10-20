@@ -74,6 +74,16 @@ pub fn top_bar(
                             minutes / 60,
                             minutes % 60
                         ),
+                        super::i18n::Lang::Zh => format!(
+                            "{season_lbl} {y}年{m:02}月{d:02}日 {:02}:{:02}",
+                            minutes / 60,
+                            minutes % 60
+                        ),
+                        super::i18n::Lang::Ja => format!(
+                            "{season_lbl} {y}年{m:02}月{d:02}日 {:02}:{:02}",
+                            minutes / 60,
+                            minutes % 60
+                        ),
                     }
                 };
                 ui.label(egui::RichText::new(clock).size(11.5).color(theme::TEXT_WARM));
