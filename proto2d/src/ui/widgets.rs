@@ -28,6 +28,87 @@ pub fn dock() -> egui::Frame {
         .stroke(egui::Stroke::new(1.0_f32, theme::STROKE_OLIVE))
 }
 
+// ── 모던 플랫 변형(2026-10-20) — 스트로크 없는 라운드, 채움·섀도로만 분리 ──
+
+/// 플로팅 카드(플랫) — 스트로크 빠진 라운드 글래스 + 소프트 섀도.
+/// '요즘 웹 UI' 톤 — 채팅 대화창 등에서 사용.
+pub fn card_soft() -> egui::Frame {
+    egui::Frame::new()
+        .fill(theme::glass())
+        .corner_radius(18.0)
+        .inner_margin(egui::Margin::same(12))
+        .shadow(egui::Shadow {
+            offset: [0, 8],
+            blur: 24,
+            spread: 0,
+            color: egui::Color32::from_black_alpha(90),
+        })
+}
+
+/// 도킹 바(플랫) — 스트로크 대신 위로 뻗는 섀도로 배경과 분리
+pub fn dock_flat() -> egui::Frame {
+    egui::Frame::new().fill(theme::glass_dock()).shadow(egui::Shadow {
+        offset: [0, -3],
+        blur: 12,
+        spread: 0,
+        color: egui::Color32::from_black_alpha(55),
+    })
+}
+
+/// 골드 아이콘 칩(플랫) — 링 없는 골드 틴트 원
+pub fn icon_chip_flat(ui: &mut egui::Ui, icon: &str, size: f32) {
+    let (rect, _) = ui.allocate_exact_size(egui::vec2(size, size), egui::Sense::hover());
+    let p = ui.painter();
+    let c = rect.center();
+    p.circle_filled(c, size * 0.5, egui::Color32::from_rgba_unmultiplied(232, 184, 64, 30));
+    p.text(
+        c,
+        egui::Align2::CENTER_CENTER,
+        icon,
+        egui::FontId::proportional(size * 0.62),
+        theme::GOLD_SOFT,
+    );
+}
+
+/// 타이틀 바(플랫) — 플랫 아이콘 칩 + 크림 타이틀
+pub fn title_bar_flat(ui: &mut egui::Ui, icon: &str, title: &str) {
+    ui.horizontal(|ui| {
+        icon_chip_flat(ui, icon, 20.0);
+        ui.label(
+            egui::RichText::new(title)
+                .size(13.5)
+                .strong()
+                .color(theme::INK),
+        );
+    });
+}
+
+/// 배지 칩(플랫) — 스트로크 없는 필만
+pub fn chip_flat(ui: &mut egui::Ui, text: &str, fg: egui::Color32, bg: egui::Color32) {
+    egui::Frame::new()
+        .fill(bg)
+        .corner_radius(999.0)
+        .inner_margin(egui::Margin::symmetric(8, 2))
+        .show(ui, |ui| {
+            ui.label(egui::RichText::new(text).size(10.5).color(fg).strong());
+        });
+}
+
+/// 원형 아바타(플랫) — 링 없는 색 원 + 이니셜(모던 톤)
+pub fn avatar_dot(ui: &mut egui::Ui, initial: &str, color: egui::Color32, size: f32) {
+    let (rect, _) = ui.allocate_exact_size(egui::vec2(size, size), egui::Sense::hover());
+    let p = ui.painter();
+    let c = rect.center();
+    p.circle_filled(c, size * 0.5, color);
+    p.text(
+        c,
+        egui::Align2::CENTER_CENTER,
+        initial,
+        egui::FontId::proportional(size * 0.45),
+        egui::Color32::from_rgb(40, 34, 24),
+    );
+}
+
 /// 골드 아이콘 칩 — 한자 아이콘을 골드 반투명 원 위에(레퍼런스
 /// 섹션 헤더 아이콘 칩 직역)
 pub fn icon_chip(ui: &mut egui::Ui, icon: &str, size: f32) {

@@ -40,11 +40,11 @@ pub fn panel(
     };
     egui::Panel::bottom("chat")
         .exact_height(panel_h)
-        .frame(widgets::dock())
+        .frame(widgets::dock_flat())
         .show(&c, |ui| {
             ui.add_space(3.0);
             if !narrow {
-                widgets::title_bar(ui, "話", tr(ui_state.lang, Tr::Chat));
+                widgets::title_bar_flat(ui, "話", tr(ui_state.lang, Tr::Chat));
             }
             egui::ScrollArea::vertical()
                 .max_height(log_h)
@@ -140,7 +140,7 @@ pub fn conversation(
     egui::Window::new("chat_conv")
         .anchor(egui::Align2::CENTER_BOTTOM, off)
         .default_width(width)
-        .frame(widgets::card())
+        .frame(widgets::card_soft())
         .title_bar(false)
         .show(&c, |ui| {
             ui.set_min_width(width);
@@ -153,7 +153,7 @@ pub fn conversation(
                     .next()
                     .map(String::from)
                     .unwrap_or_default();
-                widgets::avatar_chip(ui, &initial, color, 26.0);
+                widgets::avatar_dot(ui, &initial, color, 26.0);
                 ui.label(
                     egui::RichText::new(&agent.name)
                         .size(13.5)
@@ -167,18 +167,18 @@ pub fn conversation(
                     } else {
                         lbl
                     };
-                    widgets::chip(
+                    widgets::chip_flat(
                         ui,
                         st,
                         status_color(&la.status),
-                        egui::Color32::from_rgba_unmultiplied(16, 22, 15, 190),
+                        egui::Color32::from_rgba_unmultiplied(255, 255, 255, 14),
                     );
                     if la.kind == "user" {
-                        widgets::chip(
+                        widgets::chip_flat(
                             ui,
                             tr(lang, Tr::Participating),
                             theme::ACCENT_SAND,
-                            egui::Color32::from_rgb(52, 44, 20),
+                            egui::Color32::from_rgba_unmultiplied(232, 184, 64, 30),
                         );
                     }
                 }
@@ -296,23 +296,21 @@ fn composer(
     mut on_send: impl FnMut(&str),
 ) {
     let mut edit_id = None;
+    // 모던 플랫 필 — 스트로크 없음. 포커스는 채움 밝아짐 + 바깥 글로우 링으로만
+    let pill_fill = if *focus && enabled {
+        egui::Color32::from_rgba_unmultiplied(30, 39, 32, 230)
+    } else {
+        theme::track()
+    };
     let outer = egui::Frame::new()
-        .fill(theme::track())
-        .stroke(egui::Stroke::new(
-            1.2_f32,
-            if *focus && enabled {
-                theme::GOLD
-            } else {
-                theme::STROKE_OLIVE
-            },
-        ))
+        .fill(pill_fill)
         .corner_radius(19.0)
         .inner_margin(egui::Margin::symmetric(6, 3))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
                 // 대상 아바타 미니 칩 — 없으면(비활성) 딤 話 오너먼트
                 match avatar {
-                    Some((initial, color)) => widgets::avatar_chip(ui, initial, color, 22.0),
+                    Some((initial, color)) => widgets::avatar_dot(ui, initial, color, 22.0),
                     None => mute_chip(ui),
                 }
                 let edit = ui.add_enabled(
@@ -370,13 +368,12 @@ fn composer(
     }
 }
 
-/// 비활성 컴포저의 딤 오너먼트 — 어두운 원 + 話(대화 없음 표시)
+/// 비활성 컴포저의 딤 오너먼트 — 플랫 어두운 원 + 話(대화 없음 표시)
 fn mute_chip(ui: &mut egui::Ui) {
     let (rect, _) = ui.allocate_exact_size(egui::vec2(22.0, 22.0), egui::Sense::hover());
     let p = ui.painter();
     let c = rect.center();
-    p.circle_filled(c, 10.0, theme::track());
-    p.circle_stroke(c, 9.5, egui::Stroke::new(1.0_f32, theme::STROKE_OLIVE));
+    p.circle_filled(c, 10.0, theme::glass_hi());
     p.text(
         c,
         egui::Align2::CENTER_CENTER,
@@ -386,8 +383,9 @@ fn mute_chip(ui: &mut egui::Ui) {
     );
 }
 
-/// 원형 송신 버튼 — 골드 돔(상단 하이라이트)+ 어두운 화살표. 비활성은
-/// 올리브 링 딤. 클릭 시 on_send(호버 커서는 재바인딩 — self 소비 함정).
+/// 원형 송신 버튼 — 모던 플랫: 스트로크·베벨·글로시 없는 솔리드 골드 원.
+/// 호버=밝게, 눌림=어둡게, 비활성=딤 필. 클릭 시 on_send(호버 커서는
+/// 재바인딩 — self 소비 함정).
 fn send_button(ui: &mut egui::Ui, can: bool, on_send: impl FnOnce()) {
     let (rect, btn) = ui.allocate_exact_size(egui::vec2(30.0, 30.0), egui::Sense::click());
     let p = ui.painter();
@@ -397,26 +395,14 @@ fn send_button(ui: &mut egui::Ui, can: bool, on_send: impl FnOnce()) {
         if btn.clicked() {
             on_send();
         }
-        let pressed = btn.is_pointer_button_down_on();
-        // 베벨 — 어두운 밑동 + 밝은 돔(눌림=가라앉음, 호버=밝게)
-        p.circle_filled(c, 15.0, egui::Color32::from_rgb(138, 100, 32));
-        let (dome_c, dome_fill) = if pressed {
-            (
-                c + egui::vec2(0.0, 1.0),
-                egui::Color32::from_rgb(201, 155, 46),
-            )
+        let fill = if btn.is_pointer_button_down_on() {
+            egui::Color32::from_rgb(201, 155, 46) // 눌림 — 어둡게
         } else if btn.hovered() {
-            (c + egui::vec2(0.0, -0.8), theme::GOLD_SOFT)
+            theme::GOLD_SOFT // 호버 — 밝게
         } else {
-            (c + egui::vec2(0.0, -0.8), theme::GOLD)
+            theme::GOLD
         };
-        p.circle_filled(dome_c, 13.5, dome_fill);
-        // 글로시 하이라이트 호
-        p.circle_stroke(
-            c + egui::vec2(0.0, -4.0),
-            8.0,
-            egui::Stroke::new(2.0_f32, egui::Color32::from_white_alpha(56)),
-        );
+        p.circle_filled(c, 14.0, fill);
         p.text(
             c,
             egui::Align2::CENTER_CENTER,
@@ -425,8 +411,7 @@ fn send_button(ui: &mut egui::Ui, can: bool, on_send: impl FnOnce()) {
             egui::Color32::from_rgb(58, 48, 24),
         );
     } else {
-        p.circle_filled(c, 14.0, theme::track());
-        p.circle_stroke(c, 13.5, egui::Stroke::new(1.2_f32, theme::STROKE_OLIVE));
+        p.circle_filled(c, 14.0, theme::glass_hi());
         p.text(
             c,
             egui::Align2::CENTER_CENTER,
