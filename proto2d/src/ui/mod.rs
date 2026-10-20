@@ -132,7 +132,10 @@ impl Plugin for UiPlugin {
             // 폰트 설치는 Update — 에셋이 비동기라 Startup 1회로는 절대 로드 전
             // 완료 못 함(웹 전체 두부 원인, 2026-10-20 실측). done 플래그로
             // 설치 후엔 매 프레임 조기 반환.
-            .add_systems(Startup, theme::apply)
+            // theme::apply — Startup 금지: egui 컨텍스트가 첫 프레임에 없으면
+            // 실패 후 재시도 불가(폰트 설치와 같은 교훈). Update+done 플래그로
+            // 컨텍스트 생길 때까지 재시도한다.
+            .add_systems(Update, theme::apply)
             .add_systems(
                 Update,
                 (

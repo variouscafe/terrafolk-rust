@@ -7,6 +7,7 @@ use bevy_egui::egui;
 
 use super::i18n::{Lang, Tr, ev_cat_of, ev_color, ev_kind_icon, tr};
 use super::theme;
+use egui_phosphor::regular;
 use super::vocab::Vocab;
 use super::widgets::card;
 use super::{EventLog, EventRow, UiState, ctx, fmt_hhmm, is_highlight};
@@ -55,7 +56,7 @@ pub fn panel(
         .frame(card())
         .title_bar(false)
         .show(&c, |ui| {
-            super::widgets::title_bar(ui, "史", tr(lang, Tr::Events));
+            super::widgets::title_bar(ui, regular::CLOCK_COUNTER_CLOCKWISE, tr(lang, Tr::Events));
             ui.add_space(2.0);
             // 탭 행 — 카운트 포함
             ui.horizontal_wrapped(|ui| {

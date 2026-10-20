@@ -7,6 +7,7 @@ use bevy_egui::egui;
 
 use super::i18n::{Lang, Tr, tr, trf};
 use super::theme;
+use egui_phosphor::regular;
 use super::vocab::{Vocab, civ_score};
 use super::widgets::{chip, section};
 use super::{EventLog, UiState, ctx};
@@ -98,7 +99,7 @@ pub fn panel(
 /// 요약 카드 — 시대 라벨 + 발명 수·문명 점수
 fn summary(ui: &mut egui::Ui, lang: Lang, vocab: &Vocab, rows: &[InventionRow]) {
     ui.horizontal(|ui| {
-        super::widgets::title_bar(ui, "文", tr(lang, Tr::Civ));
+        super::widgets::title_bar(ui, regular::SCROLL, tr(lang, Tr::Civ));
         let groups = rows
             .iter()
             .map(|r| vocab.inv_group_of(r.category.as_deref().unwrap_or("")).map(str::to_owned));
@@ -127,7 +128,7 @@ fn summary(ui: &mut egui::Ui, lang: Lang, vocab: &Vocab, rows: &[InventionRow]) 
 
 /// 6대분류 진척 — 그룹명 + 수 + 도트 8칸(레거시 GroupDots)
 fn groups_grid(ui: &mut egui::Ui, lang: Lang, vocab: &Vocab, rows: &[InventionRow]) {
-    section(ui, "階", &tr(lang, Tr::Civ));
+    section(ui, regular::STACK, &tr(lang, Tr::Civ));
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 10.0;
         for g in GROUPS {
@@ -171,7 +172,7 @@ fn makers(ui: &mut egui::Ui, lang: Lang, rows: &[InventionRow]) {
     if by.is_empty() {
         return;
     }
-    section(ui, "匠", tr(lang, Tr::CivMakers));
+    section(ui, regular::HAMMER, tr(lang, Tr::CivMakers));
     let mut top: Vec<(&str, u32)> = by.into_iter().collect();
     top.sort_by(|a, b| b.1.cmp(&a.1));
     ui.horizontal_wrapped(|ui| {
@@ -198,7 +199,7 @@ fn traditions(ui: &mut egui::Ui, lang: Lang, vocab: &Vocab, rows: &[InventionRow
     if t.is_empty() {
         return;
     }
-    section(ui, "戲", tr(lang, Tr::CivTraditions));
+    section(ui, regular::CONFETTI, tr(lang, Tr::CivTraditions));
     for r in t.iter() {
         let depth = (r.performs.unwrap_or(0) / 4).min(3);
         let line = tr(lang, Tr::CivTradDepth)

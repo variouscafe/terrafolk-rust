@@ -7,6 +7,7 @@ use bevy_egui::egui;
 
 use super::i18n::{Lang, Tr, tr, trf, act_icon, status_color, status_label, hist_color};
 use super::theme;
+use egui_phosphor::regular;
 use super::vocab::Vocab;
 use super::widgets::{card, need_bar, section, status_dot, thin_bar};
 use super::{UiState, ctx};
@@ -174,7 +175,7 @@ fn body(
     ui.horizontal(|ui| {
         super::widgets::title_bar(
             ui,
-            "人",
+            regular::USERS,
             &tr(lang, Tr::VillagersN).replace("{}", &rows.len().to_string()),
         );
         if modal {
@@ -381,14 +382,14 @@ fn detail(
     }
     ui.add_space(3.0);
     // 욕구 바 4종 — >70 빨강(레거시 규칙)
-    section(ui, "心", tr(lang, Tr::Villagers));
+    section(ui, regular::HEART, tr(lang, Tr::Villagers));
     need_bar(ui, tr(lang, Tr::Hunger), "食", la.hunger, theme::NEED_HUNGER);
     need_bar(ui, tr(lang, Tr::Thirst), "水", la.thirst, theme::NEED_THIRST);
     need_bar(ui, tr(lang, Tr::Fatigue), "眠", la.fatigue, theme::NEED_FATIGUE);
     need_bar(ui, tr(lang, Tr::Warmth), "溫", la.warmth, theme::NEED_WARMTH);
     // 소지품 — 칩 + 짐 무게 바
     let items = inv_items(la.inv_json.as_deref());
-    section(ui, "囊", tr(lang, Tr::Inventory));
+    section(ui, regular::HANDBAG, tr(lang, Tr::Inventory));
     if items.is_empty() {
         ui.label(egui::RichText::new(tr(lang, Tr::InventoryEmpty)).size(10.0).color(theme::TEXT_DIM));
     } else {
@@ -421,7 +422,7 @@ fn detail(
         })
         .unwrap_or_default();
     if !rels.is_empty() {
-        section(ui, "緣", tr(lang, Tr::Relations));
+        section(ui, regular::LINK, tr(lang, Tr::Relations));
         let mut sorted = rels;
         sorted.sort_by(|a, b| b.warmth.partial_cmp(&a.warmth).unwrap_or(std::cmp::Ordering::Equal));
         for r in sorted.iter().take(6) {
@@ -431,7 +432,7 @@ fn detail(
     // 생활기록 — 유형색(최근 8행 역순)
     let hist = polls.history.lock().map(|q| q.clone()).unwrap_or_default();
     if !hist.is_empty() {
-        section(ui, "史", tr(lang, Tr::History));
+        section(ui, regular::CLOCK_COUNTER_CLOCKWISE, tr(lang, Tr::History));
         egui::ScrollArea::vertical()
             .id_salt("vhist")
             .max_height(150.0)

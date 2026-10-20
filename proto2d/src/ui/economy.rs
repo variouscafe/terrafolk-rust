@@ -7,6 +7,7 @@ use bevy_egui::egui;
 
 use super::i18n::{Tr, tr, trf};
 use super::theme;
+use egui_phosphor::regular;
 use super::vocab::Vocab;
 use super::widgets::{card, chip, section};
 use super::{UiState, ctx};
@@ -38,7 +39,7 @@ pub fn panel(
         .frame(card())
         .title_bar(false)
         .show(&c, |ui| {
-            super::widgets::title_bar(ui, "貨", tr(lang, Tr::Economy));
+            super::widgets::title_bar(ui, regular::COINS, tr(lang, Tr::Economy));
             ui.add_space(2.0);
             let Some(d) = data else {
                 ui.label(
@@ -71,7 +72,7 @@ pub fn panel(
                 ui.add_space(2.0);
             }
             // 시세 — item | 금가격(g) | 성사수 (상위 12, 가격 내림차순 옴)
-            section(ui, "秤", tr(lang, Tr::EcoPrices));
+            section(ui, regular::SCALES, tr(lang, Tr::EcoPrices));
             if d.prices.is_empty() {
                 ui.label(egui::RichText::new(tr(lang, Tr::EcoWait)).size(10.0).color(theme::TEXT_DIM));
             } else {
@@ -101,7 +102,7 @@ pub fn panel(
             }
             // 최근 성사 — A → B: 나무×3 ⇄ 열매×2
             if !d.deals.is_empty() {
-                section(ui, "換", tr(lang, Tr::EcoDeals));
+                section(ui, regular::ARROWS_LEFT_RIGHT, tr(lang, Tr::EcoDeals));
                 egui::ScrollArea::vertical()
                     .id_salt("deals")
                     .max_height(130.0)

@@ -6,6 +6,7 @@ use bevy_egui::egui;
 
 use super::i18n::{Lang, Tr, tr};
 use super::theme;
+use egui_phosphor::regular;
 use super::{UiState, ctx};
 use crate::ground::GroundSkin;
 
@@ -30,7 +31,7 @@ pub fn panel(
         .frame(super::widgets::card())
         .title_bar(false)
         .show(&c, |ui| {
-            super::widgets::title_bar(ui, "設", tr(lang, Tr::Menu));
+            super::widgets::title_bar(ui, regular::GEAR, tr(lang, Tr::Menu));
             ui.add_space(3.0);
             // 언어 토글 — 한/EN 즉시 전환(활성=골드 스트로크 필)
             ui.horizontal(|ui| {

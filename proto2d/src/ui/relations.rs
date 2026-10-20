@@ -7,6 +7,7 @@ use bevy_egui::egui;
 
 use super::i18n::{Tr, tr};
 use super::theme;
+use egui_phosphor::regular;
 use super::vocab::warmth_hsl;
 use super::widgets::card;
 use super::{UiState, ctx};
@@ -55,7 +56,7 @@ pub fn panel(
                 Some(id) => tr(lang, Tr::RelFor).replacen("{}", &name_of(id, frame_agents), 1),
                 None => tr(lang, Tr::RelAll).to_owned(),
             };
-            super::widgets::title_bar(ui, "緣", &title);
+            super::widgets::title_bar(ui, regular::LINK, &title);
             ui.add_space(2.0);
             if rows.is_empty() && !connected {
                 ui.label(egui::RichText::new(tr(lang, Tr::RelWaitLive)).size(10.5).color(theme::TEXT_DIM));

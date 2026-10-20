@@ -342,23 +342,24 @@ pub fn status_color(status: &str) -> bevy_egui::egui::Color32 {
 
 /// 활동 actType → 한자 아이콘(레거시 ACT_ICON 한자 치환 — 이모지 폰트 없음)
 pub fn act_icon(act: &str) -> &'static str {
+    use egui_phosphor::regular as ph;
     match act {
-        "chop" => "伐",
-        "mine" => "採",
-        "forage" => "集",
-        "hunt" => "狩",
-        "eat" => "食",
-        "drink" => "水",
-        "campfire" => "火",
-        "warm" => "溫",
-        "wear" => "衣",
-        "give" => "贈",
-        "trade" => "換",
-        "gather" => "拾",
-        "build" => "建",
-        "invent" => "創",
-        "craft" => "作",
-        "perform" => "戲",
+        "chop" => ph::AXE,
+        "mine" => ph::MOUNTAINS,
+        "forage" => ph::PLANT,
+        "hunt" => ph::CROSSHAIR,
+        "eat" => ph::FORK_KNIFE,
+        "drink" => ph::DROP,
+        "campfire" => ph::CAMPFIRE,
+        "warm" => ph::FIRE,
+        "wear" => ph::T_SHIRT,
+        "give" => ph::GIFT,
+        "trade" => ph::ARROWS_LEFT_RIGHT,
+        "gather" => ph::HAND,
+        "build" => ph::HAMMER,
+        "invent" => ph::LIGHTBULB,
+        "craft" => ph::WRENCH,
+        "perform" => ph::MASK_HAPPY,
         _ => "·",
     }
 }
