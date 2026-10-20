@@ -49,6 +49,27 @@ impl MtCache {
             }
         }
     }
+
+    /// 이벤트 문장 렌더 + 자유문 폴백 번역 — vocab.event_text가 템플릿을
+    /// 못 찾아 payload.text/goal 원문(영문)으로 물러난 경우만 MT를 건다
+    /// (템플릿 렌더는 이미 로케일 네이티브 — 번역하면 이중 번역, §17.51).
+    pub fn event_text(
+        &mut self,
+        vocab: &super::vocab::Vocab,
+        lang: Lang,
+        payload: &serde_json::Value,
+    ) -> String {
+        let t = vocab.event_text(lang, payload);
+        let raw = payload
+            .get("text")
+            .or_else(|| payload.get("goal"))
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("");
+        if lang != Lang::En && !raw.is_empty() && t == raw {
+            return self.get(&t, lang);
+        }
+        t
+    }
 }
 
 /// 배치 플러시 — 0.4s 디바운스로 최대 40건을 JS 브리지(worldsim 포크의
