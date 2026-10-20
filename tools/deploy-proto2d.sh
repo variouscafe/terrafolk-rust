@@ -10,12 +10,14 @@ if [[ "${1:-}" != "--skip-build" ]]; then
   trunk build --release
 fi
 
-W=$(ls dist/terrafolk_proto2d-*_bg.wasm)
+W=$(basename "$(ls dist/terrafolk_proto2d-*_bg.wasm)")   # index.html href는 './파일명' — 경로 접두 제거
 wasm-opt -Os --enable-bulk-memory-opt --enable-nontrapping-float-to-int \
-  --strip-debug --strip-producers "$W" -o /tmp/p2d_opt.wasm
-mv /tmp/p2d_opt.wasm "$W"
+  --strip-debug --strip-producers "dist/$W" -o /tmp/p2d_opt.wasm
+mv /tmp/p2d_opt.wasm "dist/$W"
 
-H=$(openssl dgst -sha384 -binary "$W" | openssl base64 -A)
+# ⚠️ integrity는 문서에 2개(wasm preload + JS modulepreload) — wasm 링크만
+# 갱신하고 검증도 wasm href의 값으로(레시피: JS 해시는 건드리지 않는다).
+H=$(openssl dgst -sha384 -binary "dist/$W" | openssl base64 -A)
 python3 - "$W" "$H" <<'EOF'
 import re, sys
 w, h = sys.argv[1], sys.argv[2]
