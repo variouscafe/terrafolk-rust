@@ -5,6 +5,7 @@
 
 pub mod chat;
 pub mod civ;
+pub mod activity;
 pub mod economy;
 pub mod events;
 pub mod fonts;
@@ -154,6 +155,7 @@ impl Plugin for UiPlugin {
             .add_systems(
                 EguiPrimaryContextPass,
                 (
+                    activity::overlay,
                     shell::top_bar,
                     villagers::panel,
                     chat::panel,

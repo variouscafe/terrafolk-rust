@@ -136,7 +136,9 @@
     if (window.TF_UI) window.TF_UI.setNet(live);
   }
 
+  let lastFrameData = null; // E2E 관측(ui.lastFrame) — 상태 원본 보존
   function snapshot(st) {
+    lastFrameData = st;
     const agents = [];
     st.agents.forEach(function (a, id) {
       names[id] = a.name;
@@ -388,6 +390,8 @@
     setWatchAgent: function (id) { watchAgent = id || null; },
     onChatRow: function (fn) { chatRowListeners.push(fn); },
     agentInfo: function (id) { return agentsInfo[id] || null; },
+    // E2E 관측 — 최근 스냅숏 원본(좌표·actType·욕구). 관전 데이터만이라 공개 무해.
+    lastFrame: function () { return lastFrameData; },
     // E2E 패널 구동 큐 — wasm Update가 드레인(ui/mod.rs debug_panel_cmds).
     // 'civ'(토글)·'civ:1'·'civ:0'. 부팅 전 push도 안전(드레인은 등록 후).
     panelCmds: [],
