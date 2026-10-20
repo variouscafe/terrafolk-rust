@@ -31,6 +31,7 @@ pub fn panel(
     vocab: Res<Vocab>,
     net: Option<Res<NetState>>,
     mut tab: Local<&'static str>,
+    mut mt: ResMut<super::mt::MtCache>,
 ) {
     if !ui_state.show_events {
         return;
@@ -104,7 +105,7 @@ pub fn panel(
                         if !row_in_tab(*tab, e) {
                             continue;
                         }
-                        row_ui(ui, lang, &vocab, e, &name_of);
+                        row_ui(ui, lang, &vocab, &mut mt, e, &name_of);
                     }
                 });
         });
@@ -123,11 +124,13 @@ fn row_ui(
     ui: &mut egui::Ui,
     lang: Lang,
     vocab: &Vocab,
+    mt: &mut super::mt::MtCache,
     e: &EventRow,
     name_of: &dyn Fn(&str) -> Option<String>,
 ) {
-    // 문장 없는 행(동기 resource 등)은 스킵 — 레거시와 동일 규칙
-    let text = vocab.event_text(lang, &e.payload);
+    // 문장 없는 행(동기 resource 등)은 스킵 — 레거시와 동일 규칙.
+    // 자유문 폴백은 표시 시점 MT(§17.51)
+    let text = mt.event_text(vocab, lang, &e.payload);
     if text.is_empty() {
         return;
     }

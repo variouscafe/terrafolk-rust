@@ -31,6 +31,7 @@ pub fn collect(
     log: Res<EventLog>,
     vocab: Res<Vocab>,
     ui_state: Res<UiState>,
+    mut mt: ResMut<super::mt::MtCache>,
     mut seen: Local<usize>,
 ) {
     // 로그가 잘린 경우(400 상한 드레인) 시점 재동기
@@ -40,7 +41,7 @@ pub fn collect(
     while *seen < log.rows.len() {
         let e = &log.rows[*seen];
         if is_highlight(&e.kind, &e.payload) {
-            let text = vocab.event_text(ui_state.lang, &e.payload);
+            let text = mt.event_text(&vocab, ui_state.lang, &e.payload);
             if !text.is_empty() {
                 toasts.items.push(Toast {
                     icon: ev_kind_icon(&e.kind),

@@ -93,7 +93,7 @@ pub fn panel(
             groups_grid(ui, lang, &vocab, rows);
             makers(ui, lang, rows);
             traditions(ui, lang, &vocab, rows);
-            chronicle(ui, lang, &vocab, &events);
+            chronicle(ui, lang, &vocab, &mut mt, &events);
             inv_list(ui, lang, &vocab, rows, &mut |v| *view = CivView { detail: v });
         });
 }
@@ -219,7 +219,13 @@ fn traditions(ui: &mut egui::Ui, lang: Lang, vocab: &Vocab, rows: &[InventionRow
 }
 
 /// 마을 연대기 — chronicle 종 이벤트 최근 12(문장은 vocab 렌더)
-fn chronicle(ui: &mut egui::Ui, lang: Lang, vocab: &Vocab, events: &EventLog) {
+fn chronicle(
+    ui: &mut egui::Ui,
+    lang: Lang,
+    vocab: &Vocab,
+    mt: &mut super::mt::MtCache,
+    events: &EventLog,
+) {
     let rows: Vec<&super::EventRow> = events
         .rows
         .iter()
@@ -231,7 +237,7 @@ fn chronicle(ui: &mut egui::Ui, lang: Lang, vocab: &Vocab, events: &EventLog) {
     section(ui, "史", tr(lang, Tr::CivChronicle));
     for e in rows.iter().rev().take(12) {
         ui.label(
-            egui::RichText::new(vocab.event_text(lang, &e.payload))
+            egui::RichText::new(mt.event_text(vocab, lang, &e.payload))
                 .size(10.0)
                 .color(egui::Color32::from_rgba_unmultiplied(233, 203, 125, 230)),
         );
