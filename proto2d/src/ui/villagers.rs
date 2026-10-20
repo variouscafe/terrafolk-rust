@@ -136,7 +136,7 @@ pub fn panel(
     } else {
         // 데스크톱 — 우측 도킹 패널(기존 레이아웃)
         egui::Panel::right("villagers")
-            .exact_width(272.0)
+            .exact_width(super::VILLAGERS_W)
             .frame(super::widgets::dock())
             .show(&c, |ui| {
                 out = body(ui, lang, &vocab, frame, &polls, &rows, false);

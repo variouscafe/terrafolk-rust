@@ -33,7 +33,11 @@ pub fn panel(
     let agents = live_agents(&net);
     // 모바일 — 컴팩트 바(레거시 ChatBar 직역: 로그 2-3행 + 입력행, 헤더 생략)
     let narrow = c.screen_rect().width() < 760.0;
-    let (panel_h, log_h) = if narrow { (94.0, 38.0) } else { (148.0, 78.0) };
+    let (panel_h, log_h) = if narrow {
+        (super::CHAT_H_NARROW, 38.0)
+    } else {
+        (super::CHAT_H_DESKTOP, 78.0)
+    };
     egui::Panel::bottom("chat")
         .exact_height(panel_h)
         .frame(widgets::dock())
@@ -84,6 +88,7 @@ pub fn conversation(
     mut commands: Commands,
     mut draft: Local<String>,
     mut focus: Local<bool>,
+    mut last_agent: Local<String>,
 ) {
     // 선택 없으면(또는 해제 순간) 대화창도 없다 — 패널이 사라진다
     let Some((agent, tag)) = agents_q.iter().next() else {
@@ -94,6 +99,13 @@ pub fn conversation(
     let agents = live_agents(&net);
     let connected = net.as_ref().map(|n| n.status) == Some(NetStatus::Connected);
     let id = tag.map(|t| t.0.as_str()).unwrap_or("");
+    // 주민 전환 시 초안 초기화 — A에게 쓰던 텍스트가 B의 컴포저에 남아
+    // 잘못된 상대에게 전송되는 사고 방지(리뷰 2026-10-20)
+    if *last_agent != id {
+        draft.clear();
+        *focus = false;
+        *last_agent = id.to_owned();
+    }
     let la = agents.iter().find(|a| a.id == id);
     let color = if id.is_empty() {
         theme::INK_DIM
@@ -106,12 +118,16 @@ pub fn conversation(
     // 실측보다 결정론이 안전하다).
     let screen = c.screen_rect();
     let right = if ui_state.show_villagers && !narrow {
-        272.0
+        super::VILLAGERS_W
     } else {
         0.0
     };
     let bottom = if ui_state.show_chat {
-        if narrow { 94.0 } else { 148.0 }
+        if narrow {
+            super::CHAT_H_NARROW
+        } else {
+            super::CHAT_H_DESKTOP
+        }
     } else {
         0.0
     };
@@ -312,6 +328,10 @@ fn composer(
                 if enabled && enter_in_edit && can_send {
                     on_send(draft.trim());
                     draft.clear();
+                }
+                // 엔터로 송신 여부와 무관하게 포커스 유지 — 빈 초안 엔터가
+                // 입력창을 블러시키는 사고 방지(egui는 엔터로 포커스 반납)
+                if enabled && enter_in_edit {
                     edit.request_focus();
                 }
                 *focus = edit.has_focus() && enabled;
@@ -328,9 +348,10 @@ fn composer(
             });
         });
     // 필 어디를 눌러도 입력창 포커스 — 상용 채팅 바 동작(패딩·아바타 옆
-    // 빈 공간 클릭이 무시돼 '클릭 먹힘'처럼 보이는 사고 방지)
+    // 빈 공간 클릭이 무시돼 '클릭 먹힘'처럼 보이는 사고 방지).
+    // Frame::show 응답은 hover 감각이라 클릭 감지가 없다 — click 승격 필수
     if enabled
-        && outer.response.clicked()
+        && outer.response.interact(egui::Sense::click()).clicked()
         && let Some(id) = edit_id
     {
         ui.ctx().memory_mut(|m| m.request_focus(id));
@@ -454,8 +475,9 @@ fn send_chat(agent_id: &str, text: &str) {
     }
 }
 
-/// 라이브 프레임 주민 슬라이스 — 폴백 빈 조각(화자 판정·이름 조회 공용)
-fn live_agents<'a>(net: &'a Option<Res<'a, NetState>>) -> &'a [LiveAgent] {
+/// 라이브 프레임 주민 슬라이스 — 폴백 빈 조각(화자 판정·이름 조회 공용.
+/// relations.rs도 쓴다 — 프레임 접근 체인의 단일 구현)
+pub(crate) fn live_agents<'a>(net: &'a Option<Res<'a, NetState>>) -> &'a [LiveAgent] {
     net.as_ref()
         .and_then(|n| n.frame.as_ref())
         .map(|f| f.agents.as_slice())

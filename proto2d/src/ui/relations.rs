@@ -37,11 +37,7 @@ pub fn panel(
     let Some(c) = ctx(&mut contexts) else { return };
     let lang = ui_state.lang;
     let connected = net.as_ref().map(|n| n.status) == Some(NetStatus::Connected);
-    let frame_agents: &[crate::net::LiveAgent] = net
-        .as_ref()
-        .and_then(|n| n.frame.as_ref())
-        .map(|f| f.agents.as_slice())
-        .unwrap_or(&[]);
+    let frame_agents: &[crate::net::LiveAgent] = super::chat::live_agents(&net);
     let mut rows: Vec<RelRow> = polls
         .relations
         .lock()

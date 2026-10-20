@@ -24,6 +24,14 @@ pub mod widgets;
 use bevy::prelude::*;
 use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
 
+// ── 패널 치수 단일 진실원(리뷰 2026-10-20) ──
+/// 주민 목록 우측 도킹 폭 — villagers.rs 패널과 conversation 카드의
+/// 남은 맵 영역 계산(chat.rs)이 같은 값을 써야 한다.
+pub const VILLAGERS_W: f32 = 272.0;
+/// 채팅 하단 도킹 높이(데스크톱/협소) — chat.rs 패널과 카드 배치 공용.
+pub const CHAT_H_DESKTOP: f32 = 148.0;
+pub const CHAT_H_NARROW: f32 = 94.0;
+
 /// 채팅 로그(말풍선과 별개 UI 패널 소스) — 최근 120행(FE 버퍼 패리티)
 #[derive(Resource, Default)]
 pub struct ChatLog {
