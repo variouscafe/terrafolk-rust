@@ -235,6 +235,7 @@ fn drain_frames(
     polls: Res<PollQueuesRes>,
     eco: Res<EcoQueue>,
     phase: Res<NetLinkPhase>,
+    mut mt_cache: ResMut<crate::ui::mt::MtCache>,
     mut net: ResMut<NetState>,
 ) {
     let drained: Vec<String> = {
@@ -276,6 +277,13 @@ fn drain_frames(
                     if poll_envelope(&s, &chats, &polls, &eco) == Some(true) {
                         continue;
                     }
+                    // 표시 계층 번역 응답(§17.51) — worldsim 포크 translate()
+                    if kind.as_deref() == Some("mt")
+                        && let Ok(v) = serde_json::from_str::<MtEnvelope>(&s)
+                    {
+                        mt_cache.receive(&v.texts);
+                        continue;
+                    }
                 }
                 None => {}
             }
@@ -302,6 +310,12 @@ fn drain_frames(
 #[derive(Deserialize)]
 struct TfKind {
     tf: String,
+}
+
+/// 표시 계층 번역 응답 인벨로프 — {tf:"mt", texts:{원문:번역문}}
+#[derive(Deserialize)]
+struct MtEnvelope {
+    texts: serde_json::Value,
 }
 
 /// wasm sink 채팅 인젤로프(worldsim.js 포크가 송출)

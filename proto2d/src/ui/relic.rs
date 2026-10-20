@@ -26,7 +26,12 @@ pub struct RelicInfo {
 
 /// 유물 카드 — 하단 중앙 앵커(대화창 카드와 같은 자리 정책). ✕·빈 월드
 /// 탭으로 닫는다. 데스크톱·모바일 동일.
-pub fn show(mut contexts: bevy_egui::EguiContexts, ui_state: Res<UiState>, mut open: ResMut<RelicCard>) {
+pub fn show(
+    mut contexts: bevy_egui::EguiContexts,
+    ui_state: Res<UiState>,
+    mut mt: ResMut<super::mt::MtCache>,
+    mut open: ResMut<RelicCard>,
+) {
     let Some(info) = open.0.clone() else {
         return;
     };
@@ -89,8 +94,9 @@ pub fn show(mut contexts: bevy_egui::EguiContexts, ui_state: Res<UiState>, mut o
             }
             if !info.purpose.is_empty() {
                 ui.add_space(2.0);
+                // 발명가가 쓴 영문 설명 — 표시 시점 MT(§17.51)
                 ui.label(
-                    egui::RichText::new(&info.purpose)
+                    egui::RichText::new(mt.get(&info.purpose, lang))
                         .size(11.0)
                         .color(theme::TEXT_WARM),
                 );

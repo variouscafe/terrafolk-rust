@@ -81,6 +81,7 @@ pub fn panel(
     mut manual: ResMut<ManualUntil>,
     polls: Res<PollQueuesRes>,
     mut ui_state: ResMut<UiState>,
+    mut mt: ResMut<super::mt::MtCache>,
 ) {
     if !ui_state.show_villagers {
         return;
@@ -131,7 +132,7 @@ pub fn panel(
                     .max_height(c.screen_rect().height() * 0.66)
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
-                        out = body(ui, lang, &vocab, frame, &polls, &rows, true);
+                        out = body(ui, lang, &vocab, &mut mt, frame, &polls, &rows, true);
                     });
             });
     } else {
@@ -140,7 +141,7 @@ pub fn panel(
             .exact_width(super::VILLAGERS_W)
             .frame(super::widgets::dock())
             .show(&c, |ui| {
-                out = body(ui, lang, &vocab, frame, &polls, &rows, false);
+                out = body(ui, lang, &vocab, &mut mt, frame, &polls, &rows, false);
             });
     }
     // 액션 적용 — 창 닫기·선택 토글(월드 마커·추적 재사용)
@@ -164,6 +165,7 @@ fn body(
     ui: &mut egui::Ui,
     lang: Lang,
     vocab: &Vocab,
+    mt: &mut super::mt::MtCache,
     frame: Option<&crate::net::LiveFrame>,
     polls: &PollQueuesRes,
     rows: &[RowData],
@@ -292,7 +294,7 @@ fn body(
             return;
         };
         let id = sel.tag_id.clone().unwrap_or_default();
-        detail(ui, lang, vocab, la, &id, polls, frame);
+        detail(ui, lang, vocab, mt, la, &id, polls, frame);
     });
     out
 }
@@ -302,6 +304,7 @@ fn detail(
     ui: &mut egui::Ui,
     lang: Lang,
     vocab: &Vocab,
+    mt: &mut super::mt::MtCache,
     la: &LiveAgent,
     tag_id: &str,
     polls: &PollQueuesRes,
@@ -376,7 +379,12 @@ fn detail(
                 t
             }
         })
-        .or_else(|| la.goal_text.as_deref().filter(|s| !s.is_empty()).map(str::to_owned));
+        .or_else(|| {
+            la.goal_text
+                .as_deref()
+                .filter(|s| !s.is_empty())
+                .map(|s| mt.get(s, lang))
+        });
     if let Some(g) = goal {
         ui.label(egui::RichText::new(format!("{} {g}", tr(lang, Tr::Goal))).size(10.5).color(theme::TEXT_DIM));
     }
@@ -451,7 +459,12 @@ fn detail(
                                 .strong()
                                 .color(hist_color(&h.type_)),
                         );
-                        ui.label(egui::RichText::new(&h.text).size(9.5).color(theme::TEXT_WARM));
+                        // 생활 기록 자유문은 영문 정본 — 표시 시점 MT(§17.51)
+                        ui.label(
+                            egui::RichText::new(mt.get(&h.text, lang))
+                                .size(9.5)
+                                .color(theme::TEXT_WARM),
+                        );
                     });
                 }
             });

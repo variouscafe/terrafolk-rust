@@ -24,6 +24,8 @@
   const names = {}; // agent id → 표시명(채팅 스피커)
   const agentsInfo = {}; // agent id → {name, actType, status} — ui.js 헤더 칩·행 판정
   const chatRowListeners = []; // ui.js — 대화 로그 패널 수신기
+  const mtQueue = []; // 표시 계층 번역 대기(§17.51) — ui.translate가 채움(wasm가 이미 중복 제거)
+  let mtTimer = null;
 
   // ── 인증(FE api/client.ts 축소 포트 — body rt 레인 1회 갱신) ──
   function readAuth() {
@@ -389,6 +391,35 @@
     // E2E 패널 구동 큐 — wasm Update가 드레인(ui/mod.rs debug_panel_cmds).
     // 'civ'(토글)·'civ:1'·'civ:0'. 부팅 전 push도 안전(드레인은 등록 후).
     panelCmds: [],
+    // 표시 계층 번역(§17.51 직역) — wasm가 JSON 배열로 요청. 디바운스 배치로
+    // POST /worldsim/translate → {tf:'mt', texts} 인젤로프로 반환. DB 공유
+    // 캐시라 반복 문장은 즉시 히트. 실패 시 응답 없음 — wasm는 원문 유지.
+    translate: function (textsJson, target) {
+      let texts = [];
+      try { texts = JSON.parse(textsJson); } catch (e) { return; }
+      if (!Array.isArray(texts) || !texts.length) return;
+      for (const t of texts) {
+        if (t) mtQueue.push(t);
+      }
+      if (mtTimer) return;
+      mtTimer = setTimeout(function mtFlush() {
+        mtTimer = null;
+        const batch = mtQueue.splice(0, 40);
+        if (!batch.length) { if (mtQueue.length) mtTimer = setTimeout(mtFlush, 350); return; }
+        const uniq = Array.from(new Set(batch));
+        const base = (window.TF && window.TF.apiBase) || autoBases().api;
+        fetch(base + '/api/worldsim/translate', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ texts: uniq, target: target || 'ko' }),
+        }).then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (data) {
+            if (data && data.texts) sinkEnvelope({ tf: 'mt', texts: data.texts });
+          })
+          .catch(function () { /* 원문 유지 — 표시 안 막힘 */ });
+        if (mtQueue.length && !mtTimer) mtTimer = setTimeout(mtFlush, 350);
+      }, 350);
+    },
   };
 
   window.terrafolk = {
