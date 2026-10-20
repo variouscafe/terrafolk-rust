@@ -174,10 +174,17 @@ fn menu_toggle_on(s: &UiState, key: Tr) -> bool {
 /// (레거시 모달 팝업과 같은 단일 창 정책). 도킹 패널(주민·채팅)은 복수 허용.
 fn menu_toggle(s: &mut UiState, key: Tr, screen_w: f32) {
     let narrow = screen_w < 760.0;
+    // 모바일에서 캐릭터 목록도 중앙 모달이라 단일 창 정책에 포함(맵 확보)
     let is_float = matches!(
         key,
-        Tr::ToggleResources | Tr::ToggleEvents | Tr::ToggleCiv | Tr::ToggleRelations | Tr::ToggleEconomy | Tr::ToggleSettings
-    );
+        Tr::ToggleResources
+            | Tr::ToggleEvents
+            | Tr::ToggleCiv
+            | Tr::ToggleRelations
+            | Tr::ToggleEconomy
+            | Tr::ToggleSettings
+            | Tr::ToggleVillagers
+    ) && (narrow || !matches!(key, Tr::ToggleVillagers));
     if narrow && is_float {
         s.show_resources = false;
         s.show_events = false;
@@ -185,6 +192,7 @@ fn menu_toggle(s: &mut UiState, key: Tr, screen_w: f32) {
         s.show_relations = false;
         s.show_economy = false;
         s.show_settings = false;
+        s.show_villagers = false;
     }
     match key {
         Tr::ToggleVillagers => s.show_villagers = !s.show_villagers,

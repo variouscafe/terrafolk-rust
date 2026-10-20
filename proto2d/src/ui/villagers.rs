@@ -38,6 +38,25 @@ fn carry_weight(v: &Vocab, items: &[(String, u32)]) -> f32 {
     items.iter().map(|(id, n)| v.item_wt(id) * *n as f32).sum()
 }
 
+/// 목록 행 사본 — 패널(데스크톱)·모달 창(모바일) 양쪽 렌더가 같은 데이터로
+/// 그린다. LiveAgent 복제는 주민 수(≈5)라 감수.
+struct RowData {
+    entity: Entity,
+    name: String,
+    tag_id: Option<String>,
+    is_sel: bool,
+    status: String,
+    act: String,
+    progress: Option<f32>,
+    la: Option<LiveAgent>,
+}
+
+/// 본문 렌더 결과 — 선택 변경(행 클릭)·창 닫기(✕)를 패널 바깥 Commands로 적용
+struct BodyOut {
+    select: Option<Entity>,
+    close: bool,
+}
+
 #[allow(clippy::type_complexity)] // Bevy 파라미터 — 선택·라이브 프레임·폴 동시 참조
 pub fn panel(
     mut contexts: bevy_egui::EguiContexts,
@@ -48,7 +67,7 @@ pub fn panel(
     agents_q: Query<(Entity, &Agent, Option<&LiveAgentTag>, Option<&Selected>)>,
     mut manual: ResMut<ManualUntil>,
     polls: Res<PollQueuesRes>,
-    ui_state: Res<UiState>,
+    mut ui_state: ResMut<UiState>,
 ) {
     if !ui_state.show_villagers {
         return;
@@ -56,141 +75,212 @@ pub fn panel(
     let Some(c) = ctx(&mut contexts) else { return };
     let lang = ui_state.lang;
     let frame = net.as_ref().and_then(|n| n.frame.as_ref());
-    let live_of = |tag: &LiveAgentTag| -> Option<&LiveAgent> {
-        frame.and_then(|f| f.agents.iter().find(|la| la.id == tag.0))
+    let live_of = |id: &str| -> Option<LiveAgent> {
+        frame
+            .and_then(|f| f.agents.iter().find(|la| la.id == id))
+            .cloned()
     };
-    let pw = (c.screen_rect().width() * 0.64).min(272.0).max(200.0);
-    egui::Panel::right("villagers")
-        .exact_width(pw)
-        .frame(egui::Frame::new().fill(egui::Color32::from_rgba_unmultiplied(21, 26, 17, 242)))
-        .show(&c, |ui| {
-            ui.add_space(4.0);
-            // 헤더 — 주민 (n)
-            ui.horizontal(|ui| {
-                ui.label(
-                    egui::RichText::new(format!("人 {}", tr(lang, Tr::VillagersN)
-                        .replace("{}", &agents_q.iter().count().to_string())))
-                        .size(13.0)
-                        .strong()
-                        .color(theme::TEXT_WARM),
-                );
+    // 행 수집(1회 순회 — 클론)
+    let mut rows: Vec<RowData> = Vec::new();
+    for (e, a, tag, sel) in &agents_q {
+        let id = tag.map(|t| t.0.clone());
+        let la = id.as_deref().and_then(live_of);
+        let status = la
+            .as_ref()
+            .map(|l| l.status.clone())
+            .unwrap_or_else(|| if a.rest > 0.0 { "idle".into() } else { "moving".into() });
+        let act = la.as_ref().and_then(|l| l.act_type.clone()).unwrap_or_default();
+        let progress = la.as_ref().and_then(|l| l.act_progress);
+        rows.push(RowData {
+            entity: e,
+            name: a.name.clone(),
+            tag_id: id,
+            is_sel: sel.is_some(),
+            status,
+            act,
+            progress,
+            la,
+        });
+    }
+    let mut out = BodyOut { select: None, close: false };
+    let narrow = c.screen_rect().width() < 760.0;
+    if narrow {
+        // 모바일 — 레거시 CharsPopup처럼 중앙 모달(맵 최대 확보·단일 창 정책 대상)
+        egui::Window::new(tr(lang, Tr::Villagers))
+            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, -10.0))
+            .default_width((c.screen_rect().width() - 24.0).min(330.0))
+            .frame(card())
+            .title_bar(false)
+            .show(&c, |ui| {
+                ui.set_min_width((c.screen_rect().width() - 24.0).min(320.0).max(260.0));
+                egui::ScrollArea::vertical()
+                    .id_salt("vmodal")
+                    .max_height(c.screen_rect().height() * 0.66)
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        out = body(ui, lang, &vocab, frame, &polls, &rows, true);
+                    });
             });
-            ui.add_space(2.0);
-            let mut selected_entity: Option<Entity> = None;
-            for (e, _a, _tag, sel) in &agents_q {
-                if sel.is_some() {
-                    selected_entity = Some(e);
+    } else {
+        // 데스크톱 — 우측 도킹 패널(기존 레이아웃)
+        egui::Panel::right("villagers")
+            .exact_width(272.0)
+            .frame(egui::Frame::new().fill(egui::Color32::from_rgba_unmultiplied(21, 26, 17, 242)))
+            .show(&c, |ui| {
+                out = body(ui, lang, &vocab, frame, &polls, &rows, false);
+            });
+    }
+    // 액션 적용 — 창 닫기·선택 토글(월드 마커·추적 재사용)
+    if out.close {
+        ui_state.show_villagers = false;
+    }
+    if let Some(e) = out.select {
+        for (e2, _, _, _) in &agents_q {
+            commands.entity(e2).remove::<Selected>();
+        }
+        let was_sel = rows.iter().find(|r| r.entity == e).map(|r| r.is_sel).unwrap_or(false);
+        if !was_sel {
+            commands.entity(e).insert(Selected);
+            manual.0 = time.elapsed_secs(); // 추적 즉시 재개
+        }
+    }
+}
+
+/// 본문 — 헤더(+모바일 ✕)·목록·선택 상세. 공통(패널·모달 양쪽).
+fn body(
+    ui: &mut egui::Ui,
+    lang: Lang,
+    vocab: &Vocab,
+    frame: Option<&crate::net::LiveFrame>,
+    polls: &PollQueuesRes,
+    rows: &[RowData],
+    modal: bool,
+) -> BodyOut {
+    let mut out = BodyOut { select: None, close: false };
+    ui.add_space(2.0);
+    // 헤더 — 주민 (n) + 모달 ✕
+    ui.horizontal(|ui| {
+        ui.label(
+            egui::RichText::new(format!(
+                "人 {}",
+                tr(lang, Tr::VillagersN).replace("{}", &rows.len().to_string())
+            ))
+            .size(13.0)
+            .strong()
+            .color(theme::TEXT_WARM),
+        );
+        if modal {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui
+                    .button(egui::RichText::new("✕").size(11.0).color(theme::TEXT_DIM))
+                    .clicked()
+                {
+                    out.close = true;
+                }
+            });
+        }
+    });
+    ui.add_space(2.0);
+    let selected = rows.iter().find(|r| r.is_sel);
+    // ── 목록 ──
+    egui::ScrollArea::vertical()
+        .id_salt("vlist")
+        .max_height(if selected.is_some() { 150.0 } else { f32::INFINITY })
+        .auto_shrink([false, false])
+        .show(ui, |ui| {
+            for r in rows {
+                let raw_status = r.status.as_str();
+                let name_color = r
+                    .tag_id
+                    .as_deref()
+                    .map(theme::agent_color)
+                    .unwrap_or(theme::TEXT_WARM);
+                let row = egui::Frame::new()
+                    .fill(if r.is_sel {
+                        egui::Color32::from_rgb(52, 62, 38)
+                    } else {
+                        egui::Color32::TRANSPARENT
+                    })
+                    .corner_radius(7.0)
+                    .inner_margin(egui::Margin::symmetric(7, 4))
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            status_dot(ui, status_color(raw_status));
+                            ui.label(
+                                egui::RichText::new(&r.name)
+                                    .size(12.0)
+                                    .strong()
+                                    .color(if r.is_sel { theme::TEXT_WARM } else { name_color }),
+                            );
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    if !r.act.is_empty() {
+                                        ui.label(
+                                            egui::RichText::new(act_icon(&r.act))
+                                                .size(11.0)
+                                                .color(theme::ACCENT_SAND),
+                                        );
+                                    }
+                                    let lbl = status_label(lang, raw_status);
+                                    ui.label(
+                                        egui::RichText::new(if lbl.is_empty() { raw_status } else { lbl })
+                                            .size(10.0)
+                                            .color(status_color(raw_status)),
+                                    );
+                                },
+                            );
+                        });
+                        // 행동 진행 바(actProgress 0..1)
+                        if let Some(p) = r.progress.filter(|p| *p > 0.01) {
+                            thin_bar(ui, p, theme::ACCENT_SAND, 3.0);
+                        }
+                    })
+                    .response
+                    .interact(egui::Sense::click());
+                if row.clicked() {
+                    out.select = Some(r.entity);
                 }
             }
-            // ── 목록 ──
-            egui::ScrollArea::vertical()
-                .id_salt("vlist")
-                .max_height(if selected_entity.is_some() { 168.0 } else { f32::INFINITY })
-                .auto_shrink([false, false])
-                .show(ui, |ui| {
-                    for (e, a, tag, sel) in &agents_q {
-                        let la = tag.and_then(live_of);
-                        let raw_status = la.map(|l| l.status.as_str()).unwrap_or({
-                            if a.rest > 0.0 { "idle" } else { "moving" }
-                        });
-                        let is_sel = sel.is_some();
-                        let act = la.and_then(|l| l.act_type.as_deref()).unwrap_or("");
-                        let name_color = tag
-                            .map(|t| theme::agent_color(&t.0))
-                            .unwrap_or(theme::TEXT_WARM);
-                        let row = egui::Frame::new()
-                            .fill(if is_sel {
-                                egui::Color32::from_rgb(52, 62, 38)
-                            } else {
-                                egui::Color32::TRANSPARENT
-                            })
-                            .corner_radius(7.0)
-                            .inner_margin(egui::Margin::symmetric(7, 4))
-                            .show(ui, |ui| {
-                                ui.horizontal(|ui| {
-                                    status_dot(ui, status_color(raw_status));
-                                    ui.label(
-                                        egui::RichText::new(&a.name)
-                                            .size(12.0)
-                                            .strong()
-                                            .color(if is_sel { theme::TEXT_WARM } else { name_color }),
-                                    );
-                                    ui.with_layout(
-                                        egui::Layout::right_to_left(egui::Align::Center),
-                                        |ui| {
-                                            if !act.is_empty() {
-                                                ui.label(
-                                                    egui::RichText::new(act_icon(act))
-                                                        .size(11.0)
-                                                        .color(theme::ACCENT_SAND),
-                                                );
-                                            }
-                                            let lbl = status_label(lang, raw_status);
-                                            ui.label(
-                                                egui::RichText::new(if lbl.is_empty() { raw_status } else { lbl })
-                                                    .size(10.0)
-                                                    .color(status_color(raw_status)),
-                                            );
-                                        },
-                                    );
-                                });
-                                // 행동 진행 바(actProgress 0..1)
-                                if let Some(p) = la.and_then(|l| l.act_progress).filter(|p| *p > 0.01) {
-                                    thin_bar(ui, p, theme::ACCENT_SAND, 3.0);
-                                }
-                            })
-                            .response
-                            .interact(egui::Sense::click());
-                        if row.clicked() {
-                            for (e2, _, _, _) in &agents_q {
-                                commands.entity(e2).remove::<Selected>();
-                            }
-                            if !is_sel {
-                                commands.entity(e).insert(Selected);
-                                manual.0 = time.elapsed_secs(); // 추적 즉시 재개
-                            }
-                        }
-                    }
-                });
-            // ── 선택 상세 ──
-            let Some(e) = selected_entity else {
-                ui.add_space(6.0);
-                ui.label(
-                    egui::RichText::new(tr(lang, Tr::SelectHint))
-                        .size(10.5)
-                        .color(theme::TEXT_DIM),
-                );
-                if frame.is_none() {
-                    ui.label(
-                        egui::RichText::new(tr(lang, Tr::LiveDetailHint))
-                            .size(10.0)
-                            .color(theme::TEXT_DIM),
-                    );
-                }
-                return;
-            };
-            let Some((_, a, tag, _)) = agents_q.iter().find(|(e2, _, _, _)| *e2 == e) else {
-                return;
-            };
-            ui.add_space(4.0);
-            card().show(ui, |ui| {
-                let Some(la) = tag.and_then(live_of) else {
-                    // 데모 선택 — 이름·안내만(정직 표시)
-                    ui.horizontal(|ui| {
-                        ui.label(
-                            egui::RichText::new(&a.name).size(14.0).strong().color(theme::TEXT_WARM),
-                        );
-                    });
-                    ui.label(
-                        egui::RichText::new(tr(lang, Tr::LiveDetailHint))
-                            .size(10.0)
-                            .color(theme::TEXT_DIM),
-                    );
-                    return;
-                };
-                detail(ui, lang, &vocab, la, &tag.unwrap().0, &polls, frame);
-            });
         });
+    // ── 선택 상세 ──
+    let Some(sel) = selected else {
+        ui.add_space(6.0);
+        ui.label(
+            egui::RichText::new(tr(lang, Tr::SelectHint))
+                .size(10.5)
+                .color(theme::TEXT_DIM),
+        );
+        if frame.is_none() {
+            ui.label(
+                egui::RichText::new(tr(lang, Tr::LiveDetailHint))
+                    .size(10.0)
+                    .color(theme::TEXT_DIM),
+            );
+        }
+        return out;
+    };
+    ui.add_space(4.0);
+    card().show(ui, |ui| {
+        let Some(la) = &sel.la else {
+            // 데모 선택 — 이름·안내만(정직 표시)
+            ui.label(
+                egui::RichText::new(&sel.name)
+                    .size(14.0)
+                    .strong()
+                    .color(theme::TEXT_WARM),
+            );
+            ui.label(
+                egui::RichText::new(tr(lang, Tr::LiveDetailHint))
+                    .size(10.0)
+                    .color(theme::TEXT_DIM),
+            );
+            return;
+        };
+        let id = sel.tag_id.clone().unwrap_or_default();
+        detail(ui, lang, vocab, la, &id, polls, frame);
+    });
+    out
 }
 
 /// 선택 상세 카드 본문 — 라이브 데이터만 호출

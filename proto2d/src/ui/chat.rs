@@ -30,21 +30,24 @@ pub fn panel(
     let Some(c) = ctx(&mut contexts) else { return };
     let connected = net.as_ref().map(|n| n.status) == Some(NetStatus::Connected);
     let frame_agents = net.as_ref().and_then(|n| n.frame.as_ref()).map(|f| f.agents.as_slice());
+    // 모바일 — 컴팩트 바(레거시 ChatBar 직역: 로그 2-3행 + 입력행, 헤더 생략)
+    let narrow = c.screen_rect().width() < 760.0;
+    let (panel_h, log_h) = if narrow { (94.0, 38.0) } else { (148.0, 78.0) };
     egui::Panel::bottom("chat")
-        .default_size(148.0)
+        .exact_height(panel_h)
         .frame(egui::Frame::new().fill(egui::Color32::from_rgba_unmultiplied(16, 21, 13, 235)))
         .show(&c, |ui| {
-            ui.add_space(4.0);
-            ui.horizontal(|ui| {
+            ui.add_space(3.0);
+            if !narrow {
                 ui.label(
                     egui::RichText::new(format!("話 {}", tr(ui_state.lang, Tr::Chat)))
                         .size(12.0)
                         .strong()
                         .color(theme::TEXT_WARM),
                 );
-            });
+            }
             egui::ScrollArea::vertical()
-                .max_height(78.0)
+                .max_height(log_h)
                 .stick_to_bottom(true)
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
