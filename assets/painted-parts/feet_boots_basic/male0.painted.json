@@ -1,0 +1,1 @@
+{"part": "feet_boots_basic", "png": "male0", "cat": "feet", "seed": 525267, "ok": true, "log": ["  행 3 완료 (IoU 최저 0.974, drift σ 13.2)", "게이트 PASS", "측정 {'seed': 525267, 'iou_min': 0.974, 'drift_sigma_max': 16.57, 'drift_mean': 19.4, 'frames': 36} → /Users/openclaw/workspace/terrafolk-rust/assets/painted-parts/feet_boots_basic/male0.png"]}

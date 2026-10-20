@@ -83,12 +83,7 @@ pub fn panel(
         .title_bar(false)
         .show(&c, |ui| {
             ui.set_min_width((c.screen_rect().width() - 24.0).min(300.0).max(240.0));
-            ui.label(
-                egui::RichText::new(format!("木 {}", tr(lang, Tr::ToggleResources)))
-                    .size(13.0)
-                    .strong()
-                    .color(theme::TEXT_WARM),
-            );
+            super::widgets::title_bar(ui, "木", tr(lang, Tr::ToggleResources));
             ui.add_space(2.0);
             if stats.is_empty() {
                 ui.label(
@@ -114,7 +109,7 @@ pub fn panel(
                             _ => "·",
                         };
                         egui::Frame::new()
-                            .fill(theme::CREAM_3)
+                            .fill(theme::glass_hi())
                             .corner_radius(7.0)
                             .inner_margin(egui::Margin::symmetric(8, 6))
                             .show(ui, |ui| {
@@ -151,7 +146,7 @@ pub fn panel(
                                     ui.horizontal_wrapped(|ui| {
                                         for (sp, (n, ok)) in species {
                                             let resp = egui::Frame::new()
-                                                .fill(theme::CREAM_3)
+                                                .fill(theme::glass_hi())
                                                 .corner_radius(6.0)
                                                 .inner_margin(egui::Margin::symmetric(6, 2))
                                                 .show(ui, |ui| {

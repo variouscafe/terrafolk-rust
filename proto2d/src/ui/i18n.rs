@@ -54,8 +54,11 @@ pub enum Tr {
     Chat,
     ChatHint,
     ChatHintMine,
+    ChatTalk, // "{}에게 말걸기…" — 참여 캐릭터가 아닌 주민
     ChatSend,
     ChatWaiting,
+    ChatEmpty, // 대화창 빈 로그 안내
+    ChatOffline, // 라이브 미접속 — 컴포저 비활성 안내
     Deselect,
     // 기록(연표)
     Events,
@@ -202,7 +205,10 @@ pub fn tr(lang: Lang, key: Tr) -> &'static str {
         Tr::Chat => ("대화", "Chat"),
         Tr::ChatHint => ("선택한 주민에게 대화…", "Talk to selected villager…"),
         Tr::ChatHintMine => ("{}에게 지시…", "Direct {}…"),
+        Tr::ChatTalk => ("{}에게 말걸기…", "Talk to {}…"),
         Tr::ChatSend => ("보내기", "Send"),
+        Tr::ChatEmpty => ("아직 대화가 없습니다 — 첫 마디를 건네보세요", "No talk yet — say hello!"),
+        Tr::ChatOffline => ("라이브 접속 후 대화할 수 있습니다", "Connect live to chat"),
         Tr::ChatWaiting => ("(대기 중… 주민들이 대화하면 여기에 표시됩니다)",
             "(Waiting… villager chatter appears here)"),
         Tr::Deselect => ("선택 해제", "Deselect"),
@@ -385,30 +391,30 @@ pub fn ev_kind_icon(kind: &str) -> &'static str {
     }
 }
 
-/// 이벤트 kind → 본문색(레거시 EVENT_COLOR 준거 — 크림 표면 가독 진톤)
+/// 이벤트 kind → 본문색(레거시 EVENT_COLOR 준거 — 다크 글래스 위 비비드)
 pub fn ev_color(kind: &str) -> bevy_egui::egui::Color32 {
     use bevy_egui::egui::Color32;
     match kind {
-        "act" => Color32::from_rgb(52, 118, 172),    // sky 진톤
-        "result" => Color32::from_rgb(108, 114, 126),
-        "think" => Color32::from_rgb(118, 82, 184),
-        "trade" => Color32::from_rgb(178, 126, 16),
-        "skill" => Color32::from_rgb(30, 138, 96),
-        "chat" => Color32::from_rgb(108, 114, 126),
-        "resource" => Color32::from_rgb(104, 148, 22),
-        "spawn" => Color32::from_rgb(120, 126, 138),
-        "system" => Color32::from_rgb(100, 106, 118),
-        "relation" | "give" => Color32::from_rgb(192, 78, 132),
-        "death" => Color32::from_rgb(120, 124, 135),
-        "invention" => Color32::from_rgb(172, 124, 12),
-        "teach" => Color32::from_rgb(26, 132, 94),
-        "inherit" => Color32::from_rgb(48, 110, 160),
-        "birth" => Color32::from_rgb(184, 92, 138),
-        "routine" => Color32::from_rgb(122, 92, 174),
-        "talk" => Color32::from_rgb(152, 122, 22),
-        "perform" => Color32::from_rgb(158, 66, 148),
-        "chronicle" => Color32::from_rgb(152, 122, 22),
-        _ => Color32::from_rgb(108, 114, 126),
+        "act" => Color32::from_rgb(125, 190, 250),    // sky-300
+        "result" => Color32::from_rgb(178, 186, 200), // ink-300
+        "think" => Color32::from_rgb(196, 160, 255), // violet-300
+        "trade" => Color32::from_rgb(252, 211, 77),  // amber-300
+        "skill" => Color32::from_rgb(110, 231, 183), // emerald-300
+        "chat" => Color32::from_rgb(178, 186, 200),
+        "resource" => Color32::from_rgb(190, 242, 100), // lime-300
+        "spawn" => Color32::from_rgb(150, 158, 176),
+        "system" => Color32::from_rgb(140, 148, 166),
+        "relation" | "give" => Color32::from_rgb(249, 168, 212), // pink-300
+        "death" => Color32::from_rgb(212, 212, 216), // zinc-300
+        "invention" => Color32::from_rgb(254, 240, 138), // amber-200
+        "teach" => Color32::from_rgb(167, 243, 208), // emerald-200
+        "inherit" => Color32::from_rgb(186, 230, 253), // sky-200
+        "birth" => Color32::from_rgb(251, 207, 232), // pink-200
+        "routine" => Color32::from_rgb(221, 214, 254), // violet-200
+        "talk" => Color32::from_rgb(254, 240, 160),
+        "perform" => Color32::from_rgb(245, 208, 254), // fuchsia-200
+        "chronicle" => Color32::from_rgb(254, 240, 160),
+        _ => Color32::from_rgb(178, 186, 200),
     }
 }
 
@@ -423,14 +429,14 @@ pub fn ev_cat_of(kind: &str) -> &'static str {
     }
 }
 
-/// 생활기록 type → 색(레거시 HIST_COLOR 준거 — 진톤)
+/// 생활기록 type → 색(레거시 HIST_COLOR 준거 — 다크 위 비비드)
 pub fn hist_color(type_: &str) -> bevy_egui::egui::Color32 {
     use bevy_egui::egui::Color32;
     match type_ {
-        "gain" | "획득" => Color32::from_rgb(30, 138, 96),
-        "trade" | "거래" => Color32::from_rgb(178, 126, 16),
-        "craft" | "제작" => Color32::from_rgb(52, 118, 172),
-        "consume" | "소모" => Color32::from_rgb(192, 62, 50),
-        _ => Color32::from_rgb(108, 114, 126),
+        "gain" | "획득" => Color32::from_rgb(110, 231, 183), // emerald-300
+        "trade" | "거래" => Color32::from_rgb(252, 211, 77), // amber-300
+        "craft" | "제작" => Color32::from_rgb(125, 190, 250), // sky-300
+        "consume" | "소모" => Color32::from_rgb(248, 128, 116),
+        _ => Color32::from_rgb(178, 186, 200),
     }
 }

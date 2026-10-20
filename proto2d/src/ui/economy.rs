@@ -38,12 +38,7 @@ pub fn panel(
         .frame(card())
         .title_bar(false)
         .show(&c, |ui| {
-            ui.label(
-                egui::RichText::new(format!("貨 {}", tr(lang, Tr::Economy)))
-                    .size(13.0)
-                    .strong()
-                    .color(theme::TEXT_WARM),
-            );
+            super::widgets::title_bar(ui, "貨", tr(lang, Tr::Economy));
             ui.add_space(2.0);
             let Some(d) = data else {
                 ui.label(
@@ -57,13 +52,13 @@ pub fn panel(
             if let Some(k) = &d.kpi {
                 ui.horizontal(|ui| {
                     if let Some(gs) = k.gold_share {
-                        chip(ui, &tr(lang, Tr::EcoGoldShare).replace("{}", &format!("{:.0}", gs * 100.0)), theme::WARN, theme::CREAM);
+                        chip(ui, &tr(lang, Tr::EcoGoldShare).replace("{}", &format!("{:.0}", gs * 100.0)), theme::WARN, theme::glass());
                     }
                     if let Some(v) = k.volume {
-                        chip(ui, &tr(lang, Tr::EcoVolume).replace("{}", &v.to_string()), theme::TEXT_WARM, theme::CREAM_3);
+                        chip(ui, &tr(lang, Tr::EcoVolume).replace("{}", &v.to_string()), theme::TEXT_WARM, theme::glass_hi());
                     }
                     if let Some(g) = k.gold_deals {
-                        chip(ui, &tr(lang, Tr::EcoGoldDeals).replace("{}", &g.to_string()), theme::TEXT_WARM, theme::CREAM_3);
+                        chip(ui, &tr(lang, Tr::EcoGoldDeals).replace("{}", &g.to_string()), theme::TEXT_WARM, theme::glass_hi());
                     }
                 });
                 if let Some(day) = k.day {

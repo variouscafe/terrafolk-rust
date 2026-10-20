@@ -1,0 +1,15 @@
+{
+ "kind": "character-part",
+ "denoise": 0.28,
+ "metrics": {
+  "seed": 625281,
+  "iou_min": 1.0,
+  "drift_sigma_max": 2.49,
+  "drift_mean": 20.8,
+  "frames": 36
+ },
+ "prompt_pos": "small isolated character part sprite, walking animation frames, cozy hand-painted mobile game asset, cute stylized cartoon, storybook village illustration style, soft painterly brush strokes, chunky soft brush marks, flat color blocks with soft gradients, warm earthy color palette, warm sunlight from top-left, no outlines, clean simple rounded shapes, 2D game sprite, one small isolated character part sprite exactly as in the input image (a single hair, beard, clothing, footwear or similar piece), keep the exact same position, scale and silhouette as the input, keep all empty transparent areas empty, plain solid white background",
+ "prompt_neg": "full body, whole person, complete character, face, head, body, skin, human, mannequin, man, woman, added body parts, invented details, extra objects, larger, smaller, moved, repositioned, photorealistic, photo, realistic, 3d render, cgi, realistic textures, text, watermark, signature, frame, border, cropped, blurry, sketch, lineart, washed out, faded, low contrast, grayscale, harsh outlines, scene, environment, ground, grass, noise, grain, change colors",
+ "base_input": "male0.png",
+ "created_at": "2026-10-20T17:37:30"
+}

@@ -1,0 +1,1 @@
+{"part": "feet_shoes_ghillies", "png": "female0", "cat": "feet", "seed": 625273, "ok": true, "log": ["  행 3 완료 (IoU 최저 0.905, drift σ 13.7)", "게이트 PASS", "측정 {'seed': 625273, 'iou_min': 0.905, 'drift_sigma_max': 20.52, 'drift_mean': 25.4, 'frames': 36} → /Users/openclaw/workspace/terrafolk-rust/assets/painted-parts/feet_shoes_ghillies/female0.png"]}

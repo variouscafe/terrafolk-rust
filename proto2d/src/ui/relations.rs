@@ -37,11 +37,7 @@ pub fn panel(
     let Some(c) = ctx(&mut contexts) else { return };
     let lang = ui_state.lang;
     let connected = net.as_ref().map(|n| n.status) == Some(NetStatus::Connected);
-    let frame_agents: &[crate::net::LiveAgent] = net
-        .as_ref()
-        .and_then(|n| n.frame.as_ref())
-        .map(|f| f.agents.as_slice())
-        .unwrap_or(&[]);
+    let frame_agents: &[crate::net::LiveAgent] = super::chat::live_agents(&net);
     let mut rows: Vec<RelRow> = polls
         .relations
         .lock()
@@ -56,10 +52,10 @@ pub fn panel(
         .show(&c, |ui| {
             // 헤더 — 선택 주민 인연 / 마을 전체
             let title = match &selected_id {
-                Some(id) => format!("緣 {}", tr(lang, Tr::RelFor).replacen("{}", &name_of(id, frame_agents), 1)),
-                None => format!("緣 {}", tr(lang, Tr::RelAll)),
+                Some(id) => tr(lang, Tr::RelFor).replacen("{}", &name_of(id, frame_agents), 1),
+                None => tr(lang, Tr::RelAll).to_owned(),
             };
-            ui.label(egui::RichText::new(title).size(13.0).strong().color(theme::TEXT_WARM));
+            super::widgets::title_bar(ui, "緣", &title);
             ui.add_space(2.0);
             if rows.is_empty() && !connected {
                 ui.label(egui::RichText::new(tr(lang, Tr::RelWaitLive)).size(10.5).color(theme::TEXT_DIM));
@@ -91,7 +87,7 @@ pub fn panel(
                         let warmth = r.warmth.clamp(0.0, 100.0);
                         let col = warmth_hsl(warmth);
                         let resp = egui::Frame::new()
-                            .fill(theme::CREAM_3)
+                            .fill(theme::glass_hi())
                             .corner_radius(7.0)
                             .inner_margin(egui::Margin::symmetric(7, 5))
                             .show(ui, |ui| {
@@ -122,7 +118,7 @@ pub fn panel(
                                         egui::Sense::hover(),
                                     );
                                     let p = ui.painter();
-                                    p.rect_filled(rect, 3.0, theme::CREAM_3);
+                                    p.rect_filled(rect, 3.0, theme::track());
                                     let mut fr = rect;
                                     fr.set_width(rect.width() * warmth / 100.0);
                                     p.rect_filled(fr, 3.0, col);

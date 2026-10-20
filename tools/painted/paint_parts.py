@@ -95,11 +95,15 @@ def main():
         base = Image_open(pid, png)
         base.save(os.path.join(tmp, 'base.png'))
         seed = SEED_BASE + i
+        used_seed = seed
         rc, tail, err = run_charstyle(os.path.join(tmp, 'base.png'), out_png, seed, 0.34)
         if rc != 0:  # 구조 보존 우선 재시도 — 부품은 위치·스케일이 최우선
+            used_seed = seed + 100000
             rc, tail, err = run_charstyle(os.path.join(tmp, 'base.png'),
-                                          out_png, seed + 100000, 0.28)
-        note = {'part': pid, 'png': png, 'cat': cat, 'seed': seed,
+                                          out_png, used_seed, 0.28)
+        # 마커 시드는 실제 채택된 실행의 시드 — 재시도본을 원본 시드로
+        # 기록하면 재현·리파인이 다른 이미지를 뽑는다(2026-10-20 리뷰).
+        note = {'part': pid, 'png': png, 'cat': cat, 'seed': used_seed,
                 'ok': rc == 0, 'log': tail}
         json.dump(note, open(marker, 'w'), ensure_ascii=False)
         done += 1

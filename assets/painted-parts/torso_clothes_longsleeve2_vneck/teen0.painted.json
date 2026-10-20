@@ -1,0 +1,1 @@
+{"part": "torso_clothes_longsleeve2_vneck", "png": "teen0", "cat": "top", "seed": 525293, "ok": true, "log": ["  행 3 완료 (IoU 최저 0.973, drift σ 8.4)", "게이트 PASS", "측정 {'seed': 525293, 'iou_min': 0.973, 'drift_sigma_max': 10.49, 'drift_mean': 15.3, 'frames': 36} → /Users/openclaw/workspace/terrafolk-rust/assets/painted-parts/torso_clothes_longsleeve2_vneck/teen0.png"]}

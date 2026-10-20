@@ -1,0 +1,1 @@
+{"part": "head_nose_big", "png": "c0", "cat": "fix", "seed": 625402, "ok": true, "log": ["regate: 신 게이트 재판정 통과(오프라인)", "rerun denoise=0.30 sweep=3 rc=1"], "metrics": {"iou_min": 0.675, "drift_sigma_max": 19.6, "drift_mean": 16.5, "frames": 36}}

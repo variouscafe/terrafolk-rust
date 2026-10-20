@@ -1,0 +1,1 @@
+{"part": "heads_human_female", "png": "c0", "cat": "head", "seed": 525283, "ok": true, "log": ["  행 3 완료 (IoU 최저 1.000, drift σ 3.5)", "게이트 PASS", "측정 {'seed': 525283, 'iou_min': 1.0, 'drift_sigma_max': 4.09, 'drift_mean': 8.7, 'frames': 36} → /Users/openclaw/workspace/terrafolk-rust/assets/painted-parts/heads_human_female/c0.png"]}

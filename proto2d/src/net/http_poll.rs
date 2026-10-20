@@ -75,17 +75,19 @@ async fn run(
         }
     }
     // 주기 폴 — relations 20s(시작 직후 1회), history 15s(선택 주민 있을 때),
-    // economy 30s(시작 직후 1회 — 401이면 조용히 재시도)
-    let mut last_rel = std::time::Instant::now() - Duration::from_secs(100);
-    let mut last_hist = std::time::Instant::now() - Duration::from_secs(100);
-    let mut last_eco = std::time::Instant::now() - Duration::from_secs(100);
+    // economy 30s(시작 직후 1회 — 401이면 조용히 재시도).
+    // 직전 시각은 Option — `now - 100s` 트릭은 단조 시계가 100s 미만인
+    // 기기(부팅 직후 에뮬)에서 overflow 패닉이라 못 쓴다(2026-10-20 리뷰).
+    let mut last_rel: Option<std::time::Instant> = None;
+    let mut last_hist: Option<std::time::Instant> = None;
+    let mut last_eco: Option<std::time::Instant> = None;
     loop {
         tokio::time::sleep(Duration::from_secs(5)).await;
         if phase.load(Ordering::Relaxed) != PHASE_CONNECTED {
             continue;
         }
-        if last_rel.elapsed() >= Duration::from_secs(20) {
-            last_rel = std::time::Instant::now();
+        if last_rel.is_none_or(|t| t.elapsed() >= Duration::from_secs(20)) {
+            last_rel = Some(std::time::Instant::now());
             if let Ok(rows) =
                 fetch_json::<Vec<RelRow>>(&http, &format!("{api}/api/worldsim/relations")).await
             {
@@ -95,9 +97,9 @@ async fn run(
             }
         }
         if let Some(id) = selected.0.lock().ok().and_then(|g| g.clone())
-            && last_hist.elapsed() >= Duration::from_secs(15)
+            && last_hist.is_none_or(|t| t.elapsed() >= Duration::from_secs(15))
         {
-            last_hist = std::time::Instant::now();
+            last_hist = Some(std::time::Instant::now());
             if let Ok(rows) = fetch_json::<Vec<crate::net::HistRow>>(
                 &http,
                 &format!("{api}/api/worldsim/agents/{id}/history"),
@@ -109,8 +111,8 @@ async fn run(
                 }
             }
         }
-        if last_eco.elapsed() >= Duration::from_secs(30) {
-            last_eco = std::time::Instant::now();
+        if last_eco.is_none_or(|t| t.elapsed() >= Duration::from_secs(30)) {
+            last_eco = Some(std::time::Instant::now());
             if let Ok(text) = fetch_text(&http, &format!("{api}/api/worldsim/economy")).await
                 && let Some(d) = parse_eco(&text)
             {

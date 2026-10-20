@@ -1,0 +1,1 @@
+{"part": "heads_human_male_elderly", "png": "c0", "cat": "head", "seed": 525286, "ok": true, "log": ["  행 3 완료 (IoU 최저 1.000, drift σ 6.9)", "게이트 PASS", "측정 {'seed': 525286, 'iou_min': 1.0, 'drift_sigma_max': 6.93, 'drift_mean': 10.0, 'frames': 36} → /Users/openclaw/workspace/terrafolk-rust/assets/painted-parts/heads_human_male_elderly/c0.png"]}

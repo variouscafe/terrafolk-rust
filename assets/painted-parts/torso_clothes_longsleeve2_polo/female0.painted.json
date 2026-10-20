@@ -1,0 +1,1 @@
+{"part": "torso_clothes_longsleeve2_polo", "png": "female0", "cat": "top", "seed": 525292, "ok": true, "log": ["  행 3 완료 (IoU 최저 0.981, drift σ 14.1)", "게이트 PASS", "측정 {'seed': 525292, 'iou_min': 0.981, 'drift_sigma_max': 14.15, 'drift_mean': 13.9, 'frames': 36} → /Users/openclaw/workspace/terrafolk-rust/assets/painted-parts/torso_clothes_longsleeve2_polo/female0.png"]}

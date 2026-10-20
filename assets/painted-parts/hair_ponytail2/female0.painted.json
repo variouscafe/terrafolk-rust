@@ -1,0 +1,1 @@
+{"part": "hair_ponytail2", "png": "female0", "cat": "hair", "seed": 625281, "ok": true, "log": ["  행 3 완료 (IoU 최저 0.901, drift σ 5.6)", "게이트 PASS", "측정 {'seed': 625281, 'iou_min': 0.901, 'drift_sigma_max': 7.96, 'drift_mean': 33.1, 'frames': 36} → /Users/openclaw/workspace/terrafolk-rust/assets/painted-parts/hair_ponytail2/female0.png"]}

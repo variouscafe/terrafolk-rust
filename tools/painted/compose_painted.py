@@ -101,9 +101,12 @@ def main():
     rng = random.Random(g.SEED)
     lpc = g.load_tf_data()['LPC']
     for i, (name, bucket) in enumerate(zip(g.NAMES, BUCKETS)):
+        # pick_layers는 주민마다 가변 개수의 rng를 소비한다 — 건너뛸 때도
+        # 반드시 전원 소비해 시퀀스를 보존한다(안 그러면 --villager 3이
+        # 0번의 레이어 시퀀스로 3번 시트를 잘못 덮어쓴다).
+        layers = g.pick_layers(rng, lpc, bucket)
         if want is not None and i not in want:
             continue
-        layers = g.pick_layers(rng, lpc, bucket)
         sheet, fb = compose(layers)
         # 가드: 부품 라이브러리가 덜 차면 폴백(픽셀×4) 비중이 커져 기존
         # 페인티드 시트보다 퇴행한 산출로 게임을 덮어쓰게 된다 — 거부.
