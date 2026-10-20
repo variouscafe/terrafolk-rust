@@ -10,6 +10,7 @@ mod net;
 mod nightglow;
 mod props;
 mod ui;
+mod ui2;
 mod weather;
 
 use bevy::prelude::*;
@@ -83,7 +84,7 @@ fn main() {
             stable_since: 0.0,
         });
     app
-        .add_plugins((
+        .add_plugins((ui2::Ui2Plugin,
             DefaultPlugins
                 .set(bevy::asset::AssetPlugin {
                     // 웹 배포(CF Pages)가 없는 *.meta를 200+HTML로 응답해 파싱 에러 →

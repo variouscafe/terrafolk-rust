@@ -1820,6 +1820,7 @@ dependencies = [
  "bevy_time 0.19.1",
  "bevy_transform 0.19.1",
  "bevy_ui 0.19.1",
+ "bevy_ui_render 0.19.1",
  "bevy_utils 0.19.1",
  "bevy_window 0.19.1",
  "bevy_winit 0.19.1",
@@ -7806,6 +7807,7 @@ version = "0.1.0"
 dependencies = [
  "bevy 0.19.1",
  "bevy_egui",
+ "bevy_ui 0.19.1",
  "colyseus-lite",
  "console_error_panic_hook",
  "egui-phosphor",
