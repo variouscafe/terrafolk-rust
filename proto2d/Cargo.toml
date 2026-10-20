@@ -12,6 +12,9 @@ bevy = { version = "0.19.1", default-features = false, features = [
     "png",
     "bevy_asset",
     "bevy_text",
+    "bevy_ui", # ui2 프로브 — egui→bevy_ui 교체 타당성 실측(사이즈 영향 측정)
+    "bevy_ui_render", # 0.19 분리 피처 — 드로잉 담당(없으면 레이아웃만 돌고 미렌더)
+    "bevy_picking",
     "webgl2", # wasm 기본 WebGPU 우선 → 실브라우저에서 빈 회면(2026-10-19 실측). GL 강제.
 ] }
 serde = { version = "1", features = ["derive"] }
@@ -22,6 +25,9 @@ bevy_egui = { version = "0.40", default-features = false, features = [
     "default_fonts",    # 라틴 기본(한글은 런트임 에셋 폰트 — fonts.rs)
     "open_url",
 ] }  # bevy 0.19 정확 대응 — bevy_ui·picking 등 미사용 피처 제거로 wasm 다이어트(CF 25MiB)
+bevy_ui = { version = "0.19", default-features = false, features = [
+    "bevy_picking",
+] } # ui2 프로브 — UI 피킹 백엔드(bevy crate의 bevy_picking과 별개 피처)
 egui-phosphor = "0.12.0"
 egui-toast = "0.20.0"
 egui_extras = { version = "0.34.3", features = ["http", "image", "file"] }
