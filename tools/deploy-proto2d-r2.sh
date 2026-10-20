@@ -16,6 +16,11 @@ W=$(basename "$(ls dist/*_bg.wasm | head -1)")
 npx wrangler r2 object put "terrafolk-wasm/$W" --file "dist/$W" --remote
 
 # ② glue — index.html의 wasm 참조를 R2 절대 URL로
+# (원본 백업 — ⑥에서 복원. 못 복원하면 로컬 8095가 R2 wasm=프로덕션을
+# 물고 있어 "로컬 테스트"가 프로덕션 검증으로 둔갑한다 — 2026-10-21 실측.
+# 백업은 dist 밖 — dist 안에 두면 Pages 업로드 트리에 끼어든다)
+GLUE_BAK=$(mktemp)
+cp dist/index.html "$GLUE_BAK"
 python3 - "$W" "$R2BASE" <<'PY'
 import sys, re, hashlib, base64
 w, r2 = sys.argv[1], sys.argv[2]
@@ -39,9 +44,10 @@ mv "dist/$W" "$TMPD/"
 npx wrangler pages deploy dist --project-name terrafolk-2d \
   --branch main --commit-dirty=true
 
-# ⑥ 대피 복구(로컬 8095 서빙용)
+# ⑥ 대피 복구(로컬 8095 서빙용) — glue 원문도 복원(상대 경로 복귀)
 mv "$TMPD/$W" dist/ 2>/dev/null || true
 [ -d "$TMPD/wasm_old" ] && mv "$TMPD/wasm_old" dist/wasm
+[ -f "$GLUE_BAK" ] && mv "$GLUE_BAK" dist/index.html
 rm -rf "$TMPD"
 
 echo "배포 완료 → https://terrafolk-2d.pages.dev (wasm: R2/$W)"
