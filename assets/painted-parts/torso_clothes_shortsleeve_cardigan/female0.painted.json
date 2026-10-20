@@ -1,0 +1,1 @@
+{"part": "torso_clothes_shortsleeve_cardigan", "png": "female0", "cat": "top", "seed": 525295, "ok": true, "log": ["  행 3 완료 (IoU 최저 0.974, drift σ 7.8)", "게이트 PASS", "측정 {'seed': 525295, 'iou_min': 0.974, 'drift_sigma_max': 11.23, 'drift_mean': 17.2, 'frames': 36} → /Users/openclaw/workspace/terrafolk-rust/assets/painted-parts/torso_clothes_shortsleeve_cardigan/female0.png"]}

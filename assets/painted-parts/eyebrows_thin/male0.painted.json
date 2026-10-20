@@ -1,0 +1,1 @@
+{"part": "eyebrows_thin", "png": "male0", "cat": "fix", "seed": 625411, "ok": false, "log": ["rerun denoise=0.22 sweep=2 rc=1"]}
