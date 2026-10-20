@@ -153,6 +153,7 @@ impl Plugin for UiPlugin {
                     debug_panel_cmds,
                     mt::flush,
                     icon::flush,
+                    icon::world_sprites,
                 ),
             )
             .add_systems(
