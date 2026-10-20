@@ -194,6 +194,7 @@ pub fn sync(
         Option<&mut RoamTo>,
     )>,
     mut first_log: Local<u32>,
+    mut last_tick: Local<Option<u32>>,
 ) {
     let _ = lib; // (주민 시트와 무관 — 시그니처 일관성만)
     if net.status != NetStatus::Connected {
@@ -207,13 +208,26 @@ pub fn sync(
         info!("[net] 자원 동기 시작 — 프레임 {}건", frame.resources.len());
     }
 
+    // 스냅숏 불변 프레임 스킵 — 프레임은 1초 단위로 오는데 이하 전체가
+    // 매 렌더 프레임 재실행돼 O(N×M) 3,000만 비교+stateJson 5,510파싱을
+    // 60fps로 되풀이했다(2026-10-21 병목 실측). 로밍 목적지 갱신도 스냅숏
+    // 단위면 충분 — roam_move가 매 프레임 부드럽게 보간한다.
+    if *last_tick == Some(frame.tick) {
+        return;
+    }
+    *last_tick = Some(frame.tick);
+
     // 갱신·제거 — 서명 변화 시 despawn(다음 루프에서 새 시각으로 재스폰).
     // 동물 좌표 이동(§17.64 배위)은 서명과 무관 — RoamTo 목적지만 갱신.
+    // id 사전 조회(스폰 경로와 동일 O(1) — 갱신 경로가 빠뜨리고 있었다)
+    let by_id: std::collections::HashMap<u32, &crate::net::LiveResource> =
+        frame.resources.iter().map(|r| (r.id, r)).collect();
     for (e, tag, meta, roam) in &mut q_live {
-        let Some(r) = frame.resources.iter().find(|r| r.id == tag.0) else {
+        let Some(r) = by_id.get(&tag.0) else {
             commands.entity(e).despawn();
             continue;
         };
+        let r = *r;
         let vis = visual(&r.kind, &r.species, &parse_state(r));
         let sig = res_sig(r, vis.is_some());
         if sig != meta.0 {
