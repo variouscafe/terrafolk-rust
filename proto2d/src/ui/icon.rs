@@ -6,6 +6,9 @@
 use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
 
+use crate::net::NetState;
+use crate::net::live_props::LiveResourceTag;
+
 /// 아이콘 스펙(서버 직렬화 그대로 — docs §17.30)
 #[derive(serde::Deserialize, Clone, Debug)]
 pub struct IconSpec {
@@ -69,6 +72,59 @@ fn valid(s: &IconSpec) -> Option<IconSpec> {
     TPLS
         .contains(&s.tpl.as_str())
         .then(|| s.clone())
+}
+
+/// 유물 월드 스프라이트 교체 — relic 자원 state.icon 스펙의 합성 아이콘을
+/// 실제 맵 스프라이트에 입힌다(레거시 §17.30 relic 드롭 표현 패리티).
+/// 스폰은 정적 props/relic.png로 먼저 뜨고, 아이콘 도착 프레임에 교체 —
+/// 서명(res_sig)과 무관해 재스폰 루프가 없다.
+pub fn world_sprites(
+    net: Option<Res<NetState>>,
+    mut icons: ResMut<IconCache>,
+    mut assets: ResMut<Assets<Image>>,
+    mut q: Query<(&LiveResourceTag, &mut Sprite)>,
+    mut done: Local<HashSet<u32>>,
+) {
+    let Some(frame) = net.as_ref().and_then(|n| n.frame.as_ref()) else {
+        return;
+    };
+    for (tag, mut sprite) in &mut q {
+        if done.contains(&tag.0) {
+            continue;
+        }
+        let Some(r) = frame.resources.iter().find(|r| r.id == tag.0) else {
+            continue;
+        };
+        if r.kind != "relic" {
+            continue;
+        }
+        let Some(spec) = r
+            .state
+            .as_deref()
+            .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
+            .and_then(|st| st.get("icon").cloned())
+            .and_then(|v| serde_json::from_value::<IconSpec>(v).ok())
+            .filter(|s| valid(s).is_some())
+        else {
+            done.insert(tag.0); // 스펙 없는 유물 — 정적 스프라이트 유지
+            continue;
+        };
+        let Some(bytes) = icons.get(&spec) else {
+            continue; // 요청 등록됨 — 도착 프레임에 교체
+        };
+        if let Ok(img) = Image::from_buffer(
+            bytes,
+            bevy::image::ImageType::Extension("png"),
+            bevy::image::CompressedImageFormats::NONE,
+            true,
+            bevy::image::ImageSampler::nearest(), // 픽셀 아트 — 정수배 근접
+            bevy::asset::RenderAssetUsages::default(),
+        ) {
+            sprite.image = assets.add(img);
+            sprite.custom_size = Some(Vec2::splat(64.0)); // 32px 아이콘 2x
+        }
+        done.insert(tag.0);
+    }
 }
 
 /// base64 PNG 디코드 — 표준 크레이트 없이 최소 구현(테이블 6bit).
