@@ -54,8 +54,11 @@ pub enum Tr {
     Chat,
     ChatHint,
     ChatHintMine,
+    ChatTalk, // "{}에게 말걸기…" — 참여 캐릭터가 아닌 주민
     ChatSend,
     ChatWaiting,
+    ChatEmpty, // 대화창 빈 로그 안내
+    ChatOffline, // 라이브 미접속 — 컴포저 비활성 안내
     Deselect,
     // 기록(연표)
     Events,
@@ -202,7 +205,10 @@ pub fn tr(lang: Lang, key: Tr) -> &'static str {
         Tr::Chat => ("대화", "Chat"),
         Tr::ChatHint => ("선택한 주민에게 대화…", "Talk to selected villager…"),
         Tr::ChatHintMine => ("{}에게 지시…", "Direct {}…"),
+        Tr::ChatTalk => ("{}에게 말걸기…", "Talk to {}…"),
         Tr::ChatSend => ("보내기", "Send"),
+        Tr::ChatEmpty => ("아직 대화가 없습니다 — 첫 마디를 건네보세요", "No talk yet — say hello!"),
+        Tr::ChatOffline => ("라이브 접속 후 대화할 수 있습니다", "Connect live to chat"),
         Tr::ChatWaiting => ("(대기 중… 주민들이 대화하면 여기에 표시됩니다)",
             "(Waiting… villager chatter appears here)"),
         Tr::Deselect => ("선택 해제", "Deselect"),
