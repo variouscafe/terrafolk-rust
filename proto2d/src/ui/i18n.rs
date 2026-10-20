@@ -91,6 +91,7 @@ pub enum Tr {
     RelChatsTrades, // "대화 {n}회 · 거래 {m}회"
     // 자원
     ResUsable, // "채집 가능 {} / {}"
+    ResEmpty,
     // 경제
     Economy,
     EcoPrices,
@@ -236,6 +237,7 @@ pub fn tr(lang: Lang, key: Tr) -> &'static str {
         Tr::RelWaitData => ("(인연 집계 대기 중…)", "(Gathering bonds…)"),
         Tr::RelChatsTrades => ("대화 {}회 · 거래 {}회", "{} chats · {} trades"),
         Tr::ResUsable => ("채집 가능 {} / {}", "Harvestable {} / {}"),
+        Tr::ResEmpty => ("(주변에 채집할 것이 없다)", "(Nothing to gather nearby)"),
         Tr::Economy => ("시세", "Economy"),
         Tr::EcoPrices => ("시세 — 참조", "Reference prices"),
         Tr::EcoDeals => ("최근 성사", "Recent deals"),
@@ -378,6 +380,7 @@ pub fn ev_kind_icon(kind: &str) -> &'static str {
         "chat" => "言",
         "perform" => "戲",
         "chronicle" => "史",
+        "home" => "家",
         _ => "·",
     }
 }

@@ -332,7 +332,6 @@ pub fn select_on_tap(
     time: Res<Time>,
     mut egui_ctx: bevy_egui::EguiContexts,
     mut tap: ResMut<crate::cam::TapPos>,
-    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     camera_q: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
     agents_q: Query<(Entity, &Transform, Option<&Selected>), With<Agent>>,
     mut marker: Query<&mut Visibility, With<SelectionMarker>>,
@@ -343,7 +342,6 @@ pub fn select_on_tap(
     let _ = &mut egui_ctx;
     let Some(screen) = tap.0.take() else { return };
     let Ok((camera, cam_tf)) = camera_q.single() else { return };
-    let _ = windows;
     let Ok(world) = camera.viewport_to_world_2d(cam_tf, screen) else { return };
     pick_and_apply(&mut commands, world, &agents_q, &mut marker, &mut manual, time.elapsed_secs());
 }

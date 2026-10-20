@@ -55,6 +55,9 @@ pub fn drain_and_bubble(
     if len > 120 {
         log.rows.drain(0..len - 120);
     }
+    // 백로그(REST)와 실시간(룸) 병합 순서 보장 — 게임 분 기준 안정 정렬
+    // (gmin 없는 행은 도착순 유지를 위해 최뒤 키)
+    log.rows.sort_by_key(|r| r.gmin.unwrap_or(i64::MAX));
     let font = assets.load("fonts/NotoSansKR-Regular.otf");
     for row in rows {
         let Some((agent_e, _)) = q_agents.iter().find(|(_, t)| t.0 == row.agent_id) else {

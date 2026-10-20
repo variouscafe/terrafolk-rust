@@ -217,9 +217,11 @@ impl Vocab {
     pub fn invcat<'a>(&'a self, lang: Lang, id: &'a str) -> &'a str {
         Self::pick(&self.invcats, lang, id)
     }
-    /// 범주 → 6대분류 키(없으면 living — 레거시 invGroupOf)
-    pub fn inv_group_of(&self, cat: &str) -> &str {
-        self.invcat_group.get(cat).map(String::as_str).unwrap_or("living")
+    /// 범주 → 6대분류 키. 미지 범주는 None — 레거시 invGroupOf가 ''을
+    /// 돌려주고 civScore가 빈 그룹을 걸러내는 것과 동일(잘못된 생활 편입·
+    /// 다양성 보너스 오염 방지)
+    pub fn inv_group_of(&self, cat: &str) -> Option<&str> {
+        self.invcat_group.get(cat).map(String::as_str)
     }
     pub fn inv_group<'a>(&'a self, lang: Lang, group: &'a str) -> &'a str {
         Self::pick(&self.invgroups, lang, group)
@@ -392,14 +394,16 @@ const ERA_STEPS: [(&str, u32); 9] = [
     ("beyond", 140),
 ];
 
-/// 문명 점수 = 발명 수 + 서로 다른 그룹 수 × 2
-pub fn civ_score(cats: impl Iterator<Item = String>) -> (u32, &'static str) {
+/// 문명 점수 = 발명 수 + 서로 다른 그룹 수 × 2(미지 범주는 그룹 수제외)
+pub fn civ_score(cats: impl Iterator<Item = Option<String>>) -> (u32, &'static str) {
     let mut groups: Vec<String> = Vec::new();
     let mut count = 0u32;
     for c in cats {
         count += 1;
-        if !groups.contains(&c) {
-            groups.push(c);
+        if let Some(g) = c
+            && !groups.contains(&g)
+        {
+            groups.push(g);
         }
     }
     let score = count + groups.len() as u32 * 2;

@@ -59,8 +59,9 @@ pub fn panel(
                         let agent_name = frame_agents
                             .and_then(|a| a.iter().find(|la| la.id == r.agent_id))
                             .map(|la| la.name.clone());
-                        let is_human =
-                            r.speaker.contains('@') || agent_name.as_deref() != Some(r.speaker.as_str());
+                        // 레거시 isHumanRow — 주민 목록에 있는 화자와 이름이 다를 때만 사람
+                        let is_human = r.speaker.contains('@')
+                            || agent_name.as_deref().map(|n| n != r.speaker.as_str()).unwrap_or(false);
                         let stamp = r
                             .gmin
                             .map(super::villagers::fmt_gmin)

@@ -166,14 +166,17 @@ pub fn fmt_hhmm(ts: Option<&str>) -> String {
 /// 하이라이트 탭이 공유. 세부 ok/캐리 조건은 payload를 본다.
 pub fn is_highlight(kind: &str, payload: &serde_json::Value) -> bool {
     let ok = payload.get("ok").and_then(|v| v.as_bool()).unwrap_or(false);
+    // 캐리 존재는 종 무관 하이라이트(레거시 highlightOf 동일)
+    if payload.get("carry").is_some() {
+        return true;
+    }
     match kind {
-        "relation" | "skill" | "inherit" | "birth" | "routine" | "invention" | "talk"
-        | "death" | "chronicle" => true,
-        "trade" | "give" | "teach" | "perform" => ok,
+        "relation" | "skill" | "inherit" | "routine" | "invention" | "talk" | "death"
+        | "chronicle" | "home" => true,
+        "birth" | "trade" | "give" | "teach" | "perform" => ok,
         "result" => {
             let action = payload.get("action").and_then(|v| v.as_str()).unwrap_or("");
             ok && matches!(action, "campfire" | "drink" | "fetch" | "store" | "withdraw" | "drop" | "pickup" | "wear" | "build")
-                || payload.get("carry").is_some()
         }
         "spawn" => true,
         "system" => payload.get("weather").is_some(),

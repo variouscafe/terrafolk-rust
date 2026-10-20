@@ -423,37 +423,39 @@ fn drain_frames(
     };
     let mut last_frame: Option<String> = None;
     for s in drained {
-        // 인젤로프 판별 — 접두 "{\"tf\""로 시작해야 한다. 예전 s[2..8] 검사는
-        // 여는 따옴표가 인덱스 1이라 절대 매치되지 않아 채팅·이벤트가 전부
-        // LiveFrame 파서로 새고 스냅숏을 덮어썼다(2026-10-20 실측).
-        if s.len() > 12 && s.starts_with("{\"tf\"") {
-            // 채팅 인젤로프 — ChatQueue로
-            if s.contains("\"chat\"")
-                && let Ok(env) = serde_json::from_str::<ChatEnvelope>(&s)
-            {
-                if let Ok(mut q) = chats.inner.lock() {
-                    q.push(env.row.into());
-                }
-                continue;
-            }
-            // 이벤트 인젤로프 — 원시 행 그대로 EventQueue로(drain_events가 파싱)
-            if s.contains("\"event\"")
-                && let Ok(env) = serde_json::from_str::<EventEnvelope>(&s)
-            {
-                if let Ok(mut q) = events.inner.lock() {
-                    q.push(env.row.to_string());
-                    let len = q.len();
-                    if len > 400 {
-                        q.drain(0..len - 400);
+        // 인벤로프 — {"tf": kind, ...} 통일 모양. kind로 정밀 분기한다
+        // (옛 부분문자열 contains("chat") 판별은 kind:'chat' 이벤트를 채팅으로
+        // 오라우팅해 삼켰다 — 이벤트 종 'chat'은 계약이 예약한 어휘다).
+        if s.starts_with("{\"tf\"") {
+            let kind = serde_json::from_str::<TfKind>(&s).ok().map(|k| k.tf);
+            match kind.as_deref() {
+                Some("chat") => {
+                    if let Ok(env) = serde_json::from_str::<ChatEnvelope>(&s)
+                        && let Ok(mut q) = chats.inner.lock()
+                    {
+                        q.push(env.row.into());
                     }
-                }
-                continue;
-            }
-            // REST 폴 인젤로프(웹 JS 폴러) — 관계·생활기록·경제·채팅 백로그
-            if let Some(handled) = poll_envelope(&s, &chats, &polls, &eco) {
-                if handled {
                     continue;
                 }
+                Some("event") => {
+                    if let Ok(env) = serde_json::from_str::<EventEnvelope>(&s)
+                        && let Ok(mut q) = events.inner.lock()
+                    {
+                        q.push(env.row.to_string());
+                        let len = q.len();
+                        if len > 400 {
+                            q.drain(0..len - 400);
+                        }
+                    }
+                    continue;
+                }
+                Some(_) => {
+                    // REST 폴 인젤로프(웹 JS 폴러) — 관계·생활기록·경제·채팅 백로그
+                    if poll_envelope(&s, &chats, &polls, &eco) == Some(true) {
+                        continue;
+                    }
+                }
+                None => {}
             }
         }
         last_frame = Some(s);
@@ -472,6 +474,12 @@ fn drain_frames(
         }
         Err(e) => warn!("[net] 프레임 파싱 실패: {e}"),
     }
+}
+
+/// 인벤로프 종류 판별 전용 최소 파싱 — {"tf":"chat"|...}
+#[derive(Deserialize)]
+struct TfKind {
+    tf: String,
 }
 
 /// wasm sink 채팅 인젤로프(worldsim.js 포크가 송출)
@@ -540,7 +548,7 @@ fn poll_envelope(s: &str, chats: &ChatQueue, polls: &PollQueuesRes, eco: &EcoQue
             // rows는 최신순(서버) — 시계순으로 뒤집어 푸시
             let rows: Vec<ChatRowSer> = serde_json::from_value(v.get("rows")?.clone()).ok()?;
             for r in rows.into_iter().take(30).rev() {
-                chat_row_push_chats(chats, r.into());
+                chat_row_push(chats, r.into());
             }
             Some(true)
         }
@@ -548,13 +556,8 @@ fn poll_envelope(s: &str, chats: &ChatQueue, polls: &PollQueuesRes, eco: &EcoQue
     }
 }
 
-/// 채팅 큐 푸시(인젤로프 경로 — 바깥 함수 재사용 헬퍼)
-fn chat_row_push_chats(q: &ChatQueue, row: ChatRow) {
-    chat_row_push(q, row);
-}
-
 /// /economy 응답 → EcoData(kpi는 null 가능)
-fn eco_from_json(v: serde_json::Value) -> Option<EcoData> {
+pub(crate) fn eco_from_json(v: serde_json::Value) -> Option<EcoData> {
     let prices: Vec<EcoPrice> = serde_json::from_value(v.get("prices")?.clone()).ok()?;
     let deals: Vec<EcoDeal> = serde_json::from_value(v.get("recent_deals")?.clone()).ok()?;
     let kpi = v

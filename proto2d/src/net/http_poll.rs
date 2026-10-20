@@ -4,7 +4,7 @@
 //! · economy 30s · 백로그(chat·events)는 1회 시드.
 
 use crate::net::{
-    ChatQueue, EcoData, EcoQueue, EventQueue, PHASE_CONNECTED, PollQueuesRes, RelRow,
+    ChatQueue, EcoQueue, EventQueue, PHASE_CONNECTED, PollQueuesRes, RelRow,
     SelectedAgentRes, chat_row_push,
 };
 use log::info;
@@ -142,16 +142,10 @@ async fn fetch_text(http: &reqwest::Client, url: &str) -> Result<String, String>
         .map_err(|e| e.to_string())
 }
 
-/// /economy → EcoData(kpi null 허용)
-fn parse_eco(text: &str) -> Option<EcoData> {
+/// /economy → EcoData(정본 파서 재사용 — 인젤로프 경로와 단일 구현)
+fn parse_eco(text: &str) -> Option<crate::net::EcoData> {
     let v: serde_json::Value = serde_json::from_str(text).ok()?;
-    let prices = serde_json::from_value(v.get("prices")?.clone()).ok()?;
-    let deals = serde_json::from_value(v.get("recent_deals")?.clone()).ok()?;
-    let kpi = v
-        .get("kpi")
-        .filter(|k| !k.is_null())
-        .and_then(|k| serde_json::from_value(k.clone()).ok());
-    Some(EcoData { prices, kpi, deals })
+    crate::net::eco_from_json(v)
 }
 
 /// 백로그 채팅 행(REST /chat — 룸 chat과 같은 모양)

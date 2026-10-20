@@ -175,17 +175,20 @@ fn menu_toggle_on(s: &UiState, key: Tr) -> bool {
 fn menu_toggle(s: &mut UiState, key: Tr, screen_w: f32) {
     s.user_adjusted = true; // 반응형 와치독 정지 — 사용자 의도 우선
     let narrow = screen_w < 760.0;
-    // 모바일에서 캐릭터 목록도 중앙 모달이라 단일 창 정책에 포함(맵 확보)
-    let is_float = matches!(
-        key,
-        Tr::ToggleResources
-            | Tr::ToggleEvents
-            | Tr::ToggleCiv
-            | Tr::ToggleRelations
-            | Tr::ToggleEconomy
-            | Tr::ToggleSettings
-            | Tr::ToggleVillagers
-    ) && (narrow || !matches!(key, Tr::ToggleVillagers));
+    // 단일 창 정책 대상 — 캐릭터는 모바일 모달일 때만(데스크톱은 도킹 패널)
+    let is_float = if key == Tr::ToggleVillagers {
+        narrow
+    } else {
+        matches!(
+            key,
+            Tr::ToggleResources
+                | Tr::ToggleEvents
+                | Tr::ToggleCiv
+                | Tr::ToggleRelations
+                | Tr::ToggleEconomy
+                | Tr::ToggleSettings
+        )
+    };
     if narrow && is_float {
         s.show_resources = false;
         s.show_events = false;

@@ -217,9 +217,15 @@
   let pollStarted = false;
   let watchAgent = null; // Rust가 ui.setWatchAgent으로 지정(선택 주민)
 
+  // sink(Rust) 등록 전 도착한 인벤로프 버퍼 — 느린 wasm 부트에서 백로그
+  // 1회 시드가 sink=null에 유실되는 사고 방지(스냅숏과 달리 재전송이 없다).
+  const pendingEnvelopes = [];
   function sinkEnvelope(env) {
+    const text = JSON.stringify(env);
     if (sink) {
-      try { sink(JSON.stringify(env)); } catch (err) { /* 큐 소비자 일시 불능 */ }
+      try { sink(text); } catch (err) { pendingEnvelopes.push(text); }
+    } else {
+      pendingEnvelopes.push(text);
     }
   }
 
@@ -379,7 +385,13 @@
   };
 
   window.terrafolk = {
-    setSink: function (fn) { sink = fn; },
+    setSink: function (fn) {
+      sink = fn;
+      // 등록 전 쌓인 인벤로프 선행 전송(백로그·폴 1회분 보존)
+      while (pendingEnvelopes.length && sink) {
+        try { sink(pendingEnvelopes.shift()); } catch (err) { break; }
+      }
+    },
     connect: connect,
     ui: ui,
     // Rust 3D 씬 빈 땅 클릭 → 유물 카드 판정(tf-ui). pick.rs가 호출.

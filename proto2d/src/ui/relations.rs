@@ -97,9 +97,9 @@ pub fn panel(
                             .show(ui, |ui| {
                                 ui.set_width(ui.available_width());
                                 ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new(a.clone()).size(11.0).color(theme::agent_color(&r.a_id)));
+                                    ui.label(egui::RichText::new(a.clone()).size(11.0).color(theme::agent_ink(&r.a_id)));
                                     ui.label(egui::RichText::new("↔").size(10.0).color(theme::TEXT_DIM));
-                                    ui.label(egui::RichText::new(b.clone()).size(11.0).color(theme::agent_color(&r.b_id)));
+                                    ui.label(egui::RichText::new(b.clone()).size(11.0).color(theme::agent_ink(&r.b_id)));
                                     ui.with_layout(
                                         egui::Layout::right_to_left(egui::Align::Center),
                                         |ui| {

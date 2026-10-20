@@ -89,7 +89,7 @@ pub fn panel(
             summary(ui, lang, &vocab, rows);
             groups_grid(ui, lang, &vocab, rows);
             makers(ui, lang, rows);
-            traditions(ui, lang, rows);
+            traditions(ui, lang, &vocab, rows);
             chronicle(ui, lang, &vocab, &events);
             inv_list(ui, lang, &vocab, rows, &mut |v| *view = CivView { detail: v });
         });
@@ -104,7 +104,9 @@ fn summary(ui: &mut egui::Ui, lang: Lang, vocab: &Vocab, rows: &[InventionRow]) 
                 .strong()
                 .color(theme::TEXT_WARM),
         );
-        let groups = rows.iter().map(|r| vocab.inv_group_of(r.category.as_deref().unwrap_or("")).to_owned());
+        let groups = rows
+            .iter()
+            .map(|r| vocab.inv_group_of(r.category.as_deref().unwrap_or("")).map(str::to_owned));
         let (score, era) = civ_score(groups);
         chip(
             ui,
@@ -136,7 +138,7 @@ fn groups_grid(ui: &mut egui::Ui, lang: Lang, vocab: &Vocab, rows: &[InventionRo
         for g in GROUPS {
             let n = rows
                 .iter()
-                .filter(|r| vocab.inv_group_of(r.category.as_deref().unwrap_or("")) == g)
+                .filter(|r| vocab.inv_group_of(r.category.as_deref().unwrap_or("")) == Some(g))
                 .count();
             let col = ui.vertical(|ui| {
                 ui.label(
@@ -190,20 +192,19 @@ fn makers(ui: &mut egui::Ui, lang: Lang, rows: &[InventionRow]) {
 }
 
 /// 살아있는 전통 — 문화 계열 & performs>0. 깊이=min(3, performs/4)
-fn traditions(ui: &mut egui::Ui, lang: Lang, rows: &[InventionRow]) {
+fn traditions(ui: &mut egui::Ui, lang: Lang, vocab: &Vocab, rows: &[InventionRow]) {
+    // 레거시 LivingTraditions — 문화 대분류(arts·entertainment·traditions)
+    // 전체에서 performs>0만, based_on 조건·상한 없음
     let t: Vec<&InventionRow> = rows
         .iter()
-        .filter(|r| r.performs.unwrap_or(0) > 0 && r.based_on.is_some())
-        .collect();
-    let t: Vec<&InventionRow> = t
-        .into_iter()
-        .filter(|r| r.category.as_deref() == Some("traditions") || r.category.as_deref() == Some("arts"))
+        .filter(|r| r.performs.unwrap_or(0) > 0)
+        .filter(|r| vocab.inv_group_of(r.category.as_deref().unwrap_or("")) == Some("culture"))
         .collect();
     if t.is_empty() {
         return;
     }
     section(ui, "戲", tr(lang, Tr::CivTraditions));
-    for r in t.iter().take(4) {
+    for r in t.iter() {
         let depth = (r.performs.unwrap_or(0) / 4).min(3);
         let line = tr(lang, Tr::CivTradDepth)
             .replacen("{}", &r.performs.unwrap_or(0).to_string(), 1)
@@ -263,7 +264,7 @@ fn inv_list(
             for g in GROUPS {
                 let mut in_group: Vec<&InventionRow> = rows
                     .iter()
-                    .filter(|r| vocab.inv_group_of(r.category.as_deref().unwrap_or("")) == g)
+                    .filter(|r| vocab.inv_group_of(r.category.as_deref().unwrap_or("")) == Some(g))
                     .collect();
                 if in_group.is_empty() {
                     continue;

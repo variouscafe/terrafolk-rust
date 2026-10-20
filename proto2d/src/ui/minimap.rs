@@ -19,7 +19,9 @@ use crate::net::NetState;
 #[derive(Resource, Default)]
 pub struct MinimapBake {
     pub texture: Option<egui::TextureHandle>,
-    pub baked_key: (usize, usize, GroundSkin, usize),
+    /// (맵폭, 맵높이, 스킨, 자원 서명) — 서명은 id·좌표 접지라 동숫자
+    /// 이동(수확→새싹)에도 재베이크된다
+    pub baked_key: (usize, usize, GroundSkin, u64),
 }
 
 fn gid_color(g: u8, skin: GroundSkin) -> egui::Color32 {
@@ -73,7 +75,11 @@ pub fn panel(
         .and_then(|n| n.frame.as_ref())
         .map(|f| f.resources.iter().collect())
         .unwrap_or_default();
-    let key = (mw as usize, mh as usize, *skin, resources.len());
+    let res_sig = resources
+        .iter()
+        .map(|r| (r.id as u64).wrapping_mul(1_000_003) ^ (r.x as u64) << 20 ^ (r.y as u64) << 8)
+        .fold(0u64, |a, b| a.wrapping_mul(31).wrapping_add(b));
+    let key = (mw as usize, mh as usize, *skin, res_sig);
     if bake.baked_key != key {
         drop(bake.texture.take()); // 이전 텍스처 해제(재베이크 누수 방지)
         let mut px: Vec<egui::Color32> = (0..mw * mh)

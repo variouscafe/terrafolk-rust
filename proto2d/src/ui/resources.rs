@@ -92,7 +92,7 @@ pub fn panel(
             ui.add_space(2.0);
             if stats.is_empty() {
                 ui.label(
-                    egui::RichText::new(tr(lang, Tr::CivEmpty))
+                    egui::RichText::new(tr(lang, Tr::ResEmpty))
                         .size(10.5)
                         .color(theme::TEXT_DIM),
                 );

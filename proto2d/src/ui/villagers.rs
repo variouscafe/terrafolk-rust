@@ -32,10 +32,22 @@ fn inv_items(inv: Option<&str>) -> Vec<(String, u32)> {
         .unwrap_or_default()
 }
 
-/// 짐 무게(레거시 CarryBar — wt 미기재 폴백 1, 상한 5000, 85% 경고)
+/// 짐 무게(레거시 CarryBar — wt 미기재 폴백 1, 상한 5000, 85% 경고).
+/// 착용품은 §17.81 짐 합산 제외(레거시 WORN_ITEMS 직역).
 const CARRY_CAP: f32 = 5000.0;
+const WORN_ITEMS: [&str; 5] = [
+    "grass_skirt",
+    "leather_wrap",
+    "woven_leather",
+    "stitched_leather",
+    "leather_shoes",
+];
 fn carry_weight(v: &Vocab, items: &[(String, u32)]) -> f32 {
-    items.iter().map(|(id, n)| v.item_wt(id) * *n as f32).sum()
+    items
+        .iter()
+        .filter(|(id, _)| !WORN_ITEMS.contains(&id.as_str()))
+        .map(|(id, n)| v.item_wt(id) * *n as f32)
+        .sum()
 }
 
 /// 목록 행 사본 — 패널(데스크톱)·모달 창(모바일) 양쪽 렌더가 같은 데이터로
@@ -197,7 +209,7 @@ fn body(
                     .unwrap_or(theme::INK);
                 let row = egui::Frame::new()
                     .fill(if r.is_sel {
-                        egui::Color32::from_rgb(52, 62, 38)
+                        theme::SEL_FILL
                     } else {
                         egui::Color32::TRANSPARENT
                     })
@@ -455,7 +467,7 @@ fn rel_row(
         ui.label(
             egui::RichText::new(name)
                 .size(11.0)
-                .color(theme::agent_color(other_id)),
+                .color(theme::agent_ink(other_id)),
         );
         let (rect, _) = ui.allocate_exact_size(egui::vec2((ui.available_width() - 132.0).max(40.0), 6.0), egui::Sense::hover());
         let p = ui.painter();
@@ -477,7 +489,7 @@ fn rel_row(
 
 /// fmt_gmin — 절대 게임 분 → "D{n} HH:MM"(FE 직역, 연도 표기 생략형)
 pub fn fmt_gmin(gmin: i64) -> String {
-    let day = gmin.div_euclid(1440);
+    let day = gmin.div_euclid(1440) + 1; // 1기준 — 상단바 태양력 날짜와 동일 관례
     let min = gmin.rem_euclid(1440);
     format!("D{day} {:02}:{:02}", min / 60, min % 60)
 }
