@@ -86,4 +86,10 @@ bevy 0.20 그래픽 회귀는 opt 무관하게 0.20 자체 결함으로 판명(0
 바인딩을 빈값으로 덮어쓴다 — R2 바인딩·함수 프록시 방식은 쓰지 말고 절대
 URL 방식 유지. 로컬 dist 검증은 trunk가 dist를 지우므로
 `./tools/ui2-local.sh`(wasm 복사 후 상대 경로)로.
+**배포 전 회귀 게이트 필수(2026-10-21, #63 사고 후)**: 로컬 스택
+(backend 8892·room 8893·dist 8095 -c-1)을 띄운 뒤
+`NODE_PATH=/opt/homebrew/lib/node_modules TF_MOCK_ECO=1 node
+tools/e2e/proto2d_regress.cjs`가 **allPass: true**일 때만 배포한다 —
+기능 하나만 검증하면 다른 표면 회귀(#63: 월드 스프라이트가 플로팅
+패널 전멸)를 놓친다.
 
