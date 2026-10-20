@@ -78,6 +78,14 @@ fn valid(s: &IconSpec) -> Option<IconSpec> {
 /// 실제 맵 스프라이트에 입힌다(레거시 §17.30 relic 드롭 표현 패리티).
 /// 스폰은 정적 props/relic.png로 먼저 뜨고, 아이콘 도착 프레임에 교체 —
 /// 서명(res_sig)과 무관해 재스폰 루프가 없다.
+///
+/// ⚠️ 보류(2026-10-21) — 등록 해제. 런타임 Assets<Image> 업로드가 wasm에서
+/// egui Window 렌더를 프레임 단위로 죽인다(Panel·Area는 생존 — #63 실측.
+/// Update/PostUpdate 어느 쪽도 동일). 0.20 wasm 텍스처 회귀와 같은 계열로
+/// 보는데 0.19.1+SwiftShader에서 창 오염 형태로 발현. 재도달은 bevy 업급
+/// 또는 렌더 그래프 격리(별도 카메라/패스) 후에. 카드·칩 아이콘(egui
+/// 바이트 이미지)은 무관·정상.
+#[allow(dead_code)]
 pub fn world_sprites(
     net: Option<Res<NetState>>,
     mut icons: ResMut<IconCache>,
