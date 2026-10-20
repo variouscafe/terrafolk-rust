@@ -12,8 +12,14 @@ R2BASE="https://pub-04c1d3aebd34468d8c97384d2b60a289.r2.dev"
 trunk build --release
 W=$(basename "$(ls dist/*_bg.wasm | head -1)")
 
-# ① R2 업로드
-npx wrangler r2 object put "terrafolk-wasm/$W" --file "dist/$W" --remote
+# ① R2 업로드 — gzip + 원문 캐시(해시 파일명=불변). 30.6MB→8.4MB 전송
+# (2026-10-21: 압축 없이 30MB를 매 첫 방문에 전송하고 있었다).
+# SRI는 해제 후 원문 기준이라 기존 계산 그대로 유효.
+gzip -9 -c "dist/$W" > "$W.gz"
+npx wrangler r2 object put "terrafolk-wasm/$W" --file "$W.gz" --remote \
+  --content-type application/wasm --content-encoding gzip \
+  --cache-control "public, max-age=31536000, immutable"
+rm -f "$W.gz"
 
 # ② glue — index.html의 wasm 참조를 R2 절대 URL로
 # (원본 백업 — ⑥에서 복원. 못 복원하면 로컬 8095가 R2 wasm=프로덕션을
