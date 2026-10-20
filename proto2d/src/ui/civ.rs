@@ -16,23 +16,23 @@ use crate::net::NetState;
 /// inventionsJson 행 — docs §2.4(서버 serializeInventions)
 #[derive(serde::Deserialize, Clone)]
 pub(crate) struct InventionRow {
-    name: String,
+    pub(crate) name: String,
     #[serde(default)]
-    purpose: Option<String>,
+    pub(crate) purpose: Option<String>,
     #[serde(default)]
-    inventor: Option<String>,
+    pub(crate) inventor: Option<String>,
     #[serde(default)]
-    based_on: Option<String>,
+    pub(crate) based_on: Option<String>,
     #[serde(default)]
-    category: Option<String>,
+    pub(crate) category: Option<String>,
     #[serde(default)]
-    day: Option<u32>,
+    pub(crate) day: Option<u32>,
     #[serde(default)]
-    materials: Option<std::collections::BTreeMap<String, u32>>,
+    pub(crate) materials: Option<std::collections::BTreeMap<String, u32>>,
     #[serde(default)]
-    performs: Option<u32>,
+    pub(crate) performs: Option<u32>,
     #[serde(default, rename = "last_perform_day")]
-    last_perform_day: Option<u32>,
+    pub(crate) last_perform_day: Option<u32>,
 }
 
 const GROUPS: [&str; 6] = ["living", "production", "infrastructure", "culture", "knowledge", "institutions"];

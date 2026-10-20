@@ -169,6 +169,54 @@ pub fn panel(
                             });
                         ui.add_space(2.0);
                     }
+                    inv_chips(ui, lang, frame);
                 });
         });
+}
+
+/// 마을의 발명 칩(레거시 res 팝업 '마을의 발명' 섹션 직역) — 이름 + 개선형 ↑,
+/// 호버에 발명가·목적. 아이콘 합성(assetgen)은 미지원 — 텍스트 칩.
+fn inv_chips(ui: &mut egui::Ui, lang: super::i18n::Lang, frame: &crate::net::LiveFrame) {
+    super::widgets::section(ui, "⚒", &tr(lang, Tr::ResInventions));
+    let rows: Vec<super::civ::InventionRow> = frame
+        .inventions
+        .as_deref()
+        .and_then(|s| serde_json::from_str(s).ok())
+        .unwrap_or_default();
+    if rows.is_empty() {
+        ui.label(
+            egui::RichText::new(tr(lang, Tr::ResInvEmpty))
+                .size(10.0)
+                .color(theme::TEXT_DIM),
+        );
+        return;
+    }
+    ui.horizontal_wrapped(|ui| {
+        for r in rows {
+            let label = if r.based_on.as_deref().unwrap_or("").is_empty() {
+                r.name.clone()
+            } else {
+                format!("{} ↑", r.name)
+            };
+            let resp = egui::Frame::new()
+                .fill(theme::glass_hi())
+                .corner_radius(6.0)
+                .inner_margin(egui::Margin::symmetric(6, 3))
+                .show(ui, |ui| {
+                    ui.label(egui::RichText::new(label).size(10.0).color(theme::TEXT_WARM));
+                })
+                .response;
+            let inv = r.inventor.as_deref().unwrap_or("");
+            let purpose = r.purpose.as_deref().unwrap_or("");
+            let tip = match (inv.is_empty(), purpose.is_empty()) {
+                (false, false) => format!("{inv} — {purpose}"),
+                (false, true) => inv.to_owned(),
+                (true, false) => purpose.to_owned(),
+                (true, true) => String::new(),
+            };
+            if !tip.is_empty() {
+                resp.on_hover_text(tip);
+            }
+        }
+    });
 }

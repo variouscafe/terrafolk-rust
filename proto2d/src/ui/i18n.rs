@@ -95,6 +95,11 @@ pub enum Tr {
     // 자원
     ResUsable, // "채집 가능 {} / {}"
     ResEmpty,
+    ResInventions, // "마을의 발명"
+    ResInvEmpty,
+    // 유물 카드(§17.38 — 맵 발명품 탭)
+    RelicCard, // "발명품"
+    RelicBy, // "만든 이"
     // 경제
     Economy,
     EcoPrices,
@@ -244,6 +249,10 @@ pub fn tr(lang: Lang, key: Tr) -> &'static str {
         Tr::RelChatsTrades => ("대화 {}회 · 거래 {}회", "{} chats · {} trades"),
         Tr::ResUsable => ("채집 가능 {} / {}", "Harvestable {} / {}"),
         Tr::ResEmpty => ("(주변에 채집할 것이 없다)", "(Nothing to gather nearby)"),
+        Tr::ResInventions => ("마을의 발명", "Village inventions"),
+        Tr::ResInvEmpty => ("(아직 없다)", "(None yet)"),
+        Tr::RelicCard => ("발명품", "Invention"),
+        Tr::RelicBy => ("만든 이", "Made by"),
         Tr::Economy => ("시세", "Economy"),
         Tr::EcoPrices => ("시세 — 참조", "Reference prices"),
         Tr::EcoDeals => ("최근 성사", "Recent deals"),
