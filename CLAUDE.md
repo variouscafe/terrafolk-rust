@@ -73,3 +73,17 @@ screencap·logcat(RustStdoutStderr 라인)으로 매번 확인한다. 네이티�
 follow·메뉴 등 레거시 FE가 지원하는 관전 기능 전부 — bevy_ui로 구현).
 
 **웹 테스트 URL**: 자동화 테스트(헤드리스·Playwright 등)는 https://terrafolk-rust.pages.dev 로 접속할 것. 커스텀 도메인(terrafolk.suseona.com)은 Cloudflare 봇 방어가 자동화 접속을 챌린지(403)로 차단한다 — 사람 브라우저는 통과, 자동 검증은 pages.dev 사용. 단 suseona.com 존의 API(tf-api)도 헤드리스 지문을 차단할 수 있어 라이브 백엔드 연동 E2E가 필요하면 headed 모드(`headless: false` + `--disable-blink-features=AutomationControlled` + 실제 UA)로 실행할 것.
+
+**proto2d 웹 배포(terrafolk-2d.pages.dev)**: wasm이 25MiB를 넘으므로 Pages
+직행이 안 된다 — `./tools/deploy-proto2d-r2.sh` 원스텝(2026-10-21 확립).
+wasm은 R2 버킷 `terrafolk-wasm`(공개 r2.dev 도메인 + CORS `*`)에 올리고,
+Pages는 HTML/JS만: 스크립트가 index.html의 `module_or_path`·preload href를
+R2 절대 URL로 재작성 + SRI 재계산 후, wasm을 dist 밖으로 대피시켜(하위
+디렉터리도 업로드 트리에 포함되므로) `wrangler pages deploy`, 끝나면 복원.
+**금지 사항 2가지**: ① **wasm-opt/압축 금지** — 사용자 지시(2026-10-21).
+bevy 0.20 그래픽 회귀는 opt 무관하게 0.20 자체 결함으로 판명(0.19.1 유지)
+— 빌드 플래그를 바꾸지 말 것. ② wrangler 비대화면 배포는 Pages 프로젝트
+바인딩을 빈값으로 덮어쓴다 — R2 바인딩·함수 프록시 방식은 쓰지 말고 절대
+URL 방식 유지. 로컬 dist 검증은 trunk가 dist를 지우므로
+`./tools/ui2-local.sh`(wasm 복사 후 상대 경로)로.
+
