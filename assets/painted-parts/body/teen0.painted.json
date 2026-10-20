@@ -1,0 +1,1 @@
+{"part": "body", "png": "teen0", "cat": "body", "seed": 525255, "ok": true, "log": ["  행 3 완료 (IoU 최저 0.988, drift σ 9.0)", "게이트 PASS", "측정 {'seed': 525256, 'iou_min': 0.988, 'drift_sigma_max': 9.01, 'drift_mean': 6.1, 'frames': 36} → /Users/openclaw/workspace/terrafolk-rust/assets/painted-parts/body/teen0.png"]}

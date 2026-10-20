@@ -9,6 +9,27 @@ async function proxyRoute(route) {
   const req = route.request();
   const url = req.url();
   const origin = req.headers()['origin'] || '*';
+  // TF_MOCK_ECO=1 — 로컬 백엔드가 미개방(401)인 economy를 표시 검증용 픽스처로 대체
+  if (process.env.TF_MOCK_ECO && url.includes('/api/worldsim/economy')) {
+    return route.fulfill({
+      status: 200,
+      headers: { 'content-type': 'application/json', 'access-control-allow-origin': origin },
+      body: JSON.stringify({
+        prices: [
+          { item: 'wood', price_g: 1.8, updated_day: 29, trades_seen: 14 },
+          { item: 'berry', price_g: 0.9, updated_day: 29, trades_seen: 22 },
+          { item: 'stone', price_g: 2.4, updated_day: 28, trades_seen: 6 },
+          { item: 'fish', price_g: 1.2, updated_day: 29, trades_seen: 9 },
+          { item: 'leather', price_g: 3.1, updated_day: 27, trades_seen: 4 },
+        ],
+        kpi: { day: 29, goldShare: 0.18, volume: 87, goldDeals: 12 },
+        recent_deals: [
+          { tick: 196010, a_id: 'shared-1', b_id: 'shared-2', give_item: 'wood', give_qty: 3, get_item: 'berry', get_qty: 5 },
+          { tick: 195980, a_id: 'shared-3', b_id: 'shared-1', give_item: 'fish', give_qty: 2, get_item: 'stone', get_qty: 1 },
+        ],
+      }),
+    });
+  }
   if (req.method() === 'OPTIONS') {
     return route.fulfill({
       status: 204,

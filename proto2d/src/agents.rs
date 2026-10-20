@@ -332,19 +332,16 @@ pub fn select_on_tap(
     time: Res<Time>,
     mut egui_ctx: bevy_egui::EguiContexts,
     mut tap: ResMut<crate::cam::TapPos>,
-    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     camera_q: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
     agents_q: Query<(Entity, &Transform, Option<&Selected>), With<Agent>>,
     mut marker: Query<&mut Visibility, With<SelectionMarker>>,
     mut manual: ResMut<crate::cam::ManualUntil>,
 ) {
-    // egui 점유 중엔 tap을 소비하지 않는다(다른 소비자가 있을 수 있음)
-    if crate::ui::egui_owns_input(&mut egui_ctx) {
-        return;
-    }
+    // tap.0은 touch_gestures가 월드 탭으로만 채운다(패널 위 탭은 애초에
+    // 기록되지 않음) — egui 포인터 배타 주장과 무관하게 소비한다.
+    let _ = &mut egui_ctx;
     let Some(screen) = tap.0.take() else { return };
     let Ok((camera, cam_tf)) = camera_q.single() else { return };
-    let _ = windows;
     let Ok(world) = camera.viewport_to_world_2d(cam_tf, screen) else { return };
     pick_and_apply(&mut commands, world, &agents_q, &mut marker, &mut manual, time.elapsed_secs());
 }

@@ -31,9 +31,11 @@ pub struct FrameQueue {
 pub struct ChatRow {
     pub agent_id: String,
     /// 화자명 — 채팅 로그 UI(egui 단계)에서 소비
-    #[allow(dead_code)]
     pub speaker: String,
     pub text: String,
+    /// 발화 게임 분(절대) — 시각 스탬프(FE fmtGmin 패리티). 백로그는 ts로 폴백
+    pub gmin: Option<i64>,
+    pub ts: Option<String>,
 }
 
 #[derive(Resource, Clone, Default)]
@@ -41,7 +43,7 @@ pub struct ChatQueue {
     pub inner: Arc<Mutex<Vec<ChatRow>>>,
 }
 
-/// 채팅 큐 푸시 헬퍼 — 상한 16행 유지(스레드·폴러 공용)
+/// 채팅 큐 푸시 헬퍼 — 상한 120행 유지(스레드·폴러 공용 — 백로그 시딩 여유)
 #[cfg_attr(target_arch = "wasm32", allow(dead_code))] // wasm은 폴러 없음
 pub(crate) fn chat_row_push(q: &ChatQueue, row: ChatRow) {
     if row.text.is_empty() {
@@ -50,16 +52,28 @@ pub(crate) fn chat_row_push(q: &ChatQueue, row: ChatRow) {
     if let Ok(mut q) = q.inner.lock() {
         q.push(row);
         let len = q.len();
-        if len > 16 {
-            q.drain(0..len - 16);
+        if len > 120 {
+            q.drain(0..len - 120);
         }
     }
 }
 
-/// 라이브 이벤트 행(스레드 → ECS) — 이벤트 로그 패널 소스
+/// 라이브 이벤트 원시 행(JSON 문자열 — 룸 방송·REST 백로그 동일 모양).
+/// drain_events가 EventRow로 파싱해 UI로 넘긴다.
 #[derive(Resource, Clone, Default)]
 pub struct EventQueue {
     pub inner: Arc<Mutex<Vec<String>>>,
+}
+
+/// 구조화 이벤트 행 — payload 그대로 보관(표시 언어 전환 시 재렌더·
+/// 하이라이트 판정 모두 payload 기반이라 미리 문장을 구울 필요 없다)
+#[derive(Debug, Clone)]
+pub struct RawEvent {
+    pub kind: String,
+    pub agent_id: String,
+    pub payload: serde_json::Value,
+    pub ts: Option<String>,
+    pub tick: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -178,9 +192,10 @@ pub struct TiledLayer {
 /// 관계 행(REST /relations — 폴러가 채움)
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct RelRow {
-    #[serde(rename = "aId")]
+    /// REST /relations는 a_id(스네이크)로 내려온다 — 룸 방송은 aId(카멜) 폴백
+    #[serde(alias = "aId")]
     pub a_id: String,
-    #[serde(rename = "bId")]
+    #[serde(alias = "bId")]
     pub b_id: String,
     #[serde(default)]
     pub warmth: f32,
@@ -203,12 +218,67 @@ pub struct HistRow {
     pub text: String,
 }
 
-/// 폴러 큐(스레드 → ECS) — wasm에선 항상 빈 상태(패널이 안내 문구 표시)
+/// 폴러 큐(스레드 → ECS) — wasm은 JS 폴러(worldsim 포크)가 같은 모양으로 채운다
 #[derive(Resource, Clone, Default)]
 pub struct PollQueuesRes {
     pub relations: Arc<Mutex<Vec<RelRow>>>,
     pub history: Arc<Mutex<Vec<HistRow>>>,
 }
+
+// ── 경제 관측(§17.84) — REST /economy. price_g는 0.1g 실수 ──
+
+#[derive(Debug, Clone, serde::Deserialize, Default)]
+pub struct EcoPrice {
+    pub item: String,
+    #[serde(default)]
+    pub price_g: f64,
+    #[serde(default)]
+    #[allow(dead_code)] // 계약 정본 필드 — 표시에 골라 쓴다
+    pub updated_day: Option<u32>,
+    #[serde(default)]
+    pub trades_seen: Option<u32>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize, Default)]
+pub struct EcoKpi {
+    pub day: Option<u32>,
+    #[serde(default, rename = "goldShare")]
+    pub gold_share: Option<f64>,
+    #[serde(default)]
+    pub volume: Option<u32>,
+    #[serde(default, rename = "goldDeals")]
+    pub gold_deals: Option<u32>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize, Default)]
+pub struct EcoDeal {
+    #[serde(default)]
+    #[allow(dead_code)] // 계약 정본 필드 — 표시에 골라 쓴다
+    pub tick: Option<u32>,
+    #[serde(rename = "a_id", default)]
+    pub a_id: String,
+    #[serde(rename = "b_id", default)]
+    pub b_id: String,
+    #[serde(default)]
+    pub give_item: String,
+    #[serde(default)]
+    pub give_qty: Option<u32>,
+    #[serde(default)]
+    pub get_item: String,
+    #[serde(default)]
+    pub get_qty: Option<u32>,
+}
+
+/// 경제 스냅숏 — 폴러(네이티브 스레드/웹 JS)가 통째로 교체
+#[derive(Debug, Clone, Default)]
+pub struct EcoData {
+    pub prices: Vec<EcoPrice>,
+    pub kpi: Option<EcoKpi>,
+    pub deals: Vec<EcoDeal>,
+}
+
+#[derive(Resource, Clone, Default)]
+pub struct EcoQueue(pub Arc<Mutex<Option<EcoData>>>);
 
 /// 선택 주민 id 공유(UI → 폴러)
 #[derive(Resource, Clone, Default)]
@@ -222,6 +292,7 @@ impl Plugin for NetPlugin {
             .init_resource::<ChatQueue>()
             .init_resource::<EventQueue>()
             .init_resource::<PollQueuesRes>()
+            .init_resource::<EcoQueue>()
             .init_resource::<SelectedAgentRes>()
             .init_resource::<NetState>()
             .init_resource::<NetLinkPhase>()
@@ -295,6 +366,7 @@ fn connect_bridge(
     phase: Res<NetLinkPhase>,
     chats: Res<ChatQueue>,
     events: Res<EventQueue>,
+    eco: Res<EcoQueue>,
     polls: Res<PollQueuesRes>,
     selected: Res<SelectedAgentRes>,
 ) {
@@ -307,6 +379,8 @@ fn connect_bridge(
     http_poll::spawn(
         Arc::clone(&phase.0),
         chats.clone(),
+        events.clone(),
+        eco.clone(),
         api,
         polls.clone(),
         selected.clone(),
@@ -336,6 +410,8 @@ fn drain_frames(
     queue: Res<FrameQueue>,
     chats: Res<ChatQueue>,
     events: Res<EventQueue>,
+    polls: Res<PollQueuesRes>,
+    eco: Res<EcoQueue>,
     phase: Res<NetLinkPhase>,
     mut net: ResMut<NetState>,
 ) {
@@ -347,27 +423,39 @@ fn drain_frames(
     };
     let mut last_frame: Option<String> = None;
     for s in drained {
-        // 인젤로프 판별 — 접두 "{\"tf\""로 시작해야 한다. 예전 s[2..8] 검사는
-        // 여는 따옴표가 인덱스 1이라 절대 매치되지 않아 채팅·이벤트가 전부
-        // LiveFrame 파서로 새고 스냅숏을 덮어썼다(2026-10-20 실측).
-        if s.len() > 12 && s.starts_with("{\"tf\"") {
-            // 채팅 인젤로프 — ChatQueue로
-            if s.contains("\"chat\"")
-                && let Ok(env) = serde_json::from_str::<ChatEnvelope>(&s)
-            {
-                if let Ok(mut q) = chats.inner.lock() {
-                    q.push(env.row.into());
+        // 인벤로프 — {"tf": kind, ...} 통일 모양. kind로 정밀 분기한다
+        // (옛 부분문자열 contains("chat") 판별은 kind:'chat' 이벤트를 채팅으로
+        // 오라우팅해 삼켰다 — 이벤트 종 'chat'은 계약이 예약한 어휘다).
+        if s.starts_with("{\"tf\"") {
+            let kind = serde_json::from_str::<TfKind>(&s).ok().map(|k| k.tf);
+            match kind.as_deref() {
+                Some("chat") => {
+                    if let Ok(env) = serde_json::from_str::<ChatEnvelope>(&s)
+                        && let Ok(mut q) = chats.inner.lock()
+                    {
+                        q.push(env.row.into());
+                    }
+                    continue;
                 }
-                continue;
-            }
-            // 이벤트 인젤로프 — EventQueue로(drain_events가 UI 로그로)
-            if s.contains("\"event\"")
-                && let Ok(env) = serde_json::from_str::<EventEnvelope>(&s)
-            {
-                if let Ok(mut q) = events.inner.lock() {
-                    q.push(format_event(&env.row));
+                Some("event") => {
+                    if let Ok(env) = serde_json::from_str::<EventEnvelope>(&s)
+                        && let Ok(mut q) = events.inner.lock()
+                    {
+                        q.push(env.row.to_string());
+                        let len = q.len();
+                        if len > 400 {
+                            q.drain(0..len - 400);
+                        }
+                    }
+                    continue;
                 }
-                continue;
+                Some(_) => {
+                    // REST 폴 인젤로프(웹 JS 폴러) — 관계·생활기록·경제·채팅 백로그
+                    if poll_envelope(&s, &chats, &polls, &eco) == Some(true) {
+                        continue;
+                    }
+                }
+                None => {}
             }
         }
         last_frame = Some(s);
@@ -388,6 +476,12 @@ fn drain_frames(
     }
 }
 
+/// 인벤로프 종류 판별 전용 최소 파싱 — {"tf":"chat"|...}
+#[derive(Deserialize)]
+struct TfKind {
+    tf: String,
+}
+
 /// wasm sink 채팅 인젤로프(worldsim.js 포크가 송출)
 #[derive(Deserialize)]
 struct ChatEnvelope {
@@ -396,10 +490,18 @@ struct ChatEnvelope {
 
 #[derive(Deserialize)]
 struct ChatRowSer {
-    #[serde(rename = "agentId")]
+    #[serde(rename = "agentId", alias = "agent_id")]
     agent_id: String,
+    #[serde(default)]
     speaker: Option<String>,
+    #[serde(default)]
     text: Option<String>,
+    #[serde(default)]
+    gmin: Option<i64>,
+    #[serde(default, rename = "game_min", alias = "gameMin")]
+    game_min: Option<i64>,
+    #[serde(default)]
+    ts: Option<String>,
 }
 
 impl From<ChatRowSer> for ChatRow {
@@ -408,23 +510,99 @@ impl From<ChatRowSer> for ChatRow {
             agent_id: r.agent_id,
             speaker: r.speaker.unwrap_or_default(),
             text: r.text.unwrap_or_default(),
+            gmin: r.gmin.or(r.game_min),
+            ts: r.ts,
         }
     }
 }
 
-/// 선택 주민 id를 폴러 공유 변수로 미러(http_poll이 history 대상 결정)
-fn mirror_selected_agent(
-    selected_q: Query<&apply::LiveAgentTag, With<crate::agents::Selected>>,
-    sel: Res<SelectedAgentRes>,
-) {
-    let id = selected_q.iter().next().map(|t| t.0.clone());
-    if let Ok(mut g) = sel.0.lock() {
-        *g = id;
+/// REST 폴 인젤로프 — 웹 JS 폴러(worldsim 포크)가 {tf:'relations'|'history'|
+/// 'economy'|'chatbacklog', rows|data} 로 송출. 네이티브 폴러는 같은 큐를
+/// 직접 채운다. Some(true)=처리함, Some(false)=인젤로프 맞지만 미처리, None=비인젤로프
+fn poll_envelope(s: &str, chats: &ChatQueue, polls: &PollQueuesRes, eco: &EcoQueue) -> Option<bool> {
+    let v: serde_json::Value = serde_json::from_str(s).ok()?;
+    let tf = v.get("tf")?.as_str()?;
+    match tf {
+        "relations" => {
+            let rows: Vec<RelRow> = serde_json::from_value(v.get("rows")?.clone()).ok()?;
+            if let Ok(mut q) = polls.relations.lock() {
+                *q = rows;
+            }
+            Some(true)
+        }
+        "history" => {
+            let rows: Vec<HistRow> = serde_json::from_value(v.get("rows")?.clone()).ok()?;
+            if let Ok(mut q) = polls.history.lock() {
+                *q = rows;
+            }
+            Some(true)
+        }
+        "economy" => {
+            let d: EcoData = eco_from_json(v.get("data")?.clone())?;
+            if let Ok(mut q) = eco.0.lock() {
+                *q = Some(d);
+            }
+            Some(true)
+        }
+        "chatbacklog" => {
+            // rows는 최신순(서버) — 시계순으로 뒤집어 푸시
+            let rows: Vec<ChatRowSer> = serde_json::from_value(v.get("rows")?.clone()).ok()?;
+            for r in rows.into_iter().take(30).rev() {
+                chat_row_push(chats, r.into());
+            }
+            Some(true)
+        }
+        _ => Some(false),
     }
 }
 
-/// 이벤트 큐 drain — EventLog(UI 패널)로. wasm은 worldsim 포크의
-/// {tf:'event'} 인젤로프가 FrameQueue로, 여기 drain_frames와 합류한다.
+/// /economy 응답 → EcoData(kpi는 null 가능)
+pub(crate) fn eco_from_json(v: serde_json::Value) -> Option<EcoData> {
+    let prices: Vec<EcoPrice> = serde_json::from_value(v.get("prices")?.clone()).ok()?;
+    let deals: Vec<EcoDeal> = serde_json::from_value(v.get("recent_deals")?.clone()).ok()?;
+    let kpi = v
+        .get("kpi")
+        .filter(|k| !k.is_null())
+        .and_then(|k| serde_json::from_value::<EcoKpi>(k.clone()).ok());
+    Some(EcoData { prices, kpi, deals })
+}
+
+/// 선택 주민 id를 폴러 공유 변수로 미러(http_poll이 history 대상 결정).
+/// wasm은 worldsim 포크의 ui.setWatchAgent도 호출(JS REST 폴러 대상).
+fn mirror_selected_agent(
+    selected_q: Query<&apply::LiveAgentTag, With<crate::agents::Selected>>,
+    sel: Res<SelectedAgentRes>,
+    mut last: Local<Option<String>>,
+) {
+    let id = selected_q.iter().next().map(|t| t.0.clone());
+    if let Ok(mut g) = sel.0.lock() {
+        *g = id.clone();
+    }
+    if *last == id {
+        return;
+    }
+    *last = id.clone();
+    #[cfg(target_arch = "wasm32")]
+    {
+        use wasm_bindgen::JsCast;
+        if let Some(window) = web_sys::window()
+            && let Ok(tf) = js_sys::Reflect::get(&window, &"terrafolk".into())
+            && let Ok(ui) = js_sys::Reflect::get(&tf, &"ui".into())
+            && let Ok(f) = js_sys::Reflect::get(&ui, &"setWatchAgent".into())
+            && let Ok(f) = f.dyn_into::<js_sys::Function>()
+        {
+            let arg = id
+                .as_deref()
+                .map(wasm_bindgen::JsValue::from_str)
+                .unwrap_or(wasm_bindgen::JsValue::NULL);
+            let _ = f.call1(&ui, &arg);
+        }
+    }
+}
+
+/// 이벤트 큐 drain — 원시 JSON 행을 파싱해 EventLog(UI)로. 룸 방송·REST
+/// 백로그가 같은 모양({kind, agent_id, payload, tick, ts?})으로 온다.
+/// 상한 400(FE 버퍼 패리티).
 fn drain_events(queue: Res<EventQueue>, mut log: ResMut<crate::ui::EventLog>) {
     let rows: Vec<String> = {
         let Ok(mut q) = queue.inner.lock() else {
@@ -433,35 +611,31 @@ fn drain_events(queue: Res<EventQueue>, mut log: ResMut<crate::ui::EventLog>) {
         q.drain(..).collect()
     };
     for r in rows {
-        log.rows.push(r);
+        match parse_raw_event(&r) {
+            Some(ev) => log.rows.push(ev),
+            None => warn!("[net] 이벤트 행 파싱 실패: {}", r.chars().take(80).collect::<String>()),
+        }
     }
     let len = log.rows.len();
-    if len > 100 {
-        log.rows.drain(0..len - 100);
+    if len > 400 {
+        log.rows.drain(0..len - 400);
     }
+}
+
+fn parse_raw_event(s: &str) -> Option<crate::ui::EventRow> {
+    let v: serde_json::Value = serde_json::from_str(s).ok()?;
+    let get_str = |k: &str| v.get(k).and_then(|x| x.as_str()).unwrap_or_default().to_owned();
+    Some(crate::ui::EventRow {
+        kind: get_str("kind"),
+        agent_id: get_str("agent_id"),
+        payload: v.get("payload").cloned().unwrap_or(serde_json::Value::Null),
+        ts: v.get("ts").and_then(|x| x.as_str()).map(str::to_owned),
+        tick: v.get("tick").and_then(|x| x.as_u64()).unwrap_or(0) as u32,
+    })
 }
 
 /// wasm 이벤트 인젤로프(worldsim 포크가 송출)
 #[derive(Deserialize)]
 struct EventEnvelope {
     row: serde_json::Value,
-}
-
-/// 이벤트 JSON → 관전 타임라인 문자열(네이티브 native_conn과 동일 서식)
-pub(crate) fn format_event(row: &serde_json::Value) -> String {
-    let kind = row.get("kind").and_then(|v| v.as_str()).unwrap_or("?");
-    let text = row
-        .get("payload")
-        .and_then(|p| p.get("text").or_else(|| p.get("key")))
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let agent = row.get("agent_id").and_then(|v| v.as_str()).unwrap_or("");
-    if text.is_empty() {
-        return format!("[{kind}]");
-    }
-    if agent.is_empty() {
-        format!("[{kind}] {text}")
-    } else {
-        format!("[{kind}] {agent}: {text}")
-    }
 }

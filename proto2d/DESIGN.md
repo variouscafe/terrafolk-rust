@@ -89,6 +89,14 @@ proto2d/src/
 - **AI 발명품**: 계약 `sprite_url` → AssetServer 원격 로드(캐시) → 프롭
   슬롯 스폰. 플레이스홀더 = 템플릿 아이콘(계약 현행 `icon{tpl,primary,accent}`)
 
+### 5.1 어휘·이벤트 사전 에셋 (2026-10-20 추가)
+
+`assets/data/vocab.json`·`assets/data/events.json`은
+`../terrafolk/shared/` 정본의 **복사본**이다(라벨·이벤트 문장 템플릿 —
+수동 편집 금지, 정본 갱신 시 재복사). 런타임 에셋으로 로드(임베드 불가 —
+wasm 크기 예산, 커스텀 `JsonLoader`·`ui/vocab.rs`). 로드 실패 시 라벨은
+ID 원문 폴백으로 동작(치명 아님).
+
 ## 6. 검증 게이트
 
 1. `cargo check --target wasm32-unknown-unknown` 클린

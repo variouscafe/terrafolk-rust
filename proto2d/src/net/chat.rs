@@ -39,7 +39,7 @@ pub fn drain_and_bubble(
     if rows.is_empty() {
         return;
     }
-    // UI 채팅 패널 피드 — 말풍선과 별개 로그(최근 60행)
+    // UI 채팅 패널 피드 — 말풍선과 별개 로그(최근 120행 — FE 버퍼 패리티)
     let now = time.elapsed_secs();
     for r in &rows {
         log.rows.push(crate::ui::ChatLogRow {
@@ -47,12 +47,17 @@ pub fn drain_and_bubble(
             agent_id: r.agent_id.clone(),
             speaker: r.speaker.clone(),
             text: r.text.clone(),
+            gmin: r.gmin,
+            ts: r.ts.clone(),
         });
     }
     let len = log.rows.len();
-    if len > 60 {
-        log.rows.drain(0..len - 60);
+    if len > 120 {
+        log.rows.drain(0..len - 120);
     }
+    // 백로그(REST)와 실시간(룸) 병합 순서 보장 — 게임 분 기준 안정 정렬
+    // (gmin 없는 행은 도착순 유지를 위해 최뒤 키)
+    log.rows.sort_by_key(|r| r.gmin.unwrap_or(i64::MAX));
     let font = assets.load("fonts/NotoSansKR-Regular.otf");
     for row in rows {
         let Some((agent_e, _)) = q_agents.iter().find(|(_, t)| t.0 == row.agent_id) else {
