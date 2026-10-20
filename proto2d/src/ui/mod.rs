@@ -84,6 +84,8 @@ pub struct UiState {
     pub show_economy: bool,
     pub show_resources: bool,
     pub show_settings: bool,
+    /// 사용자가 ☰ 메뉴로 패널을 조작했는가 — 반응형 와치독 정지 조건
+    pub user_adjusted: bool,
     pub lang: i18n::Lang,
 }
 
@@ -99,6 +101,7 @@ impl Default for UiState {
             show_economy: false,
             show_resources: false,
             show_settings: false,
+            user_adjusted: false,
             lang: i18n::Lang::default(),
         }
     }
@@ -121,13 +124,14 @@ impl Plugin for UiPlugin {
             // 폰트 설치는 Update — 에셋이 비동기라 Startup 1회로는 절대 로드 전
             // 완료 못 함(웹 전체 두부 원인, 2026-10-20 실측). done 플래그로
             // 설치 후엔 매 프레임 조기 반환.
-            .add_systems(Startup, (theme::apply, responsive_defaults))
+            .add_systems(Startup, theme::apply)
             .add_systems(
                 Update,
                 (
                     fonts::install_korean_font,
                     vocab::load,
                     toasts::collect,
+                    responsive_defaults,
                 ),
             )
             .add_systems(
@@ -194,15 +198,25 @@ pub(crate) fn ctx(contexts: &mut EguiContexts) -> Option<egui::Context> {
 
 /// 모바일 반응형 기본값 — 좁은 화면(폰)은 사이드 패널·미니맵 접기 시작.
 /// 상단바 토글로 언제든 전개 가능(기능 손실 없음).
+/// 모바일 반응형 — Update 와치독(Startup의 창 폭은 웹에서 1280 오측이라
+/// 못 믿는다 — 실제 뷰포트가 확정되는 몇 프레임 뒤에 접힘을 확정).
+/// 사용자가 ☰ 메뉴를 조작한 뒤엔 간섭하지 않는다.
 fn responsive_defaults(
     mut ui_state: ResMut<UiState>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    mut announced: Local<bool>,
 ) {
+    if ui_state.user_adjusted {
+        return;
+    }
     let Ok(w) = windows.single() else { return };
     if w.width() < 700.0 {
         ui_state.show_villagers = false;
         ui_state.show_minimap = false;
         ui_state.show_chat = false;
-        info!("[ui] 모바일 레이아웃 — 패널 접힘 기본");
+        if !*announced {
+            *announced = true;
+            info!("[ui] 모바일 레이아웃 — 패널 접힘 기본(폭 {:.0})", w.width());
+        }
     }
 }

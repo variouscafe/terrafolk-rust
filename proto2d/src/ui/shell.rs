@@ -173,6 +173,7 @@ fn menu_toggle_on(s: &UiState, key: Tr) -> bool {
 /// 메뉴 항목 토글 — 좁은 화면(폰)에서는 플로팅 패널을 한 번에 하나만
 /// (레거시 모달 팝업과 같은 단일 창 정책). 도킹 패널(주민·채팅)은 복수 허용.
 fn menu_toggle(s: &mut UiState, key: Tr, screen_w: f32) {
+    s.user_adjusted = true; // 반응형 와치독 정지 — 사용자 의도 우선
     let narrow = screen_w < 760.0;
     // 모바일에서 캐릭터 목록도 중앙 모달이라 단일 창 정책에 포함(맵 확보)
     let is_float = matches!(

@@ -78,6 +78,23 @@
                 document.getElementById('gldiag').classList.add('diag-on');
             }
         </script>
+        <!-- 모바일 키보드 — 채팅 입력 중 visualViewport만큼 캔버스를 줄여
+             입력줄이 키보드에 가려지지 않게 한다(레거시 kbOffset 패리티).
+             창(뷰포트)은 그대로 두고 캔버스 높이만 추적 — bevy가 리사이즈 반영. -->
+        <script>
+            (function () {
+                if (!matchMedia('(pointer: coarse)').matches || !window.visualViewport) return;
+                var fit = function () {
+                    var vv = window.visualViewport;
+                    var c = document.getElementById('bevy');
+                    c.style.height = Math.round(vv.height) + 'px';
+                    c.style.width = Math.round(vv.width) + 'px';
+                };
+                visualViewport.addEventListener('resize', fit);
+                visualViewport.addEventListener('scroll', fit);
+                fit();
+            })();
+        </script>
         <!-- 라이브 브리지 — colyseus.js(벤더 UMD) 먼저, worldsim.js가 DOMContentLoaded에
              접속. Rust(wasm)는 Startup에 window.terrafolk.setSink(fn) 등록 — 늦게 등록돼도
              worldsim.js가 lastMap을 캐시해 매 스냅숏 map을 재전송하므로 첫 상태 유실 없음.

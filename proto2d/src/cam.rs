@@ -25,59 +25,98 @@ pub struct DelayedCamera {
     pub stable_since: f32,
 }
 
+/// 추적 중 터치 — 위치·누적 이동·이동했는가(핀치 자격)·UI 위에서 시작했는가
+#[derive(Clone, Copy)]
+pub(crate) struct TouchTrack {
+    pos: Vec2,
+    drift: f32,
+    moved: bool,
+    ui: bool,
+}
+
 /// 터치 제스처 — 한 손가락 드래그 팬 · 두 손가락 핀치 줌 · 탭 선택.
-/// TouchInput 메시지 스트림으로 상태 추적(활성 터치 맵).
+/// egui가 터치를 무조건 점유로 보고(터치 중 egui_wants_pointer_input)
+/// 옛 코드가 점유 중 이벤트를 안 읽어 GC로 Ended가 유실 → 유령 손가락이
+/// 남고 이후 1손 드래그가 유령과의 핀치로 계산돼 "드래그하면 줌되는"
+/// 사고가 났다(2026-10-20 실사용기). 3원칙으로 재작성:
+/// ① 이벤트는 항상 읽는다(점유·프레임 드랍과 무관 — 유령 원천 차단).
+/// ② UI 여부는 egui_owns_input(포인터 배타 주장)이 아니라 시작 위치의
+///    히트 테스트로 판정(패널·창 위=UI, 중앙 월드=제스처).
+/// ③ 핀치는 두 손가락이 모두 실제로 움직였을 때만, 프레임 단위 거리 비.
 pub fn touch_gestures(
     mut egui_ctx: bevy_egui::EguiContexts,
     mut camera: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
     mut manual: ResMut<ManualUntil>,
     mut tap: ResMut<TapPos>,
     mut touch_in: MessageReader<bevy::input::touch::TouchInput>,
-    mut active: Local<std::collections::HashMap<u64, (Vec2, Vec2, f32)>>, // id → (pos, start, drift)
+    mut active: Local<std::collections::HashMap<u64, TouchTrack>>,
+    mut pinch_prev: Local<Option<f32>>,
 ) {
-    let Ok((mut tr, mut proj)) = camera.single_mut() else { return };
-    // egui가 포인터를 쓰는 중이면 제스처 스킵(UI 탭이 판으로 세지 않게)
-    if crate::ui::egui_owns_input(&mut egui_ctx) {
-        return;
-    }
+    let mut over_ui = |pos: bevy_egui::egui::Pos2| -> bool {
+        let Some(c) = egui_ctx.ctx_mut().ok().map(|c| c.clone()) else {
+            return false; // 컨텍스트 없으면 월드로 취급(게임이 우선)
+        };
+        use bevy_egui::egui::Order;
+        match c.layer_id_at(pos) {
+            // 창·메뉴·토스트 계층 위 — UI
+            Some(l) if l.order != Order::Background => true,
+            // 배경 계층 — 도킹 패널 영역이면 UI, 중앙(패널 제외)이면 월드.
+            // available_rect가 정확히 '패널 뺀 중앙'(deprecated 표기는 이동
+            // 권고일 뿐 — 대안 content_rect는 안전영역이라 의미가 다르다)
+            Some(_) => {
+                #[expect(deprecated)]
+                !c.available_rect().contains(pos)
+            }
+            None => false,
+        }
+    };
     let mut pan = Vec2::ZERO;
-    let mut zoom: f32 = 1.0;
-
     for t in touch_in.read() {
         use bevy::input::touch::TouchPhase::*;
         match t.phase {
             Started => {
-                active.insert(t.id, (t.position, t.position, 0.0));
+                let ui = over_ui(bevy_egui::egui::pos2(t.position.x, t.position.y));
+                active.insert(
+                    t.id,
+                    TouchTrack { pos: t.position, drift: 0.0, moved: false, ui },
+                );
             }
             Moved => {
-                let Some((old_pos, start, drift)) = active.get(&t.id).copied() else { continue };
-                let d = t.position - old_pos;
-                let drift = drift + d.length();
-                let n = active.len();
-                if n == 1 {
+                let Some(tr) = active.get_mut(&t.id) else { continue };
+                let d = t.position - tr.pos;
+                tr.pos = t.position;
+                tr.drift += d.length();
+                tr.moved = tr.moved || d.length() > 0.25;
+                // 월드 1손 = 라이브 팬(즉시 적용)
+                let world_solo = !tr.ui && active.values().filter(|x| !x.ui).count() == 1;
+                if world_solo {
                     pan += Vec2::new(-d.x, d.y); // 그랩 팬(월드 y 반전)
-                } else if n == 2 {
-                    // 핀치 — 다른 손가락과의 거리 비로 줌
-                    let other = active
-                        .iter()
-                        .find(|(id, _)| **id != t.id)
-                        .map(|(_, (p, _, _))| *p);
-                    if let Some(op) = other {
-                        let old_d = (old_pos - op).length().max(1.0);
-                        let new_d = (t.position - op).length().max(1.0);
-                        zoom *= old_d / new_d;
-                    }
                 }
-                active.insert(t.id, (t.position, start, drift));
             }
             Ended | Canceled => {
-                if let Some((pos, _start, drift)) = active.remove(&t.id) {
-                    if drift < 10.0 && active.is_empty() {
-                        tap.0 = Some(pos);
-                    }
+                if let Some(tr) = active.remove(&t.id)
+                    && !tr.ui
+                    && tr.drift < 10.0
+                    && active.values().all(|x| x.ui)
+                {
+                    tap.0 = Some(tr.pos);
                 }
             }
         }
+    }
+    let Ok((mut tr_, mut proj)) = camera.single_mut() else { return };
+    // 핀치 — 월드 손가락 2개·둘 다 움직임. 프레임 거리 비(이중 계산 없음)
+    let mut zoom: f32 = 1.0;
+    let world: Vec<&TouchTrack> = active.values().filter(|x| !x.ui).collect();
+    if world.len() == 2 && world.iter().all(|t| t.moved) {
+        let d = (world[0].pos - world[1].pos).length().max(1.0);
+        if let Some(prev) = *pinch_prev {
+            // prev/d — 벌리면 d>prev → 비<1. 곱해야 벌리기=확대
+            zoom = (prev / d).clamp(0.8, 1.25);
+        }
+        *pinch_prev = Some(d);
+    } else {
+        *pinch_prev = None;
     }
 
     if pan != Vec2::ZERO || zoom != 1.0 {
@@ -85,19 +124,17 @@ pub fn touch_gestures(
         let scale = match &mut *proj {
             Projection::Orthographic(o) => {
                 if zoom != 1.0 {
-                    // zoom = old_d/new_d — 벌리면 <1. 곱해야 벌리기=확대가 된다.
-                    // (나누면 벌리기=축소로 반전 — 휠 반전과 같은 결함, 같이 교정)
                     o.scale = (o.scale * zoom).clamp(0.6, 2.8);
                 }
                 o.scale
             }
             _ => 1.0,
         };
-        tr.translation.x += pan.x / scale;
-        tr.translation.y += pan.y / scale;
+        tr_.translation.x += pan.x / scale;
+        tr_.translation.y += pan.y / scale;
         let (ex, ey) = world_extent();
-        tr.translation.x = tr.translation.x.clamp(-ex, ex);
-        tr.translation.y = tr.translation.y.clamp(-ey, 320.0);
+        tr_.translation.x = tr_.translation.x.clamp(-ex, ex);
+        tr_.translation.y = tr_.translation.y.clamp(-ey, 320.0);
     }
 }
 
