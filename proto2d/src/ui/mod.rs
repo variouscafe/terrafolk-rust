@@ -143,6 +143,7 @@ impl Plugin for UiPlugin {
                     vocab::load,
                     toasts::collect,
                     responsive_defaults,
+                    debug_panel_cmds,
                 ),
             )
             .add_systems(
@@ -234,4 +235,81 @@ fn responsive_defaults(
             info!("[ui] 모바일 레이아웃 — 패널 접힘 기본(폭 {:.0})", w.width());
         }
     }
+}
+
+/// E2E 패널 구동 훅(웹) — `window.terrafolk.ui.panelCmds` 문자열 배열을
+/// 드레인해 패널 토글을 적용한다. 헤드리스 SwiftShader 저FPS 환경에선
+/// ☰ 메뉴 팝업이 프레스에도 열리지 않아(2026-10-21 실측 — 버튼 프레스
+/// 스타일은 확인되나 팝업 미출현) 좌표 클릭만으로 전 패널 검증이 불가능
+/// 하다. 훅은 ☰ 메뉴와 동일한 단일 창 정책을 우회하지 않는다(플로팅
+/// 패널은 하나만). 값: 패널명 토글·"name:1" 강제 켬·"name:0" 끔.
+#[cfg(target_arch = "wasm32")]
+fn debug_panel_cmds(mut ui_state: ResMut<UiState>) {
+    let Some(win) = web_sys::window() else { return };
+    let cmds: Vec<(String, bool)> = (|| {
+        use wasm_bindgen::JsCast;
+        let tf = js_sys::Reflect::get(&win, &"terrafolk".into()).ok()?;
+        let ui = js_sys::Reflect::get(&tf, &"ui".into()).ok()?;
+        let arr = js_sys::Reflect::get(&ui, &"panelCmds".into()).ok()?;
+        let arr = arr.dyn_into::<js_sys::Array>().ok()?;
+        let mut out = Vec::new();
+        while arr.length() > 0 {
+            let v = arr.shift();
+            let s = v.as_string().unwrap_or_default();
+            if s.is_empty() {
+                continue;
+            }
+            let (name, val) = match s.split_once(':') {
+                Some((n, v)) => (n.to_owned(), v != "0"),
+                None => (s.clone(), !panel_flag(&ui_state, &s)),
+            };
+            out.push((name, val));
+        }
+        Some(out)
+    })()
+    .unwrap_or_default();
+    for (name, val) in cmds {
+        if apply_panel_cmd(&mut ui_state, &name, val) {
+            ui_state.user_adjusted = true;
+            info!("[ui] E2E 패널 훅 — {name} = {val}");
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn debug_panel_cmds(_ui_state: ResMut<UiState>) {}
+
+/// 패널명 → 현재 표시 여부(토글 기준값)
+#[cfg(target_arch = "wasm32")]
+fn panel_flag(s: &UiState, name: &str) -> bool {
+    match name {
+        "villagers" => s.show_villagers,
+        "chat" => s.show_chat,
+        "events" => s.show_events,
+        "minimap" => s.show_minimap,
+        "civ" => s.show_civ,
+        "relations" => s.show_relations,
+        "economy" => s.show_economy,
+        "resources" => s.show_resources,
+        "settings" => s.show_settings,
+        _ => false,
+    }
+}
+
+/// 패널명 적용 — 알 수 없는 이름이면 false(무시)
+#[cfg(target_arch = "wasm32")]
+fn apply_panel_cmd(s: &mut UiState, name: &str, val: bool) -> bool {
+    match name {
+        "villagers" => s.show_villagers = val,
+        "chat" => s.show_chat = val,
+        "events" => s.show_events = val,
+        "minimap" => s.show_minimap = val,
+        "civ" => s.show_civ = val,
+        "relations" => s.show_relations = val,
+        "economy" => s.show_economy = val,
+        "resources" => s.show_resources = val,
+        "settings" => s.show_settings = val,
+        _ => return false,
+    }
+    true
 }

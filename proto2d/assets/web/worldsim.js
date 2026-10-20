@@ -175,6 +175,10 @@
           season: st.season, weather: st.weather,
           sunrise: st.sunrise, sunset: st.sunset,
           map: lastMap,
+          // 발명 레지스트리 원문(§17.30) — wasm LiveFrame.inventions는 문자열
+          // 필드다(배열 아님 — 2026-10-21 문명 패널 '발명 없음' 원인).
+          // 위 inventions 배열 계산은 TF_UI(DOM) 전용이므로 여기선 원문 그대로.
+          inventions: st.inventionsJson || null,
           agents: agents, resources: resources,
         }));
       } catch (e) { console.error('[worldsim] sink 오류', e); }
@@ -382,6 +386,9 @@
     setWatchAgent: function (id) { watchAgent = id || null; },
     onChatRow: function (fn) { chatRowListeners.push(fn); },
     agentInfo: function (id) { return agentsInfo[id] || null; },
+    // E2E 패널 구동 큐 — wasm Update가 드레인(ui/mod.rs debug_panel_cmds).
+    // 'civ'(토글)·'civ:1'·'civ:0'. 부팅 전 push도 안전(드레인은 등록 후).
+    panelCmds: [],
   };
 
   window.terrafolk = {

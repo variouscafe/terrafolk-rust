@@ -112,6 +112,15 @@ async function proxyRoute(route) {
       rec.file = path;
     }
     if (s.click) await pg.mouse.click(s.click[0], s.click[1]);
+    // press — 저FPS 안정 클릭: 배치→정착(hover 맵 갱신 대기)→down→up.
+    // move+press가 같은 프레임에 몰리면 hover 맵이 낡아 클릭이 유실된다.
+    if (s.press) {
+      await pg.mouse.move(s.press[0], s.press[1]);
+      await pg.waitForTimeout(s.press[2] || 250);
+      await pg.mouse.down();
+      await pg.waitForTimeout(90);
+      await pg.mouse.up();
+    }
     if (s.dblclick) await pg.mouse.dblclick(s.dblclick[0], s.dblclick[1]);
     if (s.drag) {
       const [[x0, y0], [x1, y1]] = s.drag;
