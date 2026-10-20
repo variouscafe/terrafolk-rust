@@ -1,0 +1,1 @@
+{"part": "legs_leggings", "png": "female0", "cat": "bottom", "seed": 525260, "ok": true, "log": ["  행 3 완료 (IoU 최저 0.923, drift σ 15.9)", "게이트 PASS", "측정 {'seed': 625260, 'iou_min': 0.923, 'drift_sigma_max': 20.58, 'drift_mean': 25.7, 'frames': 36} → /Users/openclaw/workspace/terrafolk-rust/assets/painted-parts/legs_leggings/female0.png"]}
