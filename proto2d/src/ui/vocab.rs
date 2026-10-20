@@ -43,15 +43,17 @@ impl AssetLoader for JsonLoader {
     }
 }
 
-/// 라벨 쌍(ko, en) — vocab labels[4] 중 클라가 쓰는 2개
+/// 라벨 사중목(ko, en, zh, ja) — vocab labels[4] 전체
 #[derive(Clone)]
-pub struct Lbl(pub String, pub String);
+pub struct Lbl(pub String, pub String, pub String, pub String);
 
 impl Lbl {
     pub fn pick(&self, lang: Lang) -> &str {
         match lang {
             Lang::Ko => &self.0,
             Lang::En => &self.1,
+            Lang::Zh => &self.2,
+            Lang::Ja => &self.3,
         }
     }
 }
@@ -79,10 +81,8 @@ fn lbl_of(v: &Value) -> Option<Lbl> {
     if a.len() < 2 {
         return None;
     }
-    Some(Lbl(
-        a[0].as_str()?.to_owned(),
-        a[1].as_str().unwrap_or_default().to_owned(),
-    ))
+    let l = |i: usize| a.get(i).and_then(Value::as_str).unwrap_or_default().to_owned();
+    Some(Lbl(l(0), l(1), l(2), l(3)))
 }
 
 /// 비동기 에셋 로드 → 파싱 1회(폰트 설치와 같은 Update 재시도 패턴)
@@ -177,7 +177,7 @@ pub fn load(
                     .map(str::to_owned)
                     .unwrap_or_default()
             };
-            let l = Lbl(g("ko"), g("en"));
+            let l = Lbl(g("ko"), g("en"), g("zh"), g("ja"));
             if !l.0.is_empty() || !l.1.is_empty() {
                 vocab.events.insert(k.clone(), l);
             }
@@ -272,6 +272,8 @@ impl Vocab {
         let tmpl = match lang {
             Lang::Ko => l.0.as_str(),
             Lang::En => l.1.as_str(),
+            Lang::Zh => l.2.as_str(),
+            Lang::Ja => l.3.as_str(),
         };
         let tmpl = if tmpl.is_empty() { l.0.as_str() } else { tmpl };
         Some(match params.and_then(Value::as_object) {

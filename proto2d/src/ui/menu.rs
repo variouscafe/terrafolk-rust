@@ -59,6 +59,12 @@ pub fn panel(
                 if ui.add(lang_btn("English", lang == Lang::En)).clicked() {
                     ui_state.lang = Lang::En;
                 }
+                if ui.add(lang_btn("中文", lang == Lang::Zh)).clicked() {
+                    ui_state.lang = Lang::Zh;
+                }
+                if ui.add(lang_btn("日本語", lang == Lang::Ja)).clicked() {
+                    ui_state.lang = Lang::Ja;
+                }
             });
             // 눈 스킨 강제 — 체크 해제하면 계절 자동 복귀
             let mut snow = override_skin.0 == Some(GroundSkin::Snow);

@@ -17,9 +17,9 @@ use super::i18n::Lang;
 /// 요청 등록(다음 프레임부터 번역문으로 바뀐다).
 #[derive(Resource, Default)]
 pub struct MtCache {
-    map: HashMap<String, String>,
-    pending: HashSet<String>,
-    queue: Vec<String>,
+    map: HashMap<(Lang, String), String>,
+    pending: HashMap<String, Lang>, // 원문 → 요청 로케일(응답 키 복원용)
+    queue: Vec<(Lang, String)>,
     last_flush: f32,
 }
 
@@ -29,12 +29,15 @@ impl MtCache {
         if lang == Lang::En || orig.is_empty() {
             return orig.to_owned();
         }
-        if let Some(t) = self.map.get(orig) {
+        let key = (lang, orig.to_owned());
+        if let Some(t) = self.map.get(&key) {
             return t.clone();
         }
-        if !self.pending.contains(orig) && self.queue.len() + self.pending.len() < 600 {
-            self.queue.push(orig.to_owned());
-            self.pending.insert(orig.to_owned());
+        if !self.pending.contains_key(orig)
+            && self.queue.len() + self.pending.len() < 600
+        {
+            self.pending.insert(orig.to_owned(), lang);
+            self.queue.push((lang, orig.to_owned()));
         }
         orig.to_owned()
     }
@@ -43,9 +46,10 @@ impl MtCache {
     pub fn receive(&mut self, texts: &serde_json::Value) {
         let Some(obj) = texts.as_object() else { return };
         for (k, v) in obj {
-            if let Some(t) = v.as_str() {
-                self.pending.remove(k);
-                self.map.insert(k.clone(), t.to_owned());
+            if let Some(t) = v.as_str()
+                && let Some(lang) = self.pending.remove(k)
+            {
+                self.map.insert((lang, k.clone()), t.to_owned());
             }
         }
     }
@@ -98,18 +102,27 @@ pub fn flush(
         }
         cache.last_flush = now;
         let n = cache.queue.len().min(40);
-        let batch: Vec<String> = cache.queue.drain(..n).collect();
-        let Ok(arr) = serde_json::to_string(&batch) else { return };
-        if let Some(win) = web_sys::window()
-            && let Ok(tf) = js_sys::Reflect::get(&win, &"terrafolk".into())
-            && let Ok(ui) = js_sys::Reflect::get(&tf, &"ui".into())
-            && let Ok(f) = js_sys::Reflect::get(&ui, &"translate".into())
-            && let Ok(f) = f.dyn_into::<js_sys::Function>()
-        {
-            let js = wasm_bindgen::JsValue::from_str(&arr);
-            // target 고정 'ko' — proto2d 로케일이 ko/en 2종이라(en은 MT 자체를
-            // 건너뛴다) 요청 시점 언어와 무관하게 ko 번역만 존재한다.
-            let _ = f.call2(&ui, &js, &"ko".into());
+        let batch: Vec<(Lang, String)> = cache.queue.drain(..n).collect();
+        // 로케일별 배치 — translate API가 타깃 하나씩 받는다(레거시와 동일)
+        for lang in [Lang::Ko, Lang::Zh, Lang::Ja] {
+            let texts: Vec<&str> = batch
+                .iter()
+                .filter(|(l, _)| *l == lang)
+                .map(|(_, t)| t.as_str())
+                .collect();
+            if texts.is_empty() {
+                continue;
+            }
+            let Ok(arr) = serde_json::to_string(&texts) else { continue };
+            if let Some(win) = web_sys::window()
+                && let Ok(tf) = js_sys::Reflect::get(&win, &"terrafolk".into())
+                && let Ok(ui) = js_sys::Reflect::get(&tf, &"ui".into())
+                && let Ok(f) = js_sys::Reflect::get(&ui, &"translate".into())
+                && let Ok(f) = f.dyn_into::<js_sys::Function>()
+            {
+                let js = wasm_bindgen::JsValue::from_str(&arr);
+                let _ = f.call2(&ui, &js, &lang.code().into());
+            }
         }
     }
 }

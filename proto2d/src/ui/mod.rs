@@ -147,6 +147,7 @@ impl Plugin for UiPlugin {
                 Update,
                 (
                     fonts::install_korean_font,
+                    fonts::install_cjk_font,
                     vocab::load,
                     toasts::collect,
                     responsive_defaults,
@@ -268,6 +269,19 @@ fn debug_panel_cmds(mut ui_state: ResMut<UiState>) {
             let v = arr.shift();
             let s = v.as_string().unwrap_or_default();
             if s.is_empty() {
+                continue;
+            }
+            // "lang:ja" — 로케일 지정(패널 아님, val 문자열 그대로 전달)
+            if let Some((n, v)) = s.split_once(':')
+                && n == "lang"
+                && matches!(v, "ko" | "en" | "zh" | "ja")
+            {
+                ui_state.lang = match v {
+                    "ko" => i18n::Lang::Ko,
+                    "en" => i18n::Lang::En,
+                    "zh" => i18n::Lang::Zh,
+                    _ => i18n::Lang::Ja,
+                };
                 continue;
             }
             let (name, val) = match s.split_once(':') {
