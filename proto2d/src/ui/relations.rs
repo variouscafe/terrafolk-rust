@@ -50,7 +50,7 @@ pub fn panel(
     let selected_id = sel_q.iter().next().map(|t| t.0.clone());
     egui::Window::new(tr(lang, Tr::Relations))
         .anchor(egui::Align2::RIGHT_TOP, egui::vec2(-282.0, 44.0))
-        .default_width(320.0)
+        .default_width((c.screen_rect().width() - 20.0).min(320.0))
         .frame(card())
         .title_bar(false)
         .show(&c, |ui| {

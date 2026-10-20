@@ -20,21 +20,27 @@ pub fn top_bar(
     let Some(c) = ctx(&mut contexts) else { return };
     let lang = ui_state.lang;
     let frame = net.as_ref().and_then(|n| n.frame.as_ref());
+    // 반응형 계층 — 폰 좁은 폭에서 정보 칩부터 줄인다(레거시 mobile과 동일 정보 유지)
+    let sw = c.screen_rect().width();
+    let (show_brand, compact_clock, icon_only_weather) =
+        if sw >= 560.0 { (true, false, false) } else if sw >= 420.0 { (false, false, true) } else { (false, true, true) };
     egui::Panel::top("topbar")
         .exact_height(38.0)
         .frame(egui::Frame::new().fill(egui::Color32::from_rgba_unmultiplied(16, 21, 13, 235)))
         .show(&c, |ui| {
             ui.horizontal_centered(|ui| {
                 ui.add_space(6.0);
-                // 브랜드 — 골드 강조
-                ui.label(
-                    egui::RichText::new("TERRAFOLK")
-                        .size(12.0)
-                        .strong()
-                        .color(theme::ACCENT_SAND)
-                        .background_color(egui::Color32::TRANSPARENT),
-                );
-                ui.separator();
+                // 브랜드 — 골드 강조(좁은 화면 생략)
+                if show_brand {
+                    ui.label(
+                        egui::RichText::new("TERRAFOLK")
+                            .size(12.0)
+                            .strong()
+                            .color(theme::ACCENT_SAND)
+                            .background_color(egui::Color32::TRANSPARENT),
+                    );
+                    ui.separator();
+                }
                 let dial_resp = mini_dial(ui, &gt);
                 // 서버 정본 일출/일몰 hover(분 → HH:MM)
                 if let Some((sr, ss)) = net
@@ -48,25 +54,29 @@ pub fn top_bar(
                         .replacen("{}", &fmt(ss), 1);
                     dial_resp.on_hover_text(text);
                 }
-                // 시계 — 계절+태양력 날짜(레거시 ko 서식 직역)
+                // 시계 — 계절+태양력 날짜(레거시 ko 서식 직역). 좁으면 연도 생략
                 let (y, m, d) = theme::date_of(gt.day as u32);
                 let season = frame.map(|f| f.season.as_str()).unwrap_or("spring");
                 let season_lbl = theme::season_mark(lang, season).0;
                 let minutes = (gt.t * 24.0 * 60.0) as u32;
-                let clock = match lang {
-                    super::i18n::Lang::Ko => format!(
-                        "{season_lbl} {y}년 {m:02}월 {d:02}일 {:02}:{:02}",
-                        minutes / 60,
-                        minutes % 60
-                    ),
-                    super::i18n::Lang::En => format!(
-                        "{season_lbl} Y{y}·{m}/{d} {:02}:{:02}",
-                        minutes / 60,
-                        minutes % 60
-                    ),
+                let clock = if compact_clock {
+                    format!("{season_lbl} {m:02}/{d:02} {:02}:{:02}", minutes / 60, minutes % 60)
+                } else {
+                    match lang {
+                        super::i18n::Lang::Ko => format!(
+                            "{season_lbl} {y}년 {m:02}월 {d:02}일 {:02}:{:02}",
+                            minutes / 60,
+                            minutes % 60
+                        ),
+                        super::i18n::Lang::En => format!(
+                            "{season_lbl} Y{y}·{m}/{d} {:02}:{:02}",
+                            minutes / 60,
+                            minutes % 60
+                        ),
+                    }
                 };
                 ui.label(egui::RichText::new(clock).size(11.5).color(theme::TEXT_WARM));
-                // 날씨 칩 — 프레임 weather(데모=맑음 가정 아님: 비움)
+                // 날씨 칩 — 프레임 weather(좁으면 아이콘만)
                 if let Some(w) = frame.and_then(|f| f.weather.as_deref()) {
                     let icon = match w {
                         "clear" => "☀",
@@ -76,7 +86,12 @@ pub fn top_bar(
                         "snow" => "雪",
                         _ => "·",
                     };
-                    chip(ui, &format!("{icon} {}", theme::weather_label(lang, w)));
+                    let text = if icon_only_weather {
+                        icon.to_owned()
+                    } else {
+                        format!("{icon} {}", theme::weather_label(lang, w))
+                    };
+                    chip(ui, &text);
                 }
                 // 인원 칩
                 let pop = frame.map(|f| f.agents.len()).unwrap_or(0);
@@ -96,64 +111,92 @@ pub fn top_bar(
                         .strong()
                         .color(color),
                 );
-                // 패널 토글 — 우측 정렬 활성 칩
+                // ☰ 메뉴 — 레거시 FE TopBar 드롭다운 직역(우측 끝)
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.add_space(6.0);
-                    let toggles = [
-                        (Tr::ToggleVillagers, "人"),
-                        (Tr::ToggleChat, "話"),
-                        (Tr::ToggleEvents, "史"),
-                        (Tr::ToggleCiv, "文"),
-                        (Tr::ToggleRelations, "緣"),
-                        (Tr::ToggleEconomy, "貨"),
-                        (Tr::ToggleMinimap, "圖"),
-                    ];
-                    let shown = |s: &UiState, key: Tr| match key {
-                        Tr::ToggleVillagers => s.show_villagers,
-                        Tr::ToggleChat => s.show_chat,
-                        Tr::ToggleEvents => s.show_events,
-                        Tr::ToggleCiv => s.show_civ,
-                        Tr::ToggleRelations => s.show_relations,
-                        Tr::ToggleEconomy => s.show_economy,
-                        _ => s.show_minimap,
-                    };
-                    // 좁은 화면(폰) — 라벨 생략 아이콘 전용 칩(7개 상한 폭 맞춤)
-                    let narrow = c.screen_rect().width() < 760.0;
-                    for (key, icon) in toggles {
-                        let on = shown(&ui_state, key);
-                        let text = if narrow {
-                            format!("{icon}")
-                        } else {
-                            format!("{icon} {}", tr(lang, key))
-                        };
-                        let label = egui::RichText::new(text)
-                            .size(10.0)
-                            .color(if on { theme::TEXT_WARM } else { theme::TEXT_DIM });
-                        let btn = egui::Button::new(label)
-                            .small()
-                            .fill(if on {
-                                egui::Color32::from_rgb(58, 66, 40)
+                    ui.add_space(4.0);
+                    let menu_text = egui::RichText::new("≡").size(14.0).color(theme::TEXT_WARM);
+                    egui::menu::menu_button(ui, menu_text, |ui| {
+                        ui.set_min_width(172.0);
+                        let items = [
+                            (Tr::ToggleVillagers, "人"),
+                            (Tr::ToggleChat, "話"),
+                            (Tr::ToggleResources, "木"),
+                            (Tr::ToggleEvents, "史"),
+                            (Tr::ToggleCiv, "文"),
+                            (Tr::ToggleRelations, "緣"),
+                            (Tr::ToggleEconomy, "貨"),
+                            (Tr::ToggleMinimap, "圖"),
+                            (Tr::ToggleSettings, "⚙"),
+                        ];
+                        for (key, icon) in items {
+                            if key == Tr::ToggleSettings {
+                                ui.separator();
+                            }
+                            let on = menu_toggle_on(&ui_state, key);
+                            let label = if on {
+                                egui::RichText::new(format!("{icon} {}  ●", tr(lang, key)))
+                                    .size(12.0)
+                                    .color(theme::TEXT_WARM)
+                                    .strong()
                             } else {
-                                egui::Color32::from_black_alpha(70)
-                            })
-                            .corner_radius(999.0);
-                        let resp = ui.add(btn);
-                        if resp.clicked() {
-                            match key {
-                                Tr::ToggleVillagers => ui_state.show_villagers = !ui_state.show_villagers,
-                                Tr::ToggleChat => ui_state.show_chat = !ui_state.show_chat,
-                                Tr::ToggleEvents => ui_state.show_events = !ui_state.show_events,
-                                Tr::ToggleCiv => ui_state.show_civ = !ui_state.show_civ,
-                                Tr::ToggleRelations => ui_state.show_relations = !ui_state.show_relations,
-                                Tr::ToggleEconomy => ui_state.show_economy = !ui_state.show_economy,
-                                _ => ui_state.show_minimap = !ui_state.show_minimap,
+                                egui::RichText::new(format!("{icon} {}", tr(lang, key)))
+                                    .size(12.0)
+                                    .color(theme::TEXT_DIM)
+                            };
+                            // 기본 버튼(호버 배경 유지) — 항목 클릭으로만 닫힌다
+                            if ui.add(egui::Button::new(label)).clicked() {
+                                menu_toggle(&mut ui_state, key, sw);
+                                ui.close_menu();
                             }
                         }
-                        resp.on_hover_text(tr(lang, key));
-                    }
+                    });
                 });
             });
         });
+}
+
+/// 메뉴 항목 → 현재 열림 여부
+fn menu_toggle_on(s: &UiState, key: Tr) -> bool {
+    match key {
+        Tr::ToggleVillagers => s.show_villagers,
+        Tr::ToggleChat => s.show_chat,
+        Tr::ToggleResources => s.show_resources,
+        Tr::ToggleEvents => s.show_events,
+        Tr::ToggleCiv => s.show_civ,
+        Tr::ToggleRelations => s.show_relations,
+        Tr::ToggleEconomy => s.show_economy,
+        Tr::ToggleMinimap => s.show_minimap,
+        _ => s.show_settings,
+    }
+}
+
+/// 메뉴 항목 토글 — 좁은 화면(폰)에서는 플로팅 패널을 한 번에 하나만
+/// (레거시 모달 팝업과 같은 단일 창 정책). 도킹 패널(주민·채팅)은 복수 허용.
+fn menu_toggle(s: &mut UiState, key: Tr, screen_w: f32) {
+    let narrow = screen_w < 760.0;
+    let is_float = matches!(
+        key,
+        Tr::ToggleResources | Tr::ToggleEvents | Tr::ToggleCiv | Tr::ToggleRelations | Tr::ToggleEconomy | Tr::ToggleSettings
+    );
+    if narrow && is_float {
+        s.show_resources = false;
+        s.show_events = false;
+        s.show_civ = false;
+        s.show_relations = false;
+        s.show_economy = false;
+        s.show_settings = false;
+    }
+    match key {
+        Tr::ToggleVillagers => s.show_villagers = !s.show_villagers,
+        Tr::ToggleChat => s.show_chat = !s.show_chat,
+        Tr::ToggleResources => s.show_resources = !s.show_resources,
+        Tr::ToggleEvents => s.show_events = !s.show_events,
+        Tr::ToggleCiv => s.show_civ = !s.show_civ,
+        Tr::ToggleRelations => s.show_relations = !s.show_relations,
+        Tr::ToggleEconomy => s.show_economy = !s.show_economy,
+        Tr::ToggleMinimap => s.show_minimap = !s.show_minimap,
+        _ => s.show_settings = !s.show_settings,
+    }
 }
 
 /// 미니 주야 다이얼(레거시 DayDial 직역 — 해/달 궤적 + 지평선)

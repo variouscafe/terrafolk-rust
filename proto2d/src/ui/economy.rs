@@ -34,7 +34,7 @@ pub fn panel(
     };
     egui::Window::new(tr(lang, Tr::Economy))
         .anchor(egui::Align2::LEFT_TOP, egui::vec2(196.0, 46.0))
-        .default_width(300.0)
+        .default_width((c.screen_rect().width() - 24.0).min(300.0))
         .frame(card())
         .title_bar(false)
         .show(&c, |ui| {

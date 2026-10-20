@@ -11,7 +11,7 @@ pub enum Lang {
 }
 
 /// UI 문자열 키 — 전 UI 크롬의 단일 목록(미사용 키도 사전으로 유지)
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum Tr {
     // 상단바
@@ -27,6 +27,8 @@ pub enum Tr {
     ToggleCiv,
     ToggleRelations,
     ToggleEconomy,
+    ToggleResources,
+    ToggleSettings,
     Population, // "{n}명"
     // 주민 패널
     Villagers,
@@ -87,6 +89,8 @@ pub enum Tr {
     RelWaitLive,
     RelWaitData,
     RelChatsTrades, // "대화 {n}회 · 거래 {m}회"
+    // 자원
+    ResUsable, // "채집 가능 {} / {}"
     // 경제
     Economy,
     EcoPrices,
@@ -163,13 +167,15 @@ pub fn tr(lang: Lang, key: Tr) -> &'static str {
         Tr::Reconnecting => ("◌ 재접속", "◌ Reconnecting"),
         Tr::Participating => ("참여 중", "Participating"),
         Tr::Spectating => ("관전", "Spectating"),
-        Tr::ToggleVillagers => ("주민", "Villagers"),
+        Tr::ToggleVillagers => ("캐릭터", "Characters"),
         Tr::ToggleChat => ("대화", "Chat"),
         Tr::ToggleEvents => ("기록", "Log"),
         Tr::ToggleMinimap => ("지도", "Map"),
         Tr::ToggleCiv => ("문명", "Civ"),
         Tr::ToggleRelations => ("인연", "Bonds"),
         Tr::ToggleEconomy => ("시세", "Trade"),
+        Tr::ToggleResources => ("자원", "Resources"),
+        Tr::ToggleSettings => ("설정", "Settings"),
         Tr::Population => ("{}명", "{} here"),
         Tr::Villagers => ("주민", "Villagers"),
         Tr::VillagersN => ("주민 ({})", "Residents ({})"),
@@ -229,6 +235,7 @@ pub fn tr(lang: Lang, key: Tr) -> &'static str {
         Tr::RelWaitLive => ("라이브 접속 시 표시됩니다", "Available when live-connected"),
         Tr::RelWaitData => ("(인연 집계 대기 중…)", "(Gathering bonds…)"),
         Tr::RelChatsTrades => ("대화 {}회 · 거래 {}회", "{} chats · {} trades"),
+        Tr::ResUsable => ("채집 가능 {} / {}", "Harvestable {} / {}"),
         Tr::Economy => ("시세", "Economy"),
         Tr::EcoPrices => ("시세 — 참조", "Reference prices"),
         Tr::EcoDeals => ("최근 성사", "Recent deals"),

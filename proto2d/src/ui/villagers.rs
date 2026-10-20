@@ -59,8 +59,9 @@ pub fn panel(
     let live_of = |tag: &LiveAgentTag| -> Option<&LiveAgent> {
         frame.and_then(|f| f.agents.iter().find(|la| la.id == tag.0))
     };
+    let pw = (c.screen_rect().width() * 0.64).min(272.0).max(200.0);
     egui::Panel::right("villagers")
-        .min_width(272.0)
+        .exact_width(pw)
         .frame(egui::Frame::new().fill(egui::Color32::from_rgba_unmultiplied(21, 26, 17, 242)))
         .show(&c, |ui| {
             ui.add_space(4.0);

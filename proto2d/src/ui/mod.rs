@@ -12,6 +12,7 @@ pub mod i18n;
 pub mod menu;
 pub mod minimap;
 pub mod relations;
+pub mod resources;
 pub mod shell;
 pub mod theme;
 pub mod toasts;
@@ -81,6 +82,8 @@ pub struct UiState {
     pub show_civ: bool,
     pub show_relations: bool,
     pub show_economy: bool,
+    pub show_resources: bool,
+    pub show_settings: bool,
     pub lang: i18n::Lang,
 }
 
@@ -94,6 +97,8 @@ impl Default for UiState {
             show_civ: false,
             show_relations: false,
             show_economy: false,
+            show_resources: false,
+            show_settings: false,
             lang: i18n::Lang::default(),
         }
     }
@@ -137,6 +142,7 @@ impl Plugin for UiPlugin {
                     toasts::show,
                     civ::panel,
                     relations::panel,
+                    resources::panel,
                     economy::panel,
                     tooltip::show,
                 ),
