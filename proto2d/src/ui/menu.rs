@@ -30,43 +30,32 @@ pub fn panel(
         .frame(super::widgets::card())
         .title_bar(false)
         .show(&c, |ui| {
-            ui.label(
-                egui::RichText::new(format!("⚙ {}", tr(lang, Tr::Menu)))
-                    .size(13.0)
-                    .strong()
-                    .color(theme::TEXT_WARM),
-            );
+            super::widgets::title_bar(ui, "設", tr(lang, Tr::Menu));
             ui.add_space(3.0);
-            // 언어 토글 — 한/EN 즉시 전환
+            // 언어 토글 — 한/EN 즉시 전환(활성=골드 스트로크 필)
             ui.horizontal(|ui| {
-                let ko = egui::Button::new(
-                    egui::RichText::new("한국어")
+                let lang_btn = |label: &str, active: bool| {
+                    let text = egui::RichText::new(label)
                         .size(11.0)
-                        .color(if lang == Lang::Ko { theme::TEXT_WARM } else { theme::TEXT_DIM })
-                        .strong(),
-                )
-                .fill(if lang == Lang::Ko {
-                    theme::SEL_FILL
-                } else {
-                    theme::CREAM_3
-                })
-                .corner_radius(999.0);
-                if ui.add(ko).clicked() {
+                        .color(if active { theme::INK } else { theme::INK_DIM })
+                        .strong();
+                    egui::Button::new(text)
+                        .fill(if active {
+                            theme::sel_pill()
+                        } else {
+                            theme::glass_hi()
+                        })
+                        .stroke(if active {
+                            egui::Stroke::new(1.0_f32, theme::GOLD)
+                        } else {
+                            egui::Stroke::new(1.0_f32, theme::STROKE_OLIVE)
+                        })
+                        .corner_radius(999.0)
+                };
+                if ui.add(lang_btn("한국어", lang == Lang::Ko)).clicked() {
                     ui_state.lang = Lang::Ko;
                 }
-                let en = egui::Button::new(
-                    egui::RichText::new("English")
-                        .size(11.0)
-                        .color(if lang == Lang::En { theme::TEXT_WARM } else { theme::TEXT_DIM })
-                        .strong(),
-                )
-                .fill(if lang == Lang::En {
-                    theme::SEL_FILL
-                } else {
-                    theme::CREAM_3
-                })
-                .corner_radius(999.0);
-                if ui.add(en).clicked() {
+                if ui.add(lang_btn("English", lang == Lang::En)).clicked() {
                     ui_state.lang = Lang::En;
                 }
             });

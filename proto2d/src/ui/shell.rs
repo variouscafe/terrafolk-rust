@@ -26,7 +26,7 @@ pub fn top_bar(
         if sw >= 560.0 { (true, false, false) } else if sw >= 420.0 { (false, false, true) } else { (false, true, true) };
     egui::Panel::top("topbar")
         .exact_height(38.0)
-        .frame(egui::Frame::new().fill(egui::Color32::from_rgba_unmultiplied(237, 231, 216, 248)).stroke(egui::Stroke::new(1.0_f32, theme::STROKE_TAN)))
+        .frame(super::widgets::dock())
         .show(&c, |ui| {
             ui.horizontal_centered(|ui| {
                 ui.add_space(6.0);
@@ -103,7 +103,7 @@ pub fn top_bar(
                     Some(NetStatus::Connected) => ("● LIVE", theme::LIVE_GREEN),
                     Some(NetStatus::Connecting) => (tr(lang, Tr::Connecting), theme::WARN),
                     Some(NetStatus::Reconnecting) => (tr(lang, Tr::Reconnecting), theme::WARN),
-                    _ => (tr(lang, Tr::Demo), egui::Color32::from_rgb(122, 118, 104)),
+                    _ => (tr(lang, Tr::Demo), theme::INK_DIM),
                 };
                 ui.label(
                     egui::RichText::new(badge)
@@ -111,46 +111,66 @@ pub fn top_bar(
                         .strong()
                         .color(color),
                 );
-                // ☰ 메뉴 — 레거시 FE TopBar 드롭다운 직역(우측 끝)
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.add_space(4.0);
-                    let menu_text = egui::RichText::new("≡").size(14.0).color(theme::INK);
-                    egui::menu::menu_button(ui, menu_text, |ui| {
-                        ui.set_min_width(172.0);
-                        let items = [
-                            (Tr::ToggleVillagers, "人"),
-                            (Tr::ToggleChat, "話"),
-                            (Tr::ToggleResources, "木"),
-                            (Tr::ToggleEvents, "史"),
-                            (Tr::ToggleCiv, "文"),
-                            (Tr::ToggleRelations, "緣"),
-                            (Tr::ToggleEconomy, "貨"),
-                            (Tr::ToggleMinimap, "圖"),
-                            (Tr::ToggleSettings, "⚙"),
-                        ];
-                        for (key, icon) in items {
-                            if key == Tr::ToggleSettings {
-                                ui.separator();
-                            }
-                            let on = menu_toggle_on(&ui_state, key);
-                            let label = if on {
-                                egui::RichText::new(format!("{icon} {}  ●", tr(lang, key)))
-                                    .size(12.0)
-                                    .color(theme::TEXT_WARM)
-                                    .strong()
-                            } else {
-                                egui::RichText::new(format!("{icon} {}", tr(lang, key)))
-                                    .size(12.0)
-                                    .color(theme::TEXT_DIM)
-                            };
-                            // 기본 버튼(호버 배경 유지) — 항목 클릭으로만 닫힌다
-                            if ui.add(egui::Button::new(label)).clicked() {
-                                menu_toggle(&mut ui_state, key, sw);
-                                ui.close_menu();
-                            }
-                        }
-                    });
-                });
+                // ☰ 버튼은 별도 Area라 플로우가 그 폭을 모른다 — 우측 끝
+                // 28px를 예약해 배지가 버튼 밑으로 미끄러지지 않게 한다.
+                ui.add_space(28.0);
+            });
+        });
+    // ☰ 메뉴 — 우측 상단 고정 Area(레거시 FE TopBar 드롭다운 직역).
+    // 패널 플로우 안에 넣으면 horizontal_centered 줄바꿈으로 38px 바 아래로
+    // 밀려 클리핑된다(2026-10-20 실측 — 글리프 상단만 y37에 노출).
+    egui::Area::new(egui::Id::new("topbar_menu"))
+        .anchor(egui::Align2::RIGHT_TOP, egui::vec2(-4.0, 7.0))
+        .order(egui::Order::Foreground)
+        .show(&c, |ui| {
+            // 햄버거 — 한글 폰트 확보 글리프 三(삼획)
+            let menu_text = egui::RichText::new("三").size(12.0).color(theme::INK);
+            egui::menu::menu_button(ui, menu_text, |ui| {
+                ui.set_min_width(172.0);
+                let items = [
+                    (Tr::ToggleVillagers, "人"),
+                    (Tr::ToggleChat, "話"),
+                    (Tr::ToggleResources, "木"),
+                    (Tr::ToggleEvents, "史"),
+                    (Tr::ToggleCiv, "文"),
+                    (Tr::ToggleRelations, "緣"),
+                    (Tr::ToggleEconomy, "貨"),
+                    (Tr::ToggleMinimap, "圖"),
+                    // ⚙(U+2699)은 폰트에 없다 — 설(設)으로
+                    (Tr::ToggleSettings, "設"),
+                ];
+                for (key, icon) in items {
+                    if key == Tr::ToggleSettings {
+                        ui.separator();
+                    }
+                    let on = menu_toggle_on(&ui_state, key);
+                    // 기본 버튼(호버 배경 유지) — 항목 클릭으로만 닫힌다.
+                    // 켜진 항목은 골드 불릿을 우측 끝에 따로 찍는다.
+                    let label = if on {
+                        egui::RichText::new(format!("{icon} {}", tr(lang, key)))
+                            .size(12.0)
+                            .color(theme::TEXT_WARM)
+                            .strong()
+                    } else {
+                        egui::RichText::new(format!("{icon} {}", tr(lang, key)))
+                            .size(12.0)
+                            .color(theme::TEXT_DIM)
+                    };
+                    let resp =
+                        ui.add_sized([ui.available_width(), 20.0], egui::Button::new(label));
+                    if on {
+                        let r = resp.rect;
+                        ui.painter().circle_filled(
+                            egui::pos2(r.right() - 10.0, r.center().y),
+                            3.0,
+                            theme::GOLD,
+                        );
+                    }
+                    if resp.clicked() {
+                        menu_toggle(&mut ui_state, key, sw);
+                        ui.close_menu();
+                    }
+                }
             });
         });
 }
@@ -219,7 +239,7 @@ fn mini_dial(ui: &mut egui::Ui, gt: &GameTime) -> egui::Response {
     // 지평선·궤적
     p.line_segment(
         [egui::pos2(rect.left(), rect.bottom() - 3.0), egui::pos2(rect.right(), rect.bottom() - 3.0)],
-        egui::Stroke::new(1.0_f32, egui::Color32::from_white_alpha(28)),
+        egui::Stroke::new(1.0_f32, egui::Color32::from_white_alpha(52)),
     );
     let t = gt.t.clamp(0.0, 1.0);
     let x = rect.left() + 3.0 + t * (w - 6.0);
@@ -245,14 +265,14 @@ fn mini_dial(ui: &mut egui::Ui, gt: &GameTime) -> egui::Response {
     resp
 }
 
-/// 작은 정보 칩(상단 바 통계) — 크림 필 + 탄색 스트로크
+/// 작은 정보 칩(상단 바 통계) — 글래스 필 + 올리브 스트로크
 fn chip(ui: &mut egui::Ui, text: &str) {
     egui::Frame::new()
-        .fill(theme::CREAM)
-        .stroke(egui::Stroke::new(1.0_f32, theme::STROKE_TAN))
+        .fill(theme::glass_hi())
+        .stroke(egui::Stroke::new(1.0_f32, theme::STROKE_OLIVE))
         .corner_radius(999.0)
         .inner_margin(egui::Margin::symmetric(7, 2))
         .show(ui, |ui| {
-            ui.label(egui::RichText::new(text).size(10.5).color(theme::INK_DIM));
+            ui.label(egui::RichText::new(text).size(10.5).color(theme::INK));
         });
 }

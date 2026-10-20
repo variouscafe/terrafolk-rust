@@ -137,7 +137,7 @@ pub fn panel(
         // 데스크톱 — 우측 도킹 패널(기존 레이아웃)
         egui::Panel::right("villagers")
             .exact_width(272.0)
-            .frame(egui::Frame::new().fill(egui::Color32::from_rgba_unmultiplied(237, 231, 216, 246)).stroke(egui::Stroke::new(1.0_f32, theme::STROKE_TAN)))
+            .frame(super::widgets::dock())
             .show(&c, |ui| {
                 out = body(ui, lang, &vocab, frame, &polls, &rows, false);
             });
@@ -170,21 +170,17 @@ fn body(
 ) -> BodyOut {
     let mut out = BodyOut { select: None, close: false };
     ui.add_space(2.0);
-    // 헤더 — 주민 (n) + 모달 ✕
+    // 헤더 — 골드 아이콘 칩 + 타이틀(+모바일 ✕)
     ui.horizontal(|ui| {
-        ui.label(
-            egui::RichText::new(format!(
-                "人 {}",
-                tr(lang, Tr::VillagersN).replace("{}", &rows.len().to_string())
-            ))
-            .size(13.0)
-            .strong()
-            .color(theme::TEXT_WARM),
+        super::widgets::title_bar(
+            ui,
+            "人",
+            &tr(lang, Tr::VillagersN).replace("{}", &rows.len().to_string()),
         );
         if modal {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if ui
-                    .button(egui::RichText::new("✕").size(11.0).color(theme::TEXT_DIM))
+                    .button(egui::RichText::new("×").size(11.0).color(theme::TEXT_DIM))
                     .clicked()
                 {
                     out.close = true;
@@ -209,7 +205,7 @@ fn body(
                     .unwrap_or(theme::INK);
                 let row = egui::Frame::new()
                     .fill(if r.is_sel {
-                        theme::SEL_FILL
+                        theme::sel_fill()
                     } else {
                         egui::Color32::TRANSPARENT
                     })
@@ -245,11 +241,16 @@ fn body(
                         });
                         // 행동 진행 바(actProgress 0..1)
                         if let Some(p) = r.progress.filter(|p| *p > 0.01) {
-                            thin_bar(ui, p, theme::ACCENT_SAND, 3.0);
+                            thin_bar(ui, p, theme::GOLD, 3.0);
                         }
                     })
                     .response
                     .interact(egui::Sense::click());
+                // 호버 피드백 — 살짝 밝은 오버레이 + 손 커서
+                if !r.is_sel && row.hovered() {
+                    ui.painter().rect_filled(row.rect, 7.0, egui::Color32::from_white_alpha(9));
+                }
+                let row = row.on_hover_cursor(egui::CursorIcon::PointingHand);
                 if row.clicked() {
                     out.select = Some(r.entity);
                 }
@@ -307,7 +308,9 @@ fn detail(
 ) {
     let color = theme::agent_color(tag_id);
     ui.horizontal(|ui| {
-        super::widgets::status_dot(ui, color);
+        // 아바타 칩 — 크림 링 + 주민색 + 이니셜(레퍼런스 프로필 직역)
+        let initial = la.name.chars().next().map(String::from).unwrap_or_default();
+        super::widgets::avatar_chip(ui, &initial, color, 32.0);
         ui.label(egui::RichText::new(&la.name).size(14.0).strong().color(theme::TEXT_WARM));
         // kind 배지 — 참여 캐릭터(user)/씨앗 주민(bot)
         if la.kind == "user" {
@@ -354,12 +357,24 @@ fn detail(
             }
         });
     }
-    // 목표 — goalKey 템플릿 우선(events.json goal.*), 폴백 goalText 원문
+    // 목표 — goalKey 템플릿 우선(events.json goal.*), 폴백 goalText 원문.
+    // 파라미터 치환값이 없어(계약에 goal-params 미탑재) 토큰이 남으면
+    // goalText 원문으로 물러난다 — "{species을}" 리터럴 노출 방지(리뷰).
     let goal = la
         .goal_key
         .as_deref()
         .filter(|k| vocab.has_event(k))
         .map(|k| vocab.event_text(lang, &serde_json::json!({"key": k})))
+        .map(|t| {
+            if t.contains('{') {
+                la.goal_text
+                    .clone()
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or(t)
+            } else {
+                t
+            }
+        })
         .or_else(|| la.goal_text.as_deref().filter(|s| !s.is_empty()).map(str::to_owned));
     if let Some(g) = goal {
         ui.label(egui::RichText::new(format!("{} {g}", tr(lang, Tr::Goal))).size(10.5).color(theme::TEXT_DIM));
@@ -383,15 +398,8 @@ fn detail(
         ui.horizontal_wrapped(|ui| {
             for (id, n) in &items {
                 let label = format!("{} ×{}", vocab.item(lang, id), n);
-                let chip_resp = egui::Frame::new()
-                    .fill(egui::Color32::from_black_alpha(80))
-                    .corner_radius(6.0)
-                    .inner_margin(egui::Margin::symmetric(6, 2))
-                    .show(ui, |ui| {
-                        ui.label(egui::RichText::new(label).size(10.0).color(theme::TEXT_DIM));
-                    })
-                    .response;
-                chip_resp.on_hover_text(vocab.item(Lang::En, id));
+                super::widgets::item_chip(ui, &label)
+                    .on_hover_text(vocab.item(Lang::En, id));
             }
         });
         thin_bar(ui, ratio, if heavy { theme::WARN } else { theme::LIVE_GREEN }, 5.0);
@@ -471,7 +479,7 @@ fn rel_row(
         );
         let (rect, _) = ui.allocate_exact_size(egui::vec2((ui.available_width() - 132.0).max(40.0), 6.0), egui::Sense::hover());
         let p = ui.painter();
-        p.rect_filled(rect, 3.0, egui::Color32::from_black_alpha(90));
+        p.rect_filled(rect, 3.0, theme::track());
         let mut fr = rect;
         fr.set_width(rect.width() * warmth / 100.0);
         p.rect_filled(fr, 3.0, super::vocab::warmth_hsl(warmth));

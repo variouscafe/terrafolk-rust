@@ -55,12 +55,7 @@ pub fn panel(
         .frame(card())
         .title_bar(false)
         .show(&c, |ui| {
-            ui.label(
-                egui::RichText::new(format!("史 {}", tr(lang, Tr::Events)))
-                    .size(13.0)
-                    .strong()
-                    .color(theme::TEXT_WARM),
-            );
+            super::widgets::title_bar(ui, "史", tr(lang, Tr::Events));
             ui.add_space(2.0);
             // 탭 행 — 카운트 포함
             ui.horizontal_wrapped(|ui| {
@@ -73,13 +68,18 @@ pub fn panel(
                     let active = *tab == key;
                     let text = egui::RichText::new(format!("{} {n}", tr(lang, label)))
                         .size(9.5)
-                        .color(if active { theme::TEXT_WARM } else { theme::TEXT_DIM })
+                        .color(if active { theme::INK } else { theme::INK_DIM })
                         .strong();
                     let btn = egui::Button::new(text)
                         .fill(if active {
-                            theme::SEL_FILL
+                            theme::sel_pill()
                         } else {
-                            theme::CREAM_3
+                            theme::glass_hi()
+                        })
+                        .stroke(if active {
+                            egui::Stroke::new(1.0_f32, theme::GOLD)
+                        } else {
+                            egui::Stroke::new(1.0_f32, theme::STROKE_OLIVE)
                         })
                         .corner_radius(999.0);
                     if ui.add(btn).clicked() {

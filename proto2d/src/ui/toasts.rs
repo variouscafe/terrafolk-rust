@@ -78,22 +78,22 @@ pub fn show(mut contexts: bevy_egui::EguiContexts, time: Res<Time>, mut toasts: 
                 let alpha = (t.ttl.min(1.0) * 0.92).clamp(0.0, 1.0);
                 egui::Frame::new()
                     .fill(egui::Color32::from_rgba_unmultiplied(
-                        245,
-                        242,
-                        234,
-                        (alpha * 246.0) as u8,
+                        31,
+                        42,
+                        36,
+                        (alpha * 235.0) as u8,
                     ))
                     .stroke(egui::Stroke::new(
                         1.4_f32,
-                        egui::Color32::from_rgba_unmultiplied(185, 168, 140, (alpha * 230.0) as u8),
+                        egui::Color32::from_rgba_unmultiplied(88, 106, 80, (alpha * 230.0) as u8),
                     ))
                     .inner_margin(egui::Margin::symmetric(10, 6))
                     .corner_radius(12.0)
                     .shadow(egui::Shadow {
-                        offset: [0, 2],
-                        blur: 8,
+                        offset: [0, 3],
+                        blur: 10,
                         spread: 0,
-                        color: egui::Color32::from_black_alpha((alpha * 70.0) as u8),
+                        color: egui::Color32::from_black_alpha((alpha * 110.0) as u8),
                     })
                     .show(ui, |ui| {
                         ui.set_max_width(320.0);

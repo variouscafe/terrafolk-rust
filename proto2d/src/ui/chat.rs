@@ -35,16 +35,11 @@ pub fn panel(
     let (panel_h, log_h) = if narrow { (94.0, 38.0) } else { (148.0, 78.0) };
     egui::Panel::bottom("chat")
         .exact_height(panel_h)
-        .frame(egui::Frame::new().fill(egui::Color32::from_rgba_unmultiplied(237, 231, 216, 248)).stroke(egui::Stroke::new(1.0_f32, theme::STROKE_TAN)))
+        .frame(super::widgets::dock())
         .show(&c, |ui| {
             ui.add_space(3.0);
             if !narrow {
-                ui.label(
-                    egui::RichText::new(format!("話 {}", tr(ui_state.lang, Tr::Chat)))
-                        .size(12.0)
-                        .strong()
-                        .color(theme::TEXT_WARM),
-                );
+                super::widgets::title_bar(ui, "話", tr(ui_state.lang, Tr::Chat));
             }
             egui::ScrollArea::vertical()
                 .max_height(log_h)
@@ -97,16 +92,22 @@ pub fn panel(
                     Some(n) => tr(ui_state.lang, Tr::ChatHintMine).replace("{}", n),
                     None => tr(ui_state.lang, Tr::ChatHint).to_owned(),
                 };
-                ui.add_enabled(
+                // Enter 송신은 입력창 포커스 기준으로만 — 전역 키로 걸면
+                // 다른 버튼·맵 조작의 Enter가 초안을 몰래 전송한다
+                // (2026-10-20 리뷰). singleline Enter는 포커스를 반납하므로
+                // lost_focus로 판정하고, 송신 후 다시 포커스를 돌려준다.
+                let edit = ui.add_enabled(
                     enabled,
                     egui::TextEdit::singleline(&mut *draft)
                         .hint_text(hint)
                         .desired_width(ui.available_width() - 130.0),
                 );
+                let enter_in_edit =
+                    edit.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
                 if ui
                     .add_enabled(enabled, egui::Button::new(tr(ui_state.lang, Tr::ChatSend)).small())
                     .clicked()
-                    || (enabled && ui.input(|i| i.key_pressed(egui::Key::Enter)))
+                    || (enabled && enter_in_edit)
                 {
                     let text = draft.trim().to_owned();
                     if !text.is_empty()
@@ -114,11 +115,12 @@ pub fn panel(
                     {
                         send_chat(&tag.0, &text);
                         *draft = String::new();
+                        edit.request_focus();
                     }
                 }
                 if target.is_some()
                     && ui
-                        .button(egui::RichText::new("✕").size(10.0).color(theme::TEXT_DIM))
+                        .button(egui::RichText::new("×").size(10.0).color(theme::TEXT_DIM))
                         .on_hover_text(tr(ui_state.lang, Tr::Deselect))
                         .clicked()
                 {

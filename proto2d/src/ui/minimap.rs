@@ -110,10 +110,16 @@ pub fn panel(
         .anchor(egui::Align2::LEFT_TOP, egui::vec2(10.0, 46.0))
         .show(&c, |ui| {
             egui::Frame::new()
-                .fill(theme::CREAM)
-                .stroke(egui::Stroke::new(2.0_f32, theme::STROKE_TAN))
+                .fill(theme::glass())
+                .stroke(egui::Stroke::new(2.0_f32, theme::STROKE_OLIVE))
                 .corner_radius(12.0)
                 .inner_margin(egui::Margin::same(4))
+                .shadow(egui::Shadow {
+                    offset: [0, 4],
+                    blur: 14,
+                    spread: 0,
+                    color: egui::Color32::from_black_alpha(110),
+                })
                 .show(ui, |ui| {
                     let size = egui::vec2(size_px, size_px);
                     let resp = ui.image((tex.id(), size));

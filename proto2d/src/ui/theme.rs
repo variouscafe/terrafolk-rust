@@ -1,46 +1,80 @@
-//! egui 코지 테마 v3 — 레퍼런스 이미지 UI 추출 정착(2026-10-20).
-//! 크림 패널(#F5F2EA/#EDE7D8)·탄색 스트로크(#B9A88C)·골드 포인트(#F2B33D)·
-//! 필 바·12~14px 라운드 — 다크 그린 v2에서 코지 팜심 크롬으로 전환.
-//! 본문 잉크는 웜 브라운(#3E3A34) — 크림 위 가독.
+//! egui 코지 테마 v4 — 레퍼런스 이미지 UI 픽셀 실측 정착(2026-10-20).
+//! 다크 올리브-차콜 글래스 패널(#222F28@85%) + 라이트 올리브 스트로크
+//! (#586A50) + 크림 잉크(#F4E3BE) + 골드 포인트(#E8B840) + 비비드 필 바
+//! (HP #59C971·스태미나 #40BCF7 실측). v3 크림 크롬은 레퍼런스 오독
+//! (핫바 슬롯 테두리만 크림)이라 폐기 — 실측 스펙이 우선.
 
 use bevy::prelude::*;
 use bevy_egui::{EguiContexts, egui};
 
-// ── 패널 표면(레퍼런스 핫바·토스트 추출) ──
-pub const CREAM: egui::Color32 = egui::Color32::from_rgb(245, 242, 234); // 메인 카드 #F5F2EA
-pub const CREAM_2: egui::Color32 = egui::Color32::from_rgb(237, 231, 216); // 2단·도킹 바 #EDE7D8
-pub const CREAM_3: egui::Color32 = egui::Color32::from_rgb(228, 219, 198); // 호버·트랙 #E4DBC6
-pub const STROKE_TAN: egui::Color32 = egui::Color32::from_rgb(185, 168, 140); // 외곽선 #B9A88C
-pub const INK: egui::Color32 = egui::Color32::from_rgb(62, 58, 52); // 본문 잉크 #3E3A34
-pub const INK_DIM: egui::Color32 = egui::Color32::from_rgb(122, 111, 96); // 보조 #7A6F60
-#[allow(dead_code)] // 골드 포인트 — 배지·포인트용 예비
-pub const GOLD: egui::Color32 = egui::Color32::from_rgb(242, 179, 61); // 골드 포인트 #F2B33D
-pub const GOLD_DEEP: egui::Color32 = egui::Color32::from_rgb(191, 136, 27); // 골드 텍스트용
-pub const SEL_FILL: egui::Color32 = egui::Color32::from_rgb(242, 227, 184); // 선택행 밝은 골드
+// ── 패널 표면(레퍼런스 실측: 글래스 #222F28@85%·스트로크 #586A50) ──
+// 반투명색은 from_rgba_unmultiplied가 비const라 함수로 제공한다.
+/// 카드·플로팅 패널 — 반투명 글래스(지형이 은은히 비침).
+/// 렌더러가 선형 블렌딩이라 같은 알파도 밝게 뜬다 — 실측 보정치.
+pub fn glass() -> egui::Color32 {
+    egui::Color32::from_rgba_unmultiplied(30, 40, 34, 240)
+}
+/// 도킹 바(상단·하단·우측 패널) — 거의 불투명(가독 우선)
+pub fn glass_dock() -> egui::Color32 {
+    egui::Color32::from_rgba_unmultiplied(25, 34, 29, 248)
+}
+/// 인셋 표면 — 행·칩·탭 밝은 쪽
+pub fn glass_hi() -> egui::Color32 {
+    egui::Color32::from_rgba_unmultiplied(48, 60, 50, 190)
+}
+/// 바 트랙(레퍼런스 HP 바 트랙 #20261F)
+pub fn track() -> egui::Color32 {
+    egui::Color32::from_rgba_unmultiplied(18, 24, 20, 200)
+}
+/// 선택행 하이라이트 — 올리브
+pub fn sel_fill() -> egui::Color32 {
+    egui::Color32::from_rgba_unmultiplied(96, 116, 84, 110)
+}
+/// 선택 필 버튼(활성 탭·언어 토글) — sel_fill보다 진한 같은 올리브
+pub fn sel_pill() -> egui::Color32 {
+    egui::Color32::from_rgba_unmultiplied(96, 116, 84, 170)
+}
+/// 핫바 슬롯식 퍼치먼트 테두리(실측 #D8C9A0) — 소지품 칩
+pub fn parchment() -> egui::Color32 {
+    egui::Color32::from_rgba_unmultiplied(216, 201, 160, 150)
+}
 
-// ── 의미색(크림 위 가독로 진하게) ──
-pub const LIVE_GREEN: egui::Color32 = egui::Color32::from_rgb(46, 148, 67);
-pub const WATER_BLUE: egui::Color32 = egui::Color32::from_rgb(38, 122, 160);
-pub const DANGER: egui::Color32 = egui::Color32::from_rgb(196, 62, 50);
-pub const WARN: egui::Color32 = egui::Color32::from_rgb(198, 136, 28);
+// ── 라인·잉크 ──
+/// 패널 스트로크 — 라이트 올리브(실측 #586A50)
+pub const STROKE_OLIVE: egui::Color32 = egui::Color32::from_rgb(88, 106, 80);
+/// 본문 잉크 — 크림(실측 #F4E3BE)
+pub const INK: egui::Color32 = egui::Color32::from_rgb(244, 227, 190);
+/// 보조 잉크 — 세이지
+pub const INK_DIM: egui::Color32 = egui::Color32::from_rgb(169, 183, 158);
+/// 골드 포인트(실측 #E8B840) — 아이콘·배지
+pub const GOLD: egui::Color32 = egui::Color32::from_rgb(232, 184, 64);
+/// 밝은 골드 — 강조 텍스트
+pub const GOLD_SOFT: egui::Color32 = egui::Color32::from_rgb(242, 206, 107);
 
-/// 욕구 바 4색(레거시 FE NEEDS 준거 — 크림 위 진톤)
-pub const NEED_HUNGER: egui::Color32 = egui::Color32::from_rgb(201, 123, 58);
-pub const NEED_THIRST: egui::Color32 = egui::Color32::from_rgb(59, 135, 184);
-pub const NEED_FATIGUE: egui::Color32 = egui::Color32::from_rgb(123, 98, 184);
-pub const NEED_WARMTH: egui::Color32 = egui::Color32::from_rgb(194, 76, 66);
+// ── 의미색(다크 글래스 위 비비드 — 레퍼런스 HP/스태미나 실측 톤) ──
+pub const LIVE_GREEN: egui::Color32 = egui::Color32::from_rgb(89, 201, 113); // 실측 HP #59C971
+pub const WATER_BLUE: egui::Color32 = egui::Color32::from_rgb(64, 188, 247); // 실측 스태미나
+pub const DANGER: egui::Color32 = egui::Color32::from_rgb(242, 105, 92);
+pub const WARN: egui::Color32 = egui::Color32::from_rgb(240, 190, 90);
 
-/// 주민 상태색(진톤 — 크림 위 라벨 가독)
-pub const ST_IDLE: egui::Color32 = egui::Color32::from_rgb(133, 122, 104);
-pub const ST_MOVING: egui::Color32 = egui::Color32::from_rgb(64, 122, 178);
-pub const ST_ACTING: egui::Color32 = egui::Color32::from_rgb(184, 134, 34);
-pub const ST_THINKING: egui::Color32 = egui::Color32::from_rgb(134, 98, 182);
-pub const ST_SLEEPING: egui::Color32 = egui::Color32::from_rgb(88, 104, 168);
+/// 욕구 바 4색(레거시 FE NEEDS 준거 — 다크 위 채도 원복)
+pub const NEED_HUNGER: egui::Color32 = egui::Color32::from_rgb(235, 160, 94);
+pub const NEED_THIRST: egui::Color32 = egui::Color32::from_rgb(96, 190, 230);
+pub const NEED_FATIGUE: egui::Color32 = egui::Color32::from_rgb(178, 150, 235);
+pub const NEED_WARMTH: egui::Color32 = egui::Color32::from_rgb(238, 130, 118);
 
-// ── 호환 재수출(v2 이름 유지 — 크롬 일괄 전환 전 참조 파일들이 쓴다) ──
+/// 주민 상태색(레거시 FE STATUS_COLOR 직역 — 다크 위 비비드)
+pub const ST_IDLE: egui::Color32 = egui::Color32::from_rgb(158, 168, 134);
+pub const ST_MOVING: egui::Color32 = egui::Color32::from_rgb(125, 188, 255);
+pub const ST_ACTING: egui::Color32 = egui::Color32::from_rgb(250, 208, 120);
+pub const ST_THINKING: egui::Color32 = egui::Color32::from_rgb(196, 160, 255);
+pub const ST_SLEEPING: egui::Color32 = egui::Color32::from_rgb(130, 150, 235);
+
+// ── 호환 재수출(크롬 일괄 전환 전 참조 파일들이 쓴다 — 값은 v4) ──
 pub const TEXT_WARM: egui::Color32 = INK;
 pub const TEXT_DIM: egui::Color32 = INK_DIM;
-pub const ACCENT_SAND: egui::Color32 = GOLD_DEEP;
+pub const ACCENT_SAND: egui::Color32 = GOLD_SOFT;
+pub const GOLD_DEEP: egui::Color32 = GOLD; // 다크 위에선 골드 단일계
 
 /// 관계 온기 등급 라벨(레거시 REL_BUCKET 직역: <30/<45/<65/<80/≥80) — ko/en
 pub fn warmth_tier(lang: crate::ui::i18n::Lang, w: f32) -> &'static str {
@@ -68,7 +102,7 @@ fn hash8(id: &str) -> usize {
 }
 
 /// 주민별 결정론 색 — id 해시 8색 팔레트(레거시 agent_color 직역).
-/// 팔레트 원색은 점·아이콘용.
+/// 밝은 파스텔 — 다크 글래스 위 점·아이콘·텍스트 공용.
 pub fn agent_color(id: &str) -> egui::Color32 {
     const PALETTE: [(u8, u8, u8); 8] = [
         (255, 210, 138),
@@ -84,30 +118,19 @@ pub fn agent_color(id: &str) -> egui::Color32 {
     egui::Color32::from_rgb(r, g, b)
 }
 
-/// 크림 배경 위 주민 텍스트색(같은 색상성, 명도 낮춘 잉크 변형)
+/// 다크 표면 위 주민 텍스트색 — v4부로 팔레트 자체가 밝아 같은 색.
 pub fn agent_ink(id: &str) -> egui::Color32 {
-    const PALETTE: [(u8, u8, u8); 8] = [
-        (158, 112, 44),
-        (52, 118, 172),
-        (74, 142, 88),
-        (178, 96, 132),
-        (128, 96, 184),
-        (186, 96, 78),
-        (58, 148, 138),
-        (160, 148, 62),
-    ];
-    let (r, g, b) = PALETTE[hash8(id) % 8];
-    egui::Color32::from_rgb(r, g, b)
+    agent_color(id)
 }
 
-/// 계절 라벨+색 — 레거시 FE season chip 직역(크림 위 진톤)
+/// 계절 라벨+색 — 레거시 FE season chip 직역(다크 위 비비드)
 pub fn season_mark(lang: crate::ui::i18n::Lang, season: &str) -> (&'static str, egui::Color32) {
     use crate::ui::i18n::{Tr, tr};
     match season {
-        "spring" => (tr(lang, Tr::SeasonSpring), egui::Color32::from_rgb(97, 156, 74)),
-        "summer" => (tr(lang, Tr::SeasonSummer), egui::Color32::from_rgb(190, 138, 26)),
-        "autumn" => (tr(lang, Tr::SeasonAutumn), egui::Color32::from_rgb(186, 108, 44)),
-        "winter" => (tr(lang, Tr::SeasonWinter), egui::Color32::from_rgb(96, 126, 168)),
+        "spring" => (tr(lang, Tr::SeasonSpring), egui::Color32::from_rgb(160, 224, 150)),
+        "summer" => (tr(lang, Tr::SeasonSummer), egui::Color32::from_rgb(250, 216, 110)),
+        "autumn" => (tr(lang, Tr::SeasonAutumn), egui::Color32::from_rgb(235, 160, 96)),
+        "winter" => (tr(lang, Tr::SeasonWinter), egui::Color32::from_rgb(190, 214, 240)),
         _ => ("", INK_DIM),
     }
 }
@@ -145,7 +168,7 @@ pub fn date_of(day: u32) -> (u32, u32, u32) {
 }
 
 /// 폰트 설치 후 시각(Visuals) 적용 — fonts.rs의 install과 같은 시점에 1회.
-/// 라이트 베이스 + 크림 표면 — 위젯 기본값도 라이트로 따라온다.
+/// 다크 베이스 + 올리브 글래스 — 위젯 기본(메뉴·스크롤·텍스트입력)도 동일 톤.
 pub fn apply(mut contexts: EguiContexts, mut done: Local<bool>) {
     if *done {
         return;
@@ -153,23 +176,23 @@ pub fn apply(mut contexts: EguiContexts, mut done: Local<bool>) {
     let Some(ctx) = contexts.ctx_mut().ok().cloned() else {
         return;
     };
-    let mut vis = egui::Visuals::light();
-    vis.panel_fill = CREAM_2;
-    vis.window_fill = CREAM;
-    vis.extreme_bg_color = CREAM_2;
-    vis.faint_bg_color = CREAM_3;
+    let mut vis = egui::Visuals::dark();
+    vis.panel_fill = glass_dock();
+    vis.window_fill = glass();
+    vis.extreme_bg_color = track();
+    vis.faint_bg_color = glass_hi();
     vis.override_text_color = Some(INK);
     vis.weak_text_color = Some(INK_DIM);
     vis.hyperlink_color = WATER_BLUE;
     // 선택 — 골드
-    vis.selection.bg_fill = egui::Color32::from_rgb(242, 214, 138);
+    vis.selection.bg_fill = egui::Color32::from_rgba_unmultiplied(232, 184, 64, 70);
     vis.selection.stroke.color = INK;
-    // 위젯 — 크림 계열
-    vis.widgets.noninteractive.bg_fill = CREAM_2;
-    vis.widgets.inactive.bg_fill = CREAM;
-    vis.widgets.hovered.bg_fill = CREAM_3;
-    vis.widgets.active.bg_fill = CREAM_3;
-    vis.widgets.open.bg_fill = CREAM;
+    // 위젯 — 올리브 글래스 계열
+    vis.widgets.noninteractive.bg_fill = glass_dock();
+    vis.widgets.inactive.bg_fill = glass_hi();
+    vis.widgets.hovered.bg_fill = egui::Color32::from_rgba_unmultiplied(64, 78, 62, 215);
+    vis.widgets.active.bg_fill = egui::Color32::from_rgba_unmultiplied(80, 96, 70, 225);
+    vis.widgets.open.bg_fill = glass_hi();
     let round = egui::CornerRadius::same(8);
     vis.widgets.noninteractive.corner_radius = round;
     vis.widgets.inactive.corner_radius = round;
@@ -181,16 +204,16 @@ pub fn apply(mut contexts: EguiContexts, mut done: Local<bool>) {
         offset: [0, 4],
         blur: 14,
         spread: 0,
-        color: egui::Color32::from_black_alpha(70),
+        color: egui::Color32::from_black_alpha(120),
     };
     vis.popup_shadow = shadow;
     vis.window_shadow = shadow;
-    // 스트로크 — 탄색(은은한 웜), 호버 골드
-    vis.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0_f32, STROKE_TAN);
-    vis.widgets.inactive.fg_stroke = egui::Stroke::new(1.2_f32, STROKE_TAN);
-    vis.widgets.hovered.fg_stroke = egui::Stroke::new(1.4_f32, GOLD_DEEP);
-    vis.widgets.active.fg_stroke = egui::Stroke::new(1.6_f32, GOLD_DEEP);
+    // 스트로크 — 올리브(레퍼런스 글래스 가장자리), 호버 골드
+    vis.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0_f32, STROKE_OLIVE);
+    vis.widgets.inactive.fg_stroke = egui::Stroke::new(1.2_f32, STROKE_OLIVE);
+    vis.widgets.hovered.fg_stroke = egui::Stroke::new(1.4_f32, GOLD);
+    vis.widgets.active.fg_stroke = egui::Stroke::new(1.6_f32, GOLD);
     ctx.set_visuals(vis);
     *done = true;
-    info!("[ui] egui 코지 크림 테마 적용");
+    info!("[ui] egui 코지 글래스 테마 v4 적용(레퍼런스 실측)");
 }

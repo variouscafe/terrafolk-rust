@@ -98,12 +98,7 @@ pub fn panel(
 /// 요약 카드 — 시대 라벨 + 발명 수·문명 점수
 fn summary(ui: &mut egui::Ui, lang: Lang, vocab: &Vocab, rows: &[InventionRow]) {
     ui.horizontal(|ui| {
-        ui.label(
-            egui::RichText::new(format!("文 {}", tr(lang, Tr::Civ)))
-                .size(13.5)
-                .strong()
-                .color(theme::TEXT_WARM),
-        );
+        super::widgets::title_bar(ui, "文", tr(lang, Tr::Civ));
         let groups = rows
             .iter()
             .map(|r| vocab.inv_group_of(r.category.as_deref().unwrap_or("")).map(str::to_owned));
@@ -111,8 +106,8 @@ fn summary(ui: &mut egui::Ui, lang: Lang, vocab: &Vocab, rows: &[InventionRow]) 
         chip(
             ui,
             vocab.era(lang, era),
-            theme::ACCENT_SAND,
-            egui::Color32::from_rgb(54, 46, 22),
+            theme::GOLD_SOFT,
+            theme::glass_hi(),
         );
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             ui.label(
@@ -154,7 +149,7 @@ fn groups_grid(ui: &mut egui::Ui, lang: Lang, vocab: &Vocab, rows: &[InventionRo
                     p.circle_filled(
                         egui::pos2(x, rect.center().y),
                         1.8,
-                        if i < filled { theme::ACCENT_SAND } else { egui::Color32::from_rgb(214, 205, 184) },
+                        if i < filled { theme::GOLD } else { egui::Color32::from_rgb(108, 120, 98) },
                     );
                 }
                 ui.label(egui::RichText::new(n.to_string()).size(9.0).color(theme::TEXT_DIM));
@@ -185,7 +180,7 @@ fn makers(ui: &mut egui::Ui, lang: Lang, rows: &[InventionRow]) {
                 ui,
                 &format!("{name} · {n}"),
                 theme::TEXT_WARM,
-                theme::CREAM_3,
+                theme::glass_hi(),
             );
         }
     });
@@ -273,7 +268,7 @@ fn inv_list(
                 section(ui, "·", vocab.inv_group(lang, g));
                 for r in in_group {
                     let resp = egui::Frame::new()
-                        .fill(theme::CREAM_3)
+                        .fill(theme::glass_hi())
                         .corner_radius(7.0)
                         .inner_margin(egui::Margin::symmetric(7, 5))
                         .show(ui, |ui| {
@@ -293,7 +288,7 @@ fn inv_list(
                                                 ui,
                                                 &trf(lang, Tr::CivDayN, &d.to_string()),
                                                 theme::TEXT_DIM,
-                                                theme::CREAM_3,
+                                                theme::glass_hi(),
                                             );
                                         },
                                     );
@@ -357,7 +352,7 @@ fn inv_detail(
     );
     if let Some(base) = r.based_on.as_deref().filter(|s| !s.is_empty()) {
         let label = tr(lang, Tr::CivImproved).replacen("{}", base, 1);
-        chip(ui, &label, theme::WARN, theme::CREAM);
+        chip(ui, &label, theme::WARN, theme::glass());
     }
     if let Some(inv) = r.inventor.as_deref().filter(|s| !s.is_empty()) {
         ui.label(
