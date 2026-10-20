@@ -57,13 +57,13 @@ pub fn panel(
             if let Some(k) = &d.kpi {
                 ui.horizontal(|ui| {
                     if let Some(gs) = k.gold_share {
-                        chip(ui, &tr(lang, Tr::EcoGoldShare).replace("{}", &format!("{:.0}", gs * 100.0)), theme::WARN, egui::Color32::from_rgb(52, 42, 16));
+                        chip(ui, &tr(lang, Tr::EcoGoldShare).replace("{}", &format!("{:.0}", gs * 100.0)), theme::WARN, theme::CREAM);
                     }
                     if let Some(v) = k.volume {
-                        chip(ui, &tr(lang, Tr::EcoVolume).replace("{}", &v.to_string()), theme::TEXT_WARM, egui::Color32::from_black_alpha(90));
+                        chip(ui, &tr(lang, Tr::EcoVolume).replace("{}", &v.to_string()), theme::TEXT_WARM, theme::CREAM_3);
                     }
                     if let Some(g) = k.gold_deals {
-                        chip(ui, &tr(lang, Tr::EcoGoldDeals).replace("{}", &g.to_string()), theme::TEXT_WARM, egui::Color32::from_black_alpha(90));
+                        chip(ui, &tr(lang, Tr::EcoGoldDeals).replace("{}", &g.to_string()), theme::TEXT_WARM, theme::CREAM_3);
                     }
                 });
                 if let Some(day) = k.day {

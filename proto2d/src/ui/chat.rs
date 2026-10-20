@@ -35,7 +35,7 @@ pub fn panel(
     let (panel_h, log_h) = if narrow { (94.0, 38.0) } else { (148.0, 78.0) };
     egui::Panel::bottom("chat")
         .exact_height(panel_h)
-        .frame(egui::Frame::new().fill(egui::Color32::from_rgba_unmultiplied(16, 21, 13, 235)))
+        .frame(egui::Frame::new().fill(egui::Color32::from_rgba_unmultiplied(237, 231, 216, 248)).stroke(egui::Stroke::new(1.0_f32, theme::STROKE_TAN)))
         .show(&c, |ui| {
             ui.add_space(3.0);
             if !narrow {
@@ -75,9 +75,9 @@ pub fn panel(
                                     .size(10.5)
                                     .strong()
                                     .color(if is_human {
-                                        theme::ACCENT_SAND
+                                        theme::GOLD_DEEP
                                     } else {
-                                        theme::agent_color(&r.agent_id)
+                                        theme::agent_ink(&r.agent_id)
                                     }),
                             );
                             ui.label(

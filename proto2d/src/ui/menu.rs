@@ -46,9 +46,9 @@ pub fn panel(
                         .strong(),
                 )
                 .fill(if lang == Lang::Ko {
-                    egui::Color32::from_rgb(58, 66, 40)
+                    theme::SEL_FILL
                 } else {
-                    egui::Color32::from_black_alpha(70)
+                    theme::CREAM_3
                 })
                 .corner_radius(999.0);
                 if ui.add(ko).clicked() {
@@ -61,9 +61,9 @@ pub fn panel(
                         .strong(),
                 )
                 .fill(if lang == Lang::En {
-                    egui::Color32::from_rgb(58, 66, 40)
+                    theme::SEL_FILL
                 } else {
-                    egui::Color32::from_black_alpha(70)
+                    theme::CREAM_3
                 })
                 .corner_radius(999.0);
                 if ui.add(en).clicked() {

@@ -91,7 +91,7 @@ pub fn panel(
                         let warmth = r.warmth.clamp(0.0, 100.0);
                         let col = warmth_hsl(warmth);
                         let resp = egui::Frame::new()
-                            .fill(egui::Color32::from_black_alpha(55))
+                            .fill(theme::CREAM_3)
                             .corner_radius(7.0)
                             .inner_margin(egui::Margin::symmetric(7, 5))
                             .show(ui, |ui| {
@@ -122,7 +122,7 @@ pub fn panel(
                                         egui::Sense::hover(),
                                     );
                                     let p = ui.painter();
-                                    p.rect_filled(rect, 3.0, egui::Color32::from_black_alpha(90));
+                                    p.rect_filled(rect, 3.0, theme::CREAM_3);
                                     let mut fr = rect;
                                     fr.set_width(rect.width() * warmth / 100.0);
                                     p.rect_filled(fr, 3.0, col);

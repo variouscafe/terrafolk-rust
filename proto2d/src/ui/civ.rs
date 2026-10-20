@@ -152,7 +152,7 @@ fn groups_grid(ui: &mut egui::Ui, lang: Lang, vocab: &Vocab, rows: &[InventionRo
                     p.circle_filled(
                         egui::pos2(x, rect.center().y),
                         1.8,
-                        if i < filled { theme::ACCENT_SAND } else { egui::Color32::from_black_alpha(120) },
+                        if i < filled { theme::ACCENT_SAND } else { egui::Color32::from_rgb(214, 205, 184) },
                     );
                 }
                 ui.label(egui::RichText::new(n.to_string()).size(9.0).color(theme::TEXT_DIM));
@@ -183,7 +183,7 @@ fn makers(ui: &mut egui::Ui, lang: Lang, rows: &[InventionRow]) {
                 ui,
                 &format!("{name} · {n}"),
                 theme::TEXT_WARM,
-                egui::Color32::from_black_alpha(90),
+                theme::CREAM_3,
             );
         }
     });
@@ -272,7 +272,7 @@ fn inv_list(
                 section(ui, "·", vocab.inv_group(lang, g));
                 for r in in_group {
                     let resp = egui::Frame::new()
-                        .fill(egui::Color32::from_black_alpha(60))
+                        .fill(theme::CREAM_3)
                         .corner_radius(7.0)
                         .inner_margin(egui::Margin::symmetric(7, 5))
                         .show(ui, |ui| {
@@ -292,7 +292,7 @@ fn inv_list(
                                                 ui,
                                                 &trf(lang, Tr::CivDayN, &d.to_string()),
                                                 theme::TEXT_DIM,
-                                                egui::Color32::from_black_alpha(90),
+                                                theme::CREAM_3,
                                             );
                                         },
                                     );
@@ -356,7 +356,7 @@ fn inv_detail(
     );
     if let Some(base) = r.based_on.as_deref().filter(|s| !s.is_empty()) {
         let label = tr(lang, Tr::CivImproved).replacen("{}", base, 1);
-        chip(ui, &label, theme::WARN, egui::Color32::from_rgb(52, 42, 16));
+        chip(ui, &label, theme::WARN, theme::CREAM);
     }
     if let Some(inv) = r.inventor.as_deref().filter(|s| !s.is_empty()) {
         ui.label(

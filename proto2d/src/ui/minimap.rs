@@ -104,9 +104,9 @@ pub fn panel(
         .anchor(egui::Align2::LEFT_TOP, egui::vec2(10.0, 46.0))
         .show(&c, |ui| {
             egui::Frame::new()
-                .fill(egui::Color32::from_rgba_unmultiplied(18, 24, 15, 240))
-                .stroke(egui::Stroke::new(2.0_f32, egui::Color32::from_rgb(14, 19, 11)))
-                .corner_radius(8.0)
+                .fill(theme::CREAM)
+                .stroke(egui::Stroke::new(2.0_f32, theme::STROKE_TAN))
+                .corner_radius(12.0)
                 .inner_margin(egui::Margin::same(4))
                 .show(ui, |ui| {
                     let size = egui::vec2(size_px, size_px);

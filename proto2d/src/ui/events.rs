@@ -77,9 +77,9 @@ pub fn panel(
                         .strong();
                     let btn = egui::Button::new(text)
                         .fill(if active {
-                            egui::Color32::from_rgb(58, 66, 40)
+                            theme::SEL_FILL
                         } else {
-                            egui::Color32::from_black_alpha(70)
+                            theme::CREAM_3
                         })
                         .corner_radius(999.0);
                     if ui.add(btn).clicked() {

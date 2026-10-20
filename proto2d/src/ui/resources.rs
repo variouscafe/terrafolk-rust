@@ -114,7 +114,7 @@ pub fn panel(
                             _ => "·",
                         };
                         egui::Frame::new()
-                            .fill(egui::Color32::from_black_alpha(55))
+                            .fill(theme::CREAM_3)
                             .corner_radius(7.0)
                             .inner_margin(egui::Margin::symmetric(8, 6))
                             .show(ui, |ui| {
@@ -151,7 +151,7 @@ pub fn panel(
                                     ui.horizontal_wrapped(|ui| {
                                         for (sp, (n, ok)) in species {
                                             let resp = egui::Frame::new()
-                                                .fill(egui::Color32::from_black_alpha(80))
+                                                .fill(theme::CREAM_3)
                                                 .corner_radius(6.0)
                                                 .inner_margin(egui::Margin::symmetric(6, 2))
                                                 .show(ui, |ui| {

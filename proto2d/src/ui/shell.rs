@@ -26,7 +26,7 @@ pub fn top_bar(
         if sw >= 560.0 { (true, false, false) } else if sw >= 420.0 { (false, false, true) } else { (false, true, true) };
     egui::Panel::top("topbar")
         .exact_height(38.0)
-        .frame(egui::Frame::new().fill(egui::Color32::from_rgba_unmultiplied(16, 21, 13, 235)))
+        .frame(egui::Frame::new().fill(egui::Color32::from_rgba_unmultiplied(237, 231, 216, 248)).stroke(egui::Stroke::new(1.0_f32, theme::STROKE_TAN)))
         .show(&c, |ui| {
             ui.horizontal_centered(|ui| {
                 ui.add_space(6.0);
@@ -103,7 +103,7 @@ pub fn top_bar(
                     Some(NetStatus::Connected) => ("● LIVE", theme::LIVE_GREEN),
                     Some(NetStatus::Connecting) => (tr(lang, Tr::Connecting), theme::WARN),
                     Some(NetStatus::Reconnecting) => (tr(lang, Tr::Reconnecting), theme::WARN),
-                    _ => (tr(lang, Tr::Demo), egui::Color32::from_rgb(150, 158, 138)),
+                    _ => (tr(lang, Tr::Demo), egui::Color32::from_rgb(122, 118, 104)),
                 };
                 ui.label(
                     egui::RichText::new(badge)
@@ -114,7 +114,7 @@ pub fn top_bar(
                 // ☰ 메뉴 — 레거시 FE TopBar 드롭다운 직역(우측 끝)
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.add_space(4.0);
-                    let menu_text = egui::RichText::new("≡").size(14.0).color(theme::TEXT_WARM);
+                    let menu_text = egui::RichText::new("≡").size(14.0).color(theme::INK);
                     egui::menu::menu_button(ui, menu_text, |ui| {
                         ui.set_min_width(172.0);
                         let items = [
@@ -242,13 +242,14 @@ fn mini_dial(ui: &mut egui::Ui, gt: &GameTime) -> egui::Response {
     resp
 }
 
-/// 작은 정보 칩(상단 바 통계)
+/// 작은 정보 칩(상단 바 통계) — 크림 필 + 탄색 스트로크
 fn chip(ui: &mut egui::Ui, text: &str) {
     egui::Frame::new()
-        .fill(egui::Color32::from_black_alpha(80))
+        .fill(theme::CREAM)
+        .stroke(egui::Stroke::new(1.0_f32, theme::STROKE_TAN))
         .corner_radius(999.0)
         .inner_margin(egui::Margin::symmetric(7, 2))
         .show(ui, |ui| {
-            ui.label(egui::RichText::new(text).size(10.5).color(theme::TEXT_DIM));
+            ui.label(egui::RichText::new(text).size(10.5).color(theme::INK_DIM));
         });
 }

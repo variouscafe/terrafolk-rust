@@ -125,7 +125,7 @@ pub fn panel(
         // 데스크톱 — 우측 도킹 패널(기존 레이아웃)
         egui::Panel::right("villagers")
             .exact_width(272.0)
-            .frame(egui::Frame::new().fill(egui::Color32::from_rgba_unmultiplied(21, 26, 17, 242)))
+            .frame(egui::Frame::new().fill(egui::Color32::from_rgba_unmultiplied(237, 231, 216, 246)).stroke(egui::Stroke::new(1.0_f32, theme::STROKE_TAN)))
             .show(&c, |ui| {
                 out = body(ui, lang, &vocab, frame, &polls, &rows, false);
             });
@@ -193,8 +193,8 @@ fn body(
                 let name_color = r
                     .tag_id
                     .as_deref()
-                    .map(theme::agent_color)
-                    .unwrap_or(theme::TEXT_WARM);
+                    .map(theme::agent_ink)
+                    .unwrap_or(theme::INK);
                 let row = egui::Frame::new()
                     .fill(if r.is_sel {
                         egui::Color32::from_rgb(52, 62, 38)
