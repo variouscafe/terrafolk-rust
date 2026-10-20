@@ -26,6 +26,56 @@
   const chatRowListeners = []; // ui.js — 대화 로그 패널 수신기
   const mtQueue = []; // 표시 계층 번역 대기(§17.51) — ui.translate가 채움(wasm가 이미 중복 제거)
   let mtTimer = null;
+  // 발명 아이콘 합성 캐시(§17.36 직역) — key → PNG dataURL
+  const iconCache = new Map();
+
+  /** 스펙 → 픽셀 아트 PNG dataURL(레거시 itemIcon.ts 직역: 재색상 → 16px
+   *  평균 축소 → 알파 스냅 → 2x nearest). 실패 시 null — 호출부 폴백. */
+  function renderIconSync(spec) {
+    return new Promise((resolve) => {
+      fetch('assets/web/icons/' + spec.tpl + '.svg')
+        .then(function (r) { return r.ok ? r.text() : null; })
+        .then(function (raw) {
+          if (!raw) return resolve(null);
+          const body = raw
+            .replace(/<path d="M0 0h512v512H0z"\/>/, '')
+            .replace(/#fff\b/gi, spec.primary);
+          const url = URL.createObjectURL(new Blob([body], { type: 'image/svg+xml' }));
+          const img = new Image();
+          img.onload = function () {
+            URL.revokeObjectURL(url);
+            const grid = document.createElement('canvas');
+            grid.width = 16; grid.height = 16;
+            const g = grid.getContext('2d');
+            g.imageSmoothingEnabled = true;
+            g.drawImage(img, 0, 0, 16, 16);
+            const d = g.getImageData(0, 0, 16, 16);
+            for (let i = 3; i < d.data.length; i += 4) {
+              d.data[i] = d.data[i] >= 127 ? 255 : 0; // 알파 스냅 — 픽셀 아트 감각
+            }
+            g.putImageData(d, 0, 0);
+            const out = document.createElement('canvas');
+            out.width = 32; out.height = 32;
+            const o = out.getContext('2d');
+            o.imageSmoothingEnabled = false; // 정수배 nearest
+            o.drawImage(grid, 0, 0, 32, 32);
+            resolve(out.toDataURL('image/png'));
+          };
+          img.onerror = function () { URL.revokeObjectURL(url); resolve(null); };
+          img.src = url;
+        })
+        .catch(function () { resolve(null); });
+    });
+  }
+
+  async function iconDataUrl(key, spec) {
+    let p = iconCache.get(key);
+    if (p === undefined) {
+      p = renderIconSync(spec);
+      iconCache.set(key, p);
+    }
+    return p;
+  }
 
   // ── 인증(FE api/client.ts 축소 포트 — body rt 레인 1회 갱신) ──
   function readAuth() {
@@ -392,6 +442,18 @@
     agentInfo: function (id) { return agentsInfo[id] || null; },
     // E2E 관측 — 최근 스냅숏 원본(좌표·actType·욕구). 관전 데이터만이라 공개 무해.
     lastFrame: function () { return lastFrameData; },
+    // 발명 아이콘 합성(§17.36) — wasm가 [{key,tpl,primary,accent}] JSON로 요청.
+    // 결과는 {tf:'icon', items:[{key,png}]} 인벨로프로(png=dataURL base64 뒤).
+    renderIcons: function (reqsJson) {
+      let reqs = [];
+      try { reqs = JSON.parse(reqsJson); } catch (e) { return; }
+      Promise.all(reqs.map(async function (r) {
+        const png = await iconDataUrl(r.key, r);
+        return { key: r.key, png: png ? png.slice('data:image/png;base64,'.length) : '' };
+      })).then(function (items) {
+        sinkEnvelope({ tf: 'icon', items: items });
+      });
+    },
     // E2E 패널 구동 큐 — wasm Update가 드레인(ui/mod.rs debug_panel_cmds).
     // 'civ'(토글)·'civ:1'·'civ:0'. 부팅 전 push도 안전(드레인은 등록 후).
     panelCmds: [],

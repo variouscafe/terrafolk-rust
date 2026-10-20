@@ -22,6 +22,8 @@ pub struct RelicInfo {
     pub by: String,
     pub purpose: String,
     pub based_on: String,
+    /// 아이콘 스펙(§17.36) — state.icon
+    pub icon: Option<super::icon::IconSpec>,
 }
 
 /// 유물 카드 — 하단 중앙 앵커(대화창 카드와 같은 자리 정책). ✕·빈 월드
@@ -30,6 +32,7 @@ pub fn show(
     mut contexts: bevy_egui::EguiContexts,
     ui_state: Res<UiState>,
     mut mt: ResMut<super::mt::MtCache>,
+    mut icons: ResMut<super::icon::IconCache>,
     mut open: ResMut<RelicCard>,
 ) {
     let Some(info) = open.0.clone() else {
@@ -62,6 +65,14 @@ pub fn show(
         .show(&c, |ui| {
             ui.set_min_width(w - 12.0);
             ui.horizontal(|ui| {
+                if let Some(spec) = info.icon.as_ref()
+                    && let Some(bytes) = icons.get(spec)
+                {
+                    ui.add(
+                        egui::Image::from_bytes("relic-icon.png", bytes.to_vec())
+                            .fit_to_exact_size(egui::vec2(20.0, 20.0)),
+                    );
+                }
                 ui.label(
                     egui::RichText::new(format!("⚒ {}", info.name))
                         .size(14.0)

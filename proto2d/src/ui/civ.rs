@@ -27,6 +27,8 @@ pub(crate) struct InventionRow {
     #[serde(default)]
     pub(crate) category: Option<String>,
     #[serde(default)]
+    pub(crate) icon: Option<super::icon::IconSpec>,
+    #[serde(default)]
     pub(crate) day: Option<u32>,
     #[serde(default)]
     pub(crate) materials: Option<std::collections::BTreeMap<String, u32>>,
@@ -51,6 +53,7 @@ pub fn panel(
     vocab: Res<Vocab>,
     events: Res<EventLog>,
     mut mt: ResMut<super::mt::MtCache>,
+    mut icons: ResMut<super::icon::IconCache>,
     mut cache: Local<Option<(String, Vec<InventionRow>)>>,
     mut view: Local<CivView>,
 ) {
@@ -86,7 +89,7 @@ pub fn panel(
             if let Some(name) = view.detail.clone()
                 && let Some(r) = rows.iter().find(|r| r.name == name)
             {
-                inv_detail(ui, lang, &vocab, &mut mt, r, &mut |v| *view = CivView { detail: v });
+                inv_detail(ui, lang, &vocab, &mut mt, &mut icons, r, &mut |v| *view = CivView { detail: v });
                 return;
             }
             summary(ui, lang, &vocab, rows);
@@ -343,6 +346,7 @@ fn inv_detail(
     lang: Lang,
     vocab: &Vocab,
     mt: &mut super::mt::MtCache,
+    icons: &mut super::icon::IconCache,
     r: &InventionRow,
     open: &mut dyn FnMut(Option<String>),
 ) {
@@ -354,12 +358,22 @@ fn inv_detail(
         return;
     }
     ui.add_space(2.0);
-    ui.label(
-        egui::RichText::new(format!("⚒ {}", r.name))
-            .size(15.0)
-            .strong()
-            .color(theme::TEXT_WARM),
-    );
+    ui.horizontal(|ui| {
+        if let Some(spec) = r.icon.as_ref()
+            && let Some(bytes) = icons.get(spec)
+        {
+            ui.add(
+                egui::Image::from_bytes("inv-icon.png", bytes.to_vec())
+                    .fit_to_exact_size(egui::vec2(22.0, 22.0)),
+            );
+        }
+        ui.label(
+            egui::RichText::new(format!("⚒ {}", r.name))
+                .size(15.0)
+                .strong()
+                .color(theme::TEXT_WARM),
+        );
+    });
     if let Some(base) = r.based_on.as_deref().filter(|s| !s.is_empty()) {
         let label = tr(lang, Tr::CivImproved).replacen("{}", base, 1);
         chip(ui, &label, theme::WARN, theme::glass());

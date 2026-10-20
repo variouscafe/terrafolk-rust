@@ -44,6 +44,7 @@ pub fn panel(
     net: Option<Res<NetState>>,
     vocab: Res<Vocab>,
     mut mt: ResMut<super::mt::MtCache>,
+    mut mt_icon: ResMut<super::icon::IconCache>,
 ) {
     if !ui_state.show_resources {
         return;
@@ -170,7 +171,7 @@ pub fn panel(
                             });
                         ui.add_space(2.0);
                     }
-                    inv_chips(ui, lang, &mut mt, frame);
+                    inv_chips(ui, lang, &mut mt, &mut mt_icon, frame);
                 });
         });
 }
@@ -181,6 +182,7 @@ fn inv_chips(
     ui: &mut egui::Ui,
     lang: super::i18n::Lang,
     mt: &mut super::mt::MtCache,
+    mt_icon: &mut super::icon::IconCache,
     frame: &crate::net::LiveFrame,
 ) {
     super::widgets::section(ui, "⚒", &tr(lang, Tr::ResInventions));
@@ -209,7 +211,18 @@ fn inv_chips(
                 .corner_radius(6.0)
                 .inner_margin(egui::Margin::symmetric(6, 3))
                 .show(ui, |ui| {
-                    ui.label(egui::RichText::new(label).size(10.0).color(theme::TEXT_WARM));
+                    ui.horizontal(|ui| {
+                        // 합성 아이콘(§17.36) — 도착 전엔 텍스트만
+                        if let Some(spec) = r.icon.as_ref()
+                            && let Some(bytes) = mt_icon.get(spec)
+                        {
+                            ui.add(
+                                egui::Image::from_bytes("inv-icon.png", bytes.to_vec())
+                                    .fit_to_exact_size(egui::vec2(14.0, 14.0)),
+                            );
+                        }
+                        ui.label(egui::RichText::new(label).size(10.0).color(theme::TEXT_WARM));
+                    });
                 })
                 .response;
             let inv = r.inventor.as_deref().unwrap_or("");

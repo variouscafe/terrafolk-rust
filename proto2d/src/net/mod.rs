@@ -236,6 +236,7 @@ fn drain_frames(
     eco: Res<EcoQueue>,
     phase: Res<NetLinkPhase>,
     mut mt_cache: ResMut<crate::ui::mt::MtCache>,
+    mut icon_cache: ResMut<crate::ui::icon::IconCache>,
     mut net: ResMut<NetState>,
 ) {
     let drained: Vec<String> = {
@@ -284,6 +285,13 @@ fn drain_frames(
                         mt_cache.receive(&v.texts);
                         continue;
                     }
+                    // 발명 아이콘 합성 응답(§17.36) — worldsim 포크 renderIcons()
+                    if kind.as_deref() == Some("icon")
+                        && let Ok(v) = serde_json::from_str::<IconEnvelope>(&s)
+                    {
+                        icon_cache.receive(&v.items);
+                        continue;
+                    }
                 }
                 None => {}
             }
@@ -316,6 +324,12 @@ struct TfKind {
 #[derive(Deserialize)]
 struct MtEnvelope {
     texts: serde_json::Value,
+}
+
+/// 발명 아이콘 합성 응답 인벨로프 — {tf:"icon", items:[{key,png}]}
+#[derive(Deserialize)]
+struct IconEnvelope {
+    items: serde_json::Value,
 }
 
 /// wasm sink 채팅 인젤로프(worldsim.js 포크가 송출)

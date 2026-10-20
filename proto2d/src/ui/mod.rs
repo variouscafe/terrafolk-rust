@@ -9,6 +9,7 @@ pub mod activity;
 pub mod economy;
 pub mod events;
 pub mod fonts;
+pub mod icon;
 pub mod i18n;
 pub mod menu;
 pub mod minimap;
@@ -127,6 +128,7 @@ impl Plugin for UiPlugin {
             .init_resource::<UiState>()
             .init_resource::<relic::RelicCard>()
             .init_resource::<mt::MtCache>()
+            .init_resource::<icon::IconCache>()
             .init_resource::<vocab::Vocab>()
             .init_resource::<menu::SkinOverride>()
             .init_resource::<toasts::ToastQ>()
@@ -150,6 +152,7 @@ impl Plugin for UiPlugin {
                     responsive_defaults,
                     debug_panel_cmds,
                     mt::flush,
+                    icon::flush,
                 ),
             )
             .add_systems(

@@ -348,6 +348,10 @@ fn pick_relic(
         by: s("by"),
         purpose: s("purpose"),
         based_on: s("based_on"),
+        icon: st
+            .get("icon")
+            .cloned()
+            .and_then(|v| serde_json::from_value(v).ok()),
     })
 }
 
