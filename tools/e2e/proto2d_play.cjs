@@ -75,7 +75,9 @@ async function proxyRoute(route) {
       ...(headed ? ['--disable-blink-features=AutomationControlled'] : []),
     ],
   });
-  const pg = await b.newPage({ viewport: { width: 1024, height: 768 } });
+  // TF_VIEWPORT=WxH — 모바일 레이아웃 검증(기본 1024x768)
+  const [vw, vh] = (process.env.TF_VIEWPORT || '1024x768').split('x').map(Number);
+  const pg = await b.newPage({ viewport: { width: vw, height: vh } });
   const t0 = Date.now();
   const log = [];
   const stamp = () => ((Date.now() - t0) / 1000).toFixed(1) + 's';
