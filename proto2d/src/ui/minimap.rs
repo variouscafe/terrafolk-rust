@@ -122,11 +122,7 @@ pub fn panel(
                 })
                 .show(ui, |ui| {
                     let size = egui::vec2(size_px, size_px);
-                    // egui Image 기본 Sense::hover — clicked()가 영원히
-                    // false라 점프가 동작하지 않았다(2026-10-21 발견).
-                    let resp = ui.add(
-                        egui::Image::new((tex.id(), size)).sense(egui::Sense::click()),
-                    );
+                    let resp = ui.image((tex.id(), size));
                     // 클릭 → 해당 타일로 카메라 점프(레거시 미니맵 패리티)
                     if resp.clicked()
                         && let Some(pos) = resp.interact_pointer_pos()
