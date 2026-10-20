@@ -1,15 +1,14 @@
-//! UI 셸 — 상단 바(시계·접속 배지·패널 토글)·주민 패널(목록+상세).
-//! 레거시 FE chars 패리티: 클릭 선택 → 월드 마커·카메라 추적 연동.
+//! UI 셸 — 상단 바(브랜드·시계·날씨·인원·접속 배지·패널 토글).
+//! 레거시 FE TopBar 직역: 시계는 "{계절} {연}년 {월}월 {일}일 {시}:{분}"
+//! (태양력 달력 — 3월 시작 365일년). 주민 패널은 villagers.rs로 분리.
 
 use bevy::prelude::*;
 use bevy_egui::egui;
 
-use super::i18n::{Tr, tr, trf, status_label};
+use super::i18n::{Tr, tr, trf};
+use super::theme;
 use super::{UiState, ctx};
-use crate::agents::{Agent, Selected};
-use crate::cam::ManualUntil;
 use crate::daynight::GameTime;
-use crate::net::apply::LiveAgentTag;
 use crate::net::{NetState, NetStatus};
 
 pub fn top_bar(
@@ -20,124 +19,184 @@ pub fn top_bar(
 ) {
     let Some(c) = ctx(&mut contexts) else { return };
     let lang = ui_state.lang;
-    egui::Panel::top("topbar").show(&c, |ui| {
-        ui.horizontal(|ui| {
-            ui.strong("Terrafolk 2D");
-            ui.separator();
-            let minutes = (gt.t * 24.0 * 60.0) as u32;
-            ui.label(format!(
-                "{} {:02}:{:02}",
-                trf(lang, Tr::DayN, &(gt.day + 1).to_string()),
-                minutes / 60,
-                minutes % 60
-            ));
-            // 접속 배지 — 라이브 ● / 접속중 ◌ / 데모
-            let (badge, color) = match net.as_ref().map(|n| n.status) {
-                Some(NetStatus::Connected) => ("● LIVE", super::theme::LIVE_GREEN),
-                Some(NetStatus::Connecting) => (tr(lang, Tr::Connecting), egui::Color32::from_rgb(230, 190, 80)),
-                Some(NetStatus::Reconnecting) => (tr(lang, Tr::Reconnecting), egui::Color32::from_rgb(230, 190, 80)),
-                _ => (tr(lang, Tr::Demo), egui::Color32::from_rgb(160, 160, 160)),
-            };
-            ui.colored_label(color, badge);
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.toggle_value(&mut ui_state.show_relations, tr(lang, Tr::ToggleRelations));
-                ui.toggle_value(&mut ui_state.show_civ, tr(lang, Tr::ToggleCiv));
-                ui.toggle_value(&mut ui_state.show_minimap, tr(lang, Tr::ToggleMinimap));
-                ui.toggle_value(&mut ui_state.show_events, tr(lang, Tr::ToggleEvents));
-                ui.toggle_value(&mut ui_state.show_chat, tr(lang, Tr::ToggleChat));
-                ui.toggle_value(&mut ui_state.show_villagers, tr(lang, Tr::ToggleVillagers));
+    let frame = net.as_ref().and_then(|n| n.frame.as_ref());
+    egui::Panel::top("topbar")
+        .exact_height(38.0)
+        .frame(egui::Frame::new().fill(egui::Color32::from_rgba_unmultiplied(16, 21, 13, 235)))
+        .show(&c, |ui| {
+            ui.horizontal_centered(|ui| {
+                ui.add_space(6.0);
+                // 브랜드 — 골드 강조
+                ui.label(
+                    egui::RichText::new("TERRAFOLK")
+                        .size(12.0)
+                        .strong()
+                        .color(theme::ACCENT_SAND)
+                        .background_color(egui::Color32::TRANSPARENT),
+                );
+                ui.separator();
+                let dial_resp = mini_dial(ui, &gt);
+                // 서버 정본 일출/일몰 hover(분 → HH:MM)
+                if let Some((sr, ss)) = net
+                    .as_ref()
+                    .and_then(|n| n.frame.as_ref())
+                    .and_then(|f| f.sunrise.zip(f.sunset))
+                {
+                    let fmt = |m: u16| format!("{:02}:{:02}", m / 60, m % 60);
+                    let text = tr(lang, Tr::SunTimes)
+                        .replacen("{}", &fmt(sr), 1)
+                        .replacen("{}", &fmt(ss), 1);
+                    dial_resp.on_hover_text(text);
+                }
+                // 시계 — 계절+태양력 날짜(레거시 ko 서식 직역)
+                let (y, m, d) = theme::date_of(gt.day as u32);
+                let season = frame.map(|f| f.season.as_str()).unwrap_or("spring");
+                let season_lbl = theme::season_mark(lang, season).0;
+                let minutes = (gt.t * 24.0 * 60.0) as u32;
+                let clock = match lang {
+                    super::i18n::Lang::Ko => format!(
+                        "{season_lbl} {y}년 {m:02}월 {d:02}일 {:02}:{:02}",
+                        minutes / 60,
+                        minutes % 60
+                    ),
+                    super::i18n::Lang::En => format!(
+                        "{season_lbl} Y{y}·{m}/{d} {:02}:{:02}",
+                        minutes / 60,
+                        minutes % 60
+                    ),
+                };
+                ui.label(egui::RichText::new(clock).size(11.5).color(theme::TEXT_WARM));
+                // 날씨 칩 — 프레임 weather(데모=맑음 가정 아님: 비움)
+                if let Some(w) = frame.and_then(|f| f.weather.as_deref()) {
+                    let icon = match w {
+                        "clear" => "☀",
+                        "overcast" | "fog" => "☁",
+                        "rain" => "雨",
+                        "storm" => "雷",
+                        "snow" => "雪",
+                        _ => "·",
+                    };
+                    chip(ui, &format!("{icon} {}", theme::weather_label(lang, w)));
+                }
+                // 인원 칩
+                let pop = frame.map(|f| f.agents.len()).unwrap_or(0);
+                if pop > 0 {
+                    chip(ui, &trf(lang, Tr::Population, &pop.to_string()));
+                }
+                // 접속 배지 — 라이브 ● / 접속중 ◌ / 데모
+                let (badge, color) = match net.as_ref().map(|n| n.status) {
+                    Some(NetStatus::Connected) => ("● LIVE", theme::LIVE_GREEN),
+                    Some(NetStatus::Connecting) => (tr(lang, Tr::Connecting), theme::WARN),
+                    Some(NetStatus::Reconnecting) => (tr(lang, Tr::Reconnecting), theme::WARN),
+                    _ => (tr(lang, Tr::Demo), egui::Color32::from_rgb(150, 158, 138)),
+                };
+                ui.label(
+                    egui::RichText::new(badge)
+                        .size(10.5)
+                        .strong()
+                        .color(color),
+                );
+                // 패널 토글 — 우측 정렬 활성 칩
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.add_space(6.0);
+                    let toggles = [
+                        (Tr::ToggleVillagers, "人"),
+                        (Tr::ToggleChat, "話"),
+                        (Tr::ToggleEvents, "史"),
+                        (Tr::ToggleCiv, "文"),
+                        (Tr::ToggleRelations, "緣"),
+                        (Tr::ToggleEconomy, "貨"),
+                        (Tr::ToggleMinimap, "圖"),
+                    ];
+                    let shown = |s: &UiState, key: Tr| match key {
+                        Tr::ToggleVillagers => s.show_villagers,
+                        Tr::ToggleChat => s.show_chat,
+                        Tr::ToggleEvents => s.show_events,
+                        Tr::ToggleCiv => s.show_civ,
+                        Tr::ToggleRelations => s.show_relations,
+                        Tr::ToggleEconomy => s.show_economy,
+                        _ => s.show_minimap,
+                    };
+                    // 좁은 화면(폰) — 라벨 생략 아이콘 전용 칩(7개 상한 폭 맞춤)
+                    let narrow = c.screen_rect().width() < 760.0;
+                    for (key, icon) in toggles {
+                        let on = shown(&ui_state, key);
+                        let text = if narrow {
+                            format!("{icon}")
+                        } else {
+                            format!("{icon} {}", tr(lang, key))
+                        };
+                        let label = egui::RichText::new(text)
+                            .size(10.0)
+                            .color(if on { theme::TEXT_WARM } else { theme::TEXT_DIM });
+                        let btn = egui::Button::new(label)
+                            .small()
+                            .fill(if on {
+                                egui::Color32::from_rgb(58, 66, 40)
+                            } else {
+                                egui::Color32::from_black_alpha(70)
+                            })
+                            .corner_radius(999.0);
+                        let resp = ui.add(btn);
+                        if resp.clicked() {
+                            match key {
+                                Tr::ToggleVillagers => ui_state.show_villagers = !ui_state.show_villagers,
+                                Tr::ToggleChat => ui_state.show_chat = !ui_state.show_chat,
+                                Tr::ToggleEvents => ui_state.show_events = !ui_state.show_events,
+                                Tr::ToggleCiv => ui_state.show_civ = !ui_state.show_civ,
+                                Tr::ToggleRelations => ui_state.show_relations = !ui_state.show_relations,
+                                Tr::ToggleEconomy => ui_state.show_economy = !ui_state.show_economy,
+                                _ => ui_state.show_minimap = !ui_state.show_minimap,
+                            }
+                        }
+                        resp.on_hover_text(tr(lang, key));
+                    }
+                });
             });
         });
-    });
 }
 
-/// 주민 패널 — 우측 목록(이름·상태) + 선택 시 상세(활동·목표·욕구).
-/// 행 클릭 = 월드 클릭과 동일 선택(Selected 삽입 → 마커·추적 재사용).
-#[allow(clippy::type_complexity)] // Bevy 파라미터 — 선택·라이브 프레임·시간 동시 참조
-pub fn villagers_panel(
-    mut contexts: bevy_egui::EguiContexts,
-    time: Res<Time>,
-    net: Option<Res<NetState>>,
-    mut commands: Commands,
-    agents_q: Query<(Entity, &Agent, Option<&LiveAgentTag>, Option<&Selected>)>,
-    mut manual: ResMut<ManualUntil>,
-    polls: Res<crate::net::PollQueuesRes>,
-    ui_state: Res<UiState>,
-) {
-    if !ui_state.show_villagers {
-        return;
+/// 미니 주야 다이얼(레거시 DayDial 직역 — 해/달 궤적 + 지평선)
+fn mini_dial(ui: &mut egui::Ui, gt: &GameTime) -> egui::Response {
+    let (w, h) = (64.0, 18.0);
+    let (rect, resp) = ui.allocate_exact_size(egui::vec2(w, h), egui::Sense::hover());
+    let p = ui.painter();
+    // 지평선·궤적
+    p.line_segment(
+        [egui::pos2(rect.left(), rect.bottom() - 3.0), egui::pos2(rect.right(), rect.bottom() - 3.0)],
+        egui::Stroke::new(1.0_f32, egui::Color32::from_white_alpha(28)),
+    );
+    let t = gt.t.clamp(0.0, 1.0);
+    let x = rect.left() + 3.0 + t * (w - 6.0);
+    let y = rect.bottom() - 3.0 - (t * std::f32::consts::PI).sin() * 10.0;
+    let is_day = (0.25..0.75).contains(&gt.t);
+    let (col, r) = if is_day {
+        (egui::Color32::from_rgb(255, 209, 102), 3.4)
+    } else {
+        (egui::Color32::from_rgb(219, 228, 240), 3.0)
+    };
+    p.circle_filled(egui::pos2(x, y), r, col);
+    if is_day {
+        for (dx, dy) in [(1.0, 0.0), (-1.0, 0.0), (0.0, 1.0), (0.0, -1.0)] {
+            p.line_segment(
+                [
+                    egui::pos2(x + dx * (r + 1.5), y + dy * (r + 1.5)),
+                    egui::pos2(x + dx * (r + 4.6), y + dy * (r + 4.6)),
+                ],
+                egui::Stroke::new(1.2_f32, col),
+            );
+        }
     }
-    let Some(c) = ctx(&mut contexts) else { return };
-    let lang = ui_state.lang;
-    egui::Panel::right("villagers")
-        .default_width(230.0)
-        .show(&c, |ui| {
-            ui.heading(tr(lang, Tr::Villagers));
-            let frame = net.as_ref().and_then(|n| n.frame.as_ref());
-            let mut selected_entity: Option<Entity> = None;
-            for (e, _a, tag, sel) in &agents_q {
-                if sel.is_some() {
-                    selected_entity = Some(e);
-                }
-                let raw_status = frame
-                    .and_then(|f| tag.as_ref().and_then(|t| f.agents.iter().find(|la| la.id == t.0)))
-                    .map(|la| la.status.clone())
-                    .unwrap_or_else(|| {
-                        if _a.rest > 0.0 { "idle".into() } else { "moving".into() }
-                    });
-                let localized = status_label(lang, &raw_status);
-                let status = if localized.is_empty() { raw_status } else { localized.to_owned() };
-                let is_sel = sel.is_some();
-                let label = format!("{} · {}", _a.name, status);
-                if ui.selectable_label(is_sel, label).clicked() {
-                    // 선택 토글 — 기존 해제 후 이 엔티티 선택(월드 클릭과 동일 흐름)
-                    for (e2, _, _, _) in &agents_q {
-                        commands.entity(e2).remove::<Selected>();
-                    }
-                    if !is_sel {
-                        commands.entity(e).insert(Selected);
-                        manual.0 = time.elapsed_secs(); // 추적 즉시 재개
-                    }
-                }
-            }
-            // 상세 — 선택 주민의 라이브 상태(활동·목표·욕구)
-            if let Some(e) = selected_entity
-                && let Some((_, _, Some(tag), _)) = agents_q.iter().find(|(e2, _, _, _)| *e2 == e)
-                && let Some(f) = frame
-                && let Some(la) = f.agents.iter().find(|la| la.id == tag.0)
-            {
-                ui.separator();
-                ui.strong(&la.name);
-                if let Some(act) = la.act_type.as_deref().filter(|s| !s.is_empty()) {
-                    ui.label(format!("{}: {act}", tr(lang, Tr::Act)));
-                }
-                if let Some(goal) = la
-                    .goal_text
-                    .as_deref()
-                    .or(la.goal_key.as_deref())
-                    .filter(|s| !s.is_empty())
-                {
-                    ui.label(format!("{}: {goal}", tr(lang, Tr::Goal)));
-                }
-                let mut need = |label: &str, v: Option<f32>| {
-                    if let Some(v) = v {
-                        let v = v.clamp(0.0, 100.0);
-                        ui.label(format!("{label} {}", "●".repeat((v / 12.5) as usize)));
-                    }
-                };
-                need(tr(lang, Tr::Hunger), la.hunger);
-                need(tr(lang, Tr::Thirst), la.thirst);
-                need(tr(lang, Tr::Fatigue), la.fatigue);
-                need(tr(lang, Tr::Warmth), la.warmth);
-                // 생활기록(선택 주민) — 네이티브 폴러, 최근 8행 역순
-                let hist = polls.history.lock().map(|q| q.clone()).unwrap_or_default();
-                if !hist.is_empty() {
-                    ui.separator();
-                    ui.strong(tr(lang, Tr::History));
-                    for h in hist.iter().rev().take(8) {
-                        ui.small(format!("[{}] {}", h.type_, h.text));
-                    }
-                }
-            }
+    resp
+}
+
+/// 작은 정보 칩(상단 바 통계)
+fn chip(ui: &mut egui::Ui, text: &str) {
+    egui::Frame::new()
+        .fill(egui::Color32::from_black_alpha(80))
+        .corner_radius(999.0)
+        .inner_margin(egui::Margin::symmetric(7, 2))
+        .show(ui, |ui| {
+            ui.label(egui::RichText::new(text).size(10.5).color(theme::TEXT_DIM));
         });
 }

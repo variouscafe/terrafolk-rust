@@ -1,0 +1,392 @@
+//! 주민 패널 — 우측 목록(상태 점·활동 진행) + 선택 상세 카드.
+//! 레거시 FE CharsPopup 직역: 욕구 바(>70 빨강)·소지품 칩+짐 무게 바·
+//! 생활기록(유형색)·인연 상위 6·나이/성별. 클릭 선택 → 월드 마커·추적 연동.
+
+use bevy::prelude::*;
+use bevy_egui::egui;
+
+use super::i18n::{Lang, Tr, tr, trf, act_icon, status_color, status_label, hist_color};
+use super::theme;
+use super::vocab::Vocab;
+use super::widgets::{card, need_bar, section, status_dot, thin_bar};
+use super::{UiState, ctx};
+use crate::agents::{Agent, Selected};
+use crate::cam::ManualUntil;
+use crate::net::apply::LiveAgentTag;
+use crate::net::{NetState, PollQueuesRes};
+use crate::net::LiveAgent;
+
+/// lookJson 최소 파싱(나이·성별 표시)
+#[derive(serde::Deserialize)]
+struct LookBits {
+    #[serde(default)]
+    sex: Option<String>,
+    #[serde(default)]
+    age: Option<u32>,
+}
+
+/// invJson 파싱 {itemId: count}
+fn inv_items(inv: Option<&str>) -> Vec<(String, u32)> {
+    inv.and_then(|s| serde_json::from_str::<std::collections::BTreeMap<String, u32>>(s).ok())
+        .map(|m| m.into_iter().filter(|(_, n)| *n > 0).collect())
+        .unwrap_or_default()
+}
+
+/// 짐 무게(레거시 CarryBar — wt 미기재 폴백 1, 상한 5000, 85% 경고)
+const CARRY_CAP: f32 = 5000.0;
+fn carry_weight(v: &Vocab, items: &[(String, u32)]) -> f32 {
+    items.iter().map(|(id, n)| v.item_wt(id) * *n as f32).sum()
+}
+
+#[allow(clippy::type_complexity)] // Bevy 파라미터 — 선택·라이브 프레임·폴 동시 참조
+pub fn panel(
+    mut contexts: bevy_egui::EguiContexts,
+    time: Res<Time>,
+    net: Option<Res<NetState>>,
+    vocab: Res<Vocab>,
+    mut commands: Commands,
+    agents_q: Query<(Entity, &Agent, Option<&LiveAgentTag>, Option<&Selected>)>,
+    mut manual: ResMut<ManualUntil>,
+    polls: Res<PollQueuesRes>,
+    ui_state: Res<UiState>,
+) {
+    if !ui_state.show_villagers {
+        return;
+    }
+    let Some(c) = ctx(&mut contexts) else { return };
+    let lang = ui_state.lang;
+    let frame = net.as_ref().and_then(|n| n.frame.as_ref());
+    let live_of = |tag: &LiveAgentTag| -> Option<&LiveAgent> {
+        frame.and_then(|f| f.agents.iter().find(|la| la.id == tag.0))
+    };
+    egui::Panel::right("villagers")
+        .min_width(272.0)
+        .frame(egui::Frame::new().fill(egui::Color32::from_rgba_unmultiplied(21, 26, 17, 242)))
+        .show(&c, |ui| {
+            ui.add_space(4.0);
+            // 헤더 — 주민 (n)
+            ui.horizontal(|ui| {
+                ui.label(
+                    egui::RichText::new(format!("人 {}", tr(lang, Tr::VillagersN)
+                        .replace("{}", &agents_q.iter().count().to_string())))
+                        .size(13.0)
+                        .strong()
+                        .color(theme::TEXT_WARM),
+                );
+            });
+            ui.add_space(2.0);
+            let mut selected_entity: Option<Entity> = None;
+            for (e, _a, _tag, sel) in &agents_q {
+                if sel.is_some() {
+                    selected_entity = Some(e);
+                }
+            }
+            // ── 목록 ──
+            egui::ScrollArea::vertical()
+                .id_salt("vlist")
+                .max_height(if selected_entity.is_some() { 168.0 } else { f32::INFINITY })
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    for (e, a, tag, sel) in &agents_q {
+                        let la = tag.and_then(live_of);
+                        let raw_status = la.map(|l| l.status.as_str()).unwrap_or({
+                            if a.rest > 0.0 { "idle" } else { "moving" }
+                        });
+                        let is_sel = sel.is_some();
+                        let act = la.and_then(|l| l.act_type.as_deref()).unwrap_or("");
+                        let name_color = tag
+                            .map(|t| theme::agent_color(&t.0))
+                            .unwrap_or(theme::TEXT_WARM);
+                        let row = egui::Frame::new()
+                            .fill(if is_sel {
+                                egui::Color32::from_rgb(52, 62, 38)
+                            } else {
+                                egui::Color32::TRANSPARENT
+                            })
+                            .corner_radius(7.0)
+                            .inner_margin(egui::Margin::symmetric(7, 4))
+                            .show(ui, |ui| {
+                                ui.horizontal(|ui| {
+                                    status_dot(ui, status_color(raw_status));
+                                    ui.label(
+                                        egui::RichText::new(&a.name)
+                                            .size(12.0)
+                                            .strong()
+                                            .color(if is_sel { theme::TEXT_WARM } else { name_color }),
+                                    );
+                                    ui.with_layout(
+                                        egui::Layout::right_to_left(egui::Align::Center),
+                                        |ui| {
+                                            if !act.is_empty() {
+                                                ui.label(
+                                                    egui::RichText::new(act_icon(act))
+                                                        .size(11.0)
+                                                        .color(theme::ACCENT_SAND),
+                                                );
+                                            }
+                                            let lbl = status_label(lang, raw_status);
+                                            ui.label(
+                                                egui::RichText::new(if lbl.is_empty() { raw_status } else { lbl })
+                                                    .size(10.0)
+                                                    .color(status_color(raw_status)),
+                                            );
+                                        },
+                                    );
+                                });
+                                // 행동 진행 바(actProgress 0..1)
+                                if let Some(p) = la.and_then(|l| l.act_progress).filter(|p| *p > 0.01) {
+                                    thin_bar(ui, p, theme::ACCENT_SAND, 3.0);
+                                }
+                            })
+                            .response
+                            .interact(egui::Sense::click());
+                        if row.clicked() {
+                            for (e2, _, _, _) in &agents_q {
+                                commands.entity(e2).remove::<Selected>();
+                            }
+                            if !is_sel {
+                                commands.entity(e).insert(Selected);
+                                manual.0 = time.elapsed_secs(); // 추적 즉시 재개
+                            }
+                        }
+                    }
+                });
+            // ── 선택 상세 ──
+            let Some(e) = selected_entity else {
+                ui.add_space(6.0);
+                ui.label(
+                    egui::RichText::new(tr(lang, Tr::SelectHint))
+                        .size(10.5)
+                        .color(theme::TEXT_DIM),
+                );
+                if frame.is_none() {
+                    ui.label(
+                        egui::RichText::new(tr(lang, Tr::LiveDetailHint))
+                            .size(10.0)
+                            .color(theme::TEXT_DIM),
+                    );
+                }
+                return;
+            };
+            let Some((_, a, tag, _)) = agents_q.iter().find(|(e2, _, _, _)| *e2 == e) else {
+                return;
+            };
+            ui.add_space(4.0);
+            card().show(ui, |ui| {
+                let Some(la) = tag.and_then(live_of) else {
+                    // 데모 선택 — 이름·안내만(정직 표시)
+                    ui.horizontal(|ui| {
+                        ui.label(
+                            egui::RichText::new(&a.name).size(14.0).strong().color(theme::TEXT_WARM),
+                        );
+                    });
+                    ui.label(
+                        egui::RichText::new(tr(lang, Tr::LiveDetailHint))
+                            .size(10.0)
+                            .color(theme::TEXT_DIM),
+                    );
+                    return;
+                };
+                detail(ui, lang, &vocab, la, &tag.unwrap().0, &polls, frame);
+            });
+        });
+}
+
+/// 선택 상세 카드 본문 — 라이브 데이터만 호출
+fn detail(
+    ui: &mut egui::Ui,
+    lang: Lang,
+    vocab: &Vocab,
+    la: &LiveAgent,
+    tag_id: &str,
+    polls: &PollQueuesRes,
+    frame: Option<&crate::net::LiveFrame>,
+) {
+    let color = theme::agent_color(tag_id);
+    ui.horizontal(|ui| {
+        super::widgets::status_dot(ui, color);
+        ui.label(egui::RichText::new(&la.name).size(14.0).strong().color(theme::TEXT_WARM));
+        // kind 배지 — 참여 캐릭터(user)/씨앗 주민(bot)
+        if la.kind == "user" {
+            super::widgets::chip(ui, tr(lang, Tr::Participating), theme::ACCENT_SAND, egui::Color32::from_rgb(52, 44, 20));
+        }
+        // 상태
+        let lbl = status_label(lang, &la.status);
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            ui.label(
+                egui::RichText::new(if lbl.is_empty() { la.status.as_str() } else { lbl })
+                    .size(10.5)
+                    .color(status_color(&la.status)),
+            );
+        });
+    });
+    // 활동 + 진행률
+    if let Some(act) = la.act_type.as_deref().filter(|s| !s.is_empty()) {
+        ui.horizontal(|ui| {
+            ui.label(egui::RichText::new(act_icon(act)).size(12.0).color(theme::ACCENT_SAND));
+            ui.label(egui::RichText::new(act).size(11.0).color(theme::TEXT_DIM));
+            if let Some(p) = la.act_progress {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(egui::RichText::new(format!("{}%", (p * 100.0) as u32)).size(10.0).color(theme::TEXT_DIM));
+                });
+            }
+        });
+        if let Some(p) = la.act_progress {
+            thin_bar(ui, p, theme::ACCENT_SAND, 4.0);
+        }
+    }
+    // 나이·성별(lookJson) — 외형 시드와 별개 표기
+    if let Some(bits) = la.look.as_deref().and_then(|l| serde_json::from_str::<LookBits>(l).ok()) {
+        ui.horizontal(|ui| {
+            let sex = match bits.sex.as_deref() {
+                Some("female") => Some(tr(lang, Tr::Female)),
+                Some("male") => Some(tr(lang, Tr::Male)),
+                _ => None,
+            };
+            if let Some(s) = sex {
+                ui.label(egui::RichText::new(s).size(10.0).color(theme::TEXT_DIM));
+            }
+            if let Some(a) = bits.age {
+                ui.label(egui::RichText::new(trf(lang, Tr::Age, &a.to_string())).size(10.0).color(theme::TEXT_DIM));
+            }
+        });
+    }
+    // 목표 — goalKey 템플릿 우선(events.json goal.*), 폴백 goalText 원문
+    let goal = la
+        .goal_key
+        .as_deref()
+        .filter(|k| vocab.has_event(k))
+        .map(|k| vocab.event_text(lang, &serde_json::json!({"key": k})))
+        .or_else(|| la.goal_text.as_deref().filter(|s| !s.is_empty()).map(str::to_owned));
+    if let Some(g) = goal {
+        ui.label(egui::RichText::new(format!("{} {g}", tr(lang, Tr::Goal))).size(10.5).color(theme::TEXT_DIM));
+    }
+    ui.add_space(3.0);
+    // 욕구 바 4종 — >70 빨강(레거시 규칙)
+    section(ui, "心", tr(lang, Tr::Villagers));
+    need_bar(ui, tr(lang, Tr::Hunger), "食", la.hunger, theme::NEED_HUNGER);
+    need_bar(ui, tr(lang, Tr::Thirst), "水", la.thirst, theme::NEED_THIRST);
+    need_bar(ui, tr(lang, Tr::Fatigue), "眠", la.fatigue, theme::NEED_FATIGUE);
+    need_bar(ui, tr(lang, Tr::Warmth), "溫", la.warmth, theme::NEED_WARMTH);
+    // 소지품 — 칩 + 짐 무게 바
+    let items = inv_items(la.inv_json.as_deref());
+    section(ui, "囊", tr(lang, Tr::Inventory));
+    if items.is_empty() {
+        ui.label(egui::RichText::new(tr(lang, Tr::InventoryEmpty)).size(10.0).color(theme::TEXT_DIM));
+    } else {
+        let wt = carry_weight(vocab, &items);
+        let ratio = (wt / CARRY_CAP).clamp(0.0, 1.0);
+        let heavy = ratio >= 0.85;
+        ui.horizontal_wrapped(|ui| {
+            for (id, n) in &items {
+                let label = format!("{} ×{}", vocab.item(lang, id), n);
+                let chip_resp = egui::Frame::new()
+                    .fill(egui::Color32::from_black_alpha(80))
+                    .corner_radius(6.0)
+                    .inner_margin(egui::Margin::symmetric(6, 2))
+                    .show(ui, |ui| {
+                        ui.label(egui::RichText::new(label).size(10.0).color(theme::TEXT_DIM));
+                    })
+                    .response;
+                chip_resp.on_hover_text(vocab.item(Lang::En, id));
+            }
+        });
+        thin_bar(ui, ratio, if heavy { theme::WARN } else { theme::LIVE_GREEN }, 5.0);
+        ui.label(
+            egui::RichText::new(format!("{:.0} / {:.0}", wt, CARRY_CAP))
+                .size(9.5)
+                .color(if heavy { theme::WARN } else { theme::TEXT_DIM }),
+        );
+    }
+    // 인연 — 이 주민 관계 상위 6(레거시 패리티)
+    let rels: Vec<crate::net::RelRow> = polls
+        .relations
+        .lock()
+        .map(|q| {
+            q.iter()
+                .filter(|r| r.a_id == tag_id || r.b_id == tag_id)
+                .cloned()
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !rels.is_empty() {
+        section(ui, "緣", tr(lang, Tr::Relations));
+        let mut sorted = rels;
+        sorted.sort_by(|a, b| b.warmth.partial_cmp(&a.warmth).unwrap_or(std::cmp::Ordering::Equal));
+        for r in sorted.iter().take(6) {
+            rel_row(ui, lang, frame, tag_id, r);
+        }
+    }
+    // 생활기록 — 유형색(최근 8행 역순)
+    let hist = polls.history.lock().map(|q| q.clone()).unwrap_or_default();
+    if !hist.is_empty() {
+        section(ui, "史", tr(lang, Tr::History));
+        egui::ScrollArea::vertical()
+            .id_salt("vhist")
+            .max_height(150.0)
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                for h in hist.iter().rev().take(12) {
+                    ui.horizontal(|ui| {
+                        ui.label(
+                            egui::RichText::new(super::fmt_hhmm(Some(h.ts.as_str())))
+                                .size(9.5)
+                                .color(theme::TEXT_DIM),
+                        );
+                        ui.label(
+                            egui::RichText::new(vocab.hist(lang, &h.type_))
+                                .size(9.5)
+                                .strong()
+                                .color(hist_color(&h.type_)),
+                        );
+                        ui.label(egui::RichText::new(&h.text).size(9.5).color(theme::TEXT_WARM));
+                    });
+                }
+            });
+    }
+}
+
+/// 관계 행 — 상대 이름(주민색) + 온기 바(hsl) + 등급 라벨 + 대화/거래 수
+fn rel_row(
+    ui: &mut egui::Ui,
+    lang: Lang,
+    frame: Option<&crate::net::LiveFrame>,
+    self_id: &str,
+    r: &crate::net::RelRow,
+) {
+    let other_id = if r.a_id == self_id { &r.b_id } else { &r.a_id };
+    let name = frame
+        .and_then(|f| f.agents.iter().find(|a| &a.id == other_id))
+        .map(|a| a.name.clone())
+        .unwrap_or_else(|| other_id.chars().take(8).collect());
+    let warmth = r.warmth.clamp(0.0, 100.0);
+    ui.horizontal(|ui| {
+        ui.label(
+            egui::RichText::new(name)
+                .size(11.0)
+                .color(theme::agent_color(other_id)),
+        );
+        let (rect, _) = ui.allocate_exact_size(egui::vec2((ui.available_width() - 132.0).max(40.0), 6.0), egui::Sense::hover());
+        let p = ui.painter();
+        p.rect_filled(rect, 3.0, egui::Color32::from_black_alpha(90));
+        let mut fr = rect;
+        fr.set_width(rect.width() * warmth / 100.0);
+        p.rect_filled(fr, 3.0, super::vocab::warmth_hsl(warmth));
+        ui.label(
+            egui::RichText::new(format!("{} {:.0}", theme::warmth_tier(lang, warmth), warmth))
+                .size(9.5)
+                .color(super::vocab::warmth_hsl(warmth)),
+        );
+    })
+    .response
+    .on_hover_text(tr(lang, Tr::RelChatsTrades)
+        .replacen("{}", &r.chats.to_string(), 1)
+        .replacen("{}", &r.trades.to_string(), 1));
+}
+
+/// fmt_gmin — 절대 게임 분 → "D{n} HH:MM"(FE 직역, 연도 표기 생략형)
+pub fn fmt_gmin(gmin: i64) -> String {
+    let day = gmin.div_euclid(1440);
+    let min = gmin.rem_euclid(1440);
+    format!("D{day} {:02}:{:02}", min / 60, min % 60)
+}

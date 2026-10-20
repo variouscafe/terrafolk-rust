@@ -180,21 +180,18 @@ async fn once(
                             .and_then(|v| v.as_str())
                             .unwrap_or_default()
                             .to_owned(),
+                        gmin: payload.get("gmin").and_then(|v| v.as_i64()),
+                        ts: payload.get("ts").and_then(|v| v.as_str()).map(str::to_owned),
                     };
                     super::chat_row_push(chats, row);
                 }
                 "event" => {
-                    // 관전 타임라인 — wasm 경로와 동일 서식(단일 원천)
-                    let row = super::format_event(&payload);
-                    if row != format!("[{}]", payload.get("kind").and_then(|v| v.as_str()).unwrap_or("?"))
-                        || payload.get("kind").is_some()
-                    {
-                        if let Ok(mut q) = events.inner.lock() {
-                            q.push(row);
-                            let len = q.len();
-                            if len > 100 {
-                                q.drain(0..len - 100);
-                            }
+                    // 관전 타임라인 — 원시 행 그대로(drain_events가 파싱·렌더)
+                    if let Ok(mut q) = events.inner.lock() {
+                        q.push(payload.to_string());
+                        let len = q.len();
+                        if len > 400 {
+                            q.drain(0..len - 400);
                         }
                     }
                 }

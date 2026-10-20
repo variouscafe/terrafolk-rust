@@ -33,10 +33,11 @@ pub fn panel(
     egui::Area::new(egui::Id::new("menu_panel"))
         .anchor(egui::Align2::LEFT_TOP, egui::vec2(8.0, 68.0))
         .show(&c, |ui| {
-            egui::Frame::popup(ui.style()).show(ui, |ui| {
+            super::widgets::card().show(ui, |ui| {
                 ui.set_min_width(230.0);
                 let lang = ui_state.lang;
-                ui.heading(tr(lang, Tr::Menu));
+                ui.label(egui::RichText::new(format!("≡ {}", tr(lang, Tr::Menu)))
+                    .size(13.0).strong().color(super::theme::TEXT_WARM));
                 // 언어 토글 — 한/EN 즉시 전환
                 ui.horizontal(|ui| {
                     if ui.selectable_label(lang == Lang::Ko, "한국어").clicked() {

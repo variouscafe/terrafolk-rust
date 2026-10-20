@@ -118,28 +118,15 @@
 
   function ensureHud() {
     if (hud) return;
-    // 스타일은 <style>로 — 미디어쿼리·safe-area(노치/홈인디케이터) 대응
-    const st = document.createElement('style');
-    st.textContent =
-      '#tf-hud{position:fixed;z-index:50;pointer-events:none;display:flex;' +
-      'flex-direction:column;gap:3px;color:#fff;' +
-      'left:calc(12px + env(safe-area-inset-left,0px));' +
-      'bottom:calc(14px + env(safe-area-inset-bottom,0px));' +
-      'max-width:min(46ch,72vw);font:12px/1.45 ui-sans-serif,system-ui,sans-serif;}' +
-      '#tf-hud .tf-badge{align-self:flex-start;padding:2px 9px;border-radius:999px;' +
-      'margin-bottom:4px;background:rgba(20,24,32,.62);font-weight:600;' +
-      'letter-spacing:.02em;box-shadow:0 1px 6px rgba(0,0,0,.35);transition:background .4s;}' +
-      '@media (max-width:600px){#tf-hud{font-size:13.5px;max-width:84vw;}}';
-    document.head.appendChild(st);
+    // proto2d — DOM 배지 대신 egui 상단바(● LIVE)가 접속 상태 정본.
+    // 콘솔·TF_UI 훅은 유지하되 화면 크롬은 만들지 않는다.
     hud = document.createElement('div');
-    hud.id = 'tf-hud';
+    hud.style.display = 'none';
     document.body.appendChild(hud);
     badge = document.createElement('div');
-    badge.className = 'tf-badge';
     hud.appendChild(badge);
-    setStatus(false);
+    return;
   }
-
   function setStatus(live) {
     ensureHud();
     badge.textContent = live ? '● LIVE · terrafolk' : '○ DEMO — 서버 재접속';
@@ -225,6 +212,64 @@
     retryTimer = setTimeout(function () { void connect(); }, wait);
   }
 
+  // ── REST 관전 폴러(egui 패리티) — 관계 20s·경제 30s·생활기록 15s(선택 시)·
+  // 백로그(채팅·이벤트) 1회. 네이티브 http_poll과 같은 주기·같은 인젤로프.
+  let pollStarted = false;
+  let watchAgent = null; // Rust가 ui.setWatchAgent으로 지정(선택 주민)
+
+  function sinkEnvelope(env) {
+    if (sink) {
+      try { sink(JSON.stringify(env)); } catch (err) { /* 큐 소비자 일시 불능 */ }
+    }
+  }
+
+  async function pollOnce(path) {
+    const r = await fetch(path);
+    if (!r.ok) throw new Error(path + ' ' + r.status);
+    return r.json();
+  }
+
+  function startRestPolling(apiBase) {
+    if (pollStarted) return;
+    pollStarted = true;
+    // 백로그 시드 1회 — 채팅 30행(시계순)·이벤트 200행(원시 행 → event 인젤로프)
+    (async function () {
+      try {
+        const rows = await pollOnce(apiBase + '/api/worldsim/chat?limit=30');
+        sinkEnvelope({ tf: 'chatbacklog', rows: (rows || []).slice(0, 30) });
+      } catch (e) { console.info('[worldsim] 채팅 백로그 스킵', String(e)); }
+      try {
+        const rows = await pollOnce(apiBase + '/api/worldsim/events?limit=200');
+        for (const row of (rows || []).slice(0, 200).reverse()) {
+          sinkEnvelope({ tf: 'event', row: row });
+        }
+      } catch (e) { console.info('[worldsim] 이벤트 백로그 스킵', String(e)); }
+    })();
+    let t0 = 0, t1 = 0, t2 = 0; // 마지막 성공 시각(0 = 즉시 1회)
+    setInterval(function () {
+      if (!alive) return;
+      const now = Date.now();
+      if (now - t0 >= 20000) {
+        t0 = now;
+        pollOnce(apiBase + '/api/worldsim/relations')
+          .then(function (rows) { sinkEnvelope({ tf: 'relations', rows: rows || [] }); })
+          .catch(function () { /* 관전 스코프 대기 */ });
+      }
+      if (now - t1 >= 30000) {
+        t1 = now;
+        pollOnce(apiBase + '/api/worldsim/economy')
+          .then(function (data) { sinkEnvelope({ tf: 'economy', data: data }); })
+          .catch(function () { /* 401 등 — 서버 미개방 */ });
+      }
+      if (watchAgent && now - t2 >= 15000) {
+        t2 = now;
+        pollOnce(apiBase + '/api/worldsim/agents/' + encodeURIComponent(watchAgent) + '/history')
+          .then(function (rows) { sinkEnvelope({ tf: 'history', rows: rows || [] }); })
+          .catch(function () { /* 선택 해제·권한 */ });
+      }
+    }, 5000);
+  }
+
   async function connect(apiBase, wsBase) {
     if (!apiBase || !wsBase) {
       const b = autoBases();
@@ -295,6 +340,7 @@
         setStatus(false);
         scheduleRetry();
       });
+      startRestPolling(apiBase);
       room.onError(function (code, msg) {
         console.warn('[worldsim] 룸 오류', code, msg);
       });
@@ -326,6 +372,8 @@
       room.send('chat', { agentId: agentId, text: text, lang: lang || 'en' });
       return true;
     },
+    // 선택 주민 지정 — REST 생활기록 폴러 대상(egui 패널에서 호출)
+    setWatchAgent: function (id) { watchAgent = id || null; },
     onChatRow: function (fn) { chatRowListeners.push(fn); },
     agentInfo: function (id) { return agentsInfo[id] || null; },
   };

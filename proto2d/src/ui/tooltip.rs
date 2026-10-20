@@ -5,6 +5,8 @@ use bevy::prelude::*;
 use bevy_egui::egui;
 
 use super::i18n::{Tr, tr, trf};
+use super::theme;
+use super::vocab::Vocab;
 use super::ctx;
 use crate::net::live_props::LiveResourceTag;
 
@@ -20,9 +22,17 @@ struct TipState {
     #[serde(default, rename = "type")]
     bld_type: Option<String>,
     #[serde(default)]
+    by: Option<String>,
+    #[serde(default)]
+    progress: Option<f32>,
+    #[serde(default)]
+    lit: Option<bool>,
+    #[serde(default)]
     owner_name: Option<String>,
     #[serde(default)]
     name: Option<String>,
+    #[serde(default)]
+    age: Option<u32>,
     #[serde(default)]
     epitaph: Option<String>,
     #[serde(default)]
@@ -31,10 +41,11 @@ struct TipState {
     available: Option<bool>,
 }
 
-#[allow(clippy::type_complexity)] // Bevy 파라미터 — 창·카메라·자원 동시 참조
+#[allow(clippy::type_complexity)] // Bevy 파라미터 — 창·카메라·자원·사전 동시 참조
 pub fn show(
     mut contexts: bevy_egui::EguiContexts,
     ui_state: bevy::ecs::system::Res<crate::ui::UiState>,
+    vocab: bevy::ecs::system::Res<Vocab>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     camera_q: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
     res_q: Query<(&Transform, &LiveResourceTag), Without<Camera2d>>,
@@ -84,16 +95,37 @@ pub fn show(
         "relic" => tr(lang, Tr::TipRelic),
         other => other,
     };
+    let icon = super::i18n::ev_kind_icon(match r.kind.as_str() {
+        "tree" | "plant" => "resource",
+        "animal" => "spawn",
+        "grave" => "death",
+        "relic" => "invention",
+        _ => "result",
+    });
     egui::Area::new(egui::Id::new("res_tooltip"))
         .order(egui::Order::Tooltip)
         .fixed_pos(pointer + egui::vec2(12.0, 12.0))
         .interactable(false)
         .show(&c, |ui| {
-            egui::Frame::popup(ui.style()).show(ui, |ui| {
+            super::widgets::card().show(ui, |ui| {
                 ui.set_min_width(150.0);
-                ui.strong(format!("{kind_label} #{}", r.id));
+                ui.horizontal(|ui| {
+                    ui.label(
+                        bevy_egui::egui::RichText::new(icon)
+                            .size(11.0)
+                            .color(theme::ACCENT_SAND),
+                    );
+                    ui.strong(format!("{kind_label} #{}", r.id));
+                });
+                // 종(species) — vocab 라벨
+                if !r.species.is_empty() {
+                    ui.label(bevy_egui::egui::RichText::new(vocab.sp(lang, &r.species)).size(10.5));
+                }
                 if let Some(n) = &st.name {
                     ui.label(trf(lang, Tr::TipName, n));
+                }
+                if let Some(by) = st.by.as_deref().filter(|s| !s.is_empty()) {
+                    ui.label(trf(lang, Tr::TipOwner, by));
                 }
                 if let Some(o) = &st.owner_name {
                     ui.label(trf(lang, Tr::TipOwner, o));
@@ -107,12 +139,25 @@ pub fn show(
                 if let Some(alive) = st.alive {
                     ui.label(if alive { tr(lang, Tr::TipAlive) } else { tr(lang, Tr::TipDead) });
                 }
+                if let Some(lit) = st.lit {
+                    let mark = if lit { "火" } else { "·" };
+                    ui.label(bevy_egui::egui::RichText::new(format!(
+                        "{mark} {}",
+                        if lit { tr(lang, Tr::TipHarvest) } else { tr(lang, Tr::TipRegrow) }
+                    ))
+                    .size(10.5));
+                }
+                // 건축물 — 종 라벨 + 단계(vocab bldstage) + 진행률
                 if let Some(s) = &st.stage {
-                    let mut line = trf(lang, Tr::TipBuild, s);
-                    if let Some(t) = &st.bld_type {
-                        line.push_str(&format!(" ({t})"));
-                    }
+                    let bld = st.bld_type.as_deref().unwrap_or("HUT");
+                    let stage_lbl = vocab.bldstage(lang, bld, s);
+                    let pct = st.progress.map(|p| format!(" {}%", (p * 100.0) as u32)).unwrap_or_default();
+                    let line = trf(lang, Tr::TipBuild, stage_lbl) + &pct;
                     ui.label(line);
+                    ui.label(bevy_egui::egui::RichText::new(vocab.building(lang, bld)).size(10.0));
+                }
+                if let Some(a) = st.age {
+                    ui.label(trf(lang, Tr::TipGraveAge, &a.to_string()));
                 }
                 if let Some(e) = &st.epitaph {
                     ui.weak(format!("“{e}”"));

@@ -1,13 +1,18 @@
-//! 토스트 — 새 이벤트 알림(우하단 스택·4초 페이드). EventLog 신규 행에서 공급.
+//! 토스트 — 하이라이트 이벤트 알림(우하단 스택·6초 페이드).
+//! 레거시 FE 하이라이트 피드 직역: is_highlight 통과 이벤트만, 아이콘+종색.
 
 use bevy::prelude::*;
 use bevy_egui::egui;
 
-use super::ctx;
-use super::EventLog;
+use super::i18n::{ev_color, ev_kind_icon};
+use super::theme;
+use super::vocab::Vocab;
+use super::{EventLog, UiState, ctx, is_highlight};
 
 #[derive(Default)]
 pub struct Toast {
+    pub icon: &'static str,
+    pub color: egui::Color32,
     pub text: String,
     pub ttl: f32,
 }
@@ -17,25 +22,34 @@ pub struct ToastQ {
     pub items: Vec<Toast>,
 }
 
-const TOAST_SECS: f32 = 4.0;
+const TOAST_SECS: f32 = 6.0;
 const MAX_TOASTS: usize = 4;
 
-/// EventLog 신규 행 → 토스트 적재
+/// EventLog 신규 행 → 하이라이트만 토스트 적재(렌더 1회 — 언어 고정)
 pub fn collect(
     mut toasts: ResMut<ToastQ>,
     log: Res<EventLog>,
+    vocab: Res<Vocab>,
+    ui_state: Res<UiState>,
     mut seen: Local<usize>,
 ) {
-    // 로그가 잘린 경우(100 상한 드레인) 시점 재동기
+    // 로그가 잘린 경우(400 상한 드레인) 시점 재동기
     if *seen > log.rows.len() {
         *seen = log.rows.len();
     }
     while *seen < log.rows.len() {
-        let text = log.rows[*seen].clone();
-        toasts.items.push(Toast {
-            text,
-            ttl: TOAST_SECS,
-        });
+        let e = &log.rows[*seen];
+        if is_highlight(&e.kind, &e.payload) {
+            let text = vocab.event_text(ui_state.lang, &e.payload);
+            if !text.is_empty() {
+                toasts.items.push(Toast {
+                    icon: ev_kind_icon(&e.kind),
+                    color: ev_color(&e.kind),
+                    text,
+                    ttl: TOAST_SECS,
+                });
+            }
+        }
         *seen += 1;
     }
     if toasts.items.len() > MAX_TOASTS {
@@ -58,23 +72,43 @@ pub fn show(mut contexts: bevy_egui::EguiContexts, time: Res<Time>, mut toasts: 
         return;
     }
     egui::Area::new(egui::Id::new("toasts"))
-        .anchor(egui::Align2::RIGHT_BOTTOM, egui::vec2(-8.0, -40.0))
+        .anchor(egui::Align2::RIGHT_BOTTOM, egui::vec2(-10.0, -44.0))
         .show(&c, |ui| {
-            for t in &toasts.items {
-                let alpha = (t.ttl.min(1.0) * 0.88).clamp(0.0, 1.0);
+            for t in &mut toasts.items {
+                let alpha = (t.ttl.min(1.0) * 0.92).clamp(0.0, 1.0);
                 egui::Frame::new()
-                    .fill(egui::Color32::from_rgba_unmultiplied(18, 24, 16, (alpha * 255.0) as u8))
-                    .stroke(egui::Stroke::new(1.0_f32, egui::Color32::from_white_alpha((alpha * 60.0) as u8)))
+                    .fill(egui::Color32::from_rgba_unmultiplied(
+                        18,
+                        24,
+                        16,
+                        (alpha * 235.0) as u8,
+                    ))
+                    .stroke(egui::Stroke::new(
+                        1.0_f32,
+                        egui::Color32::from_white_alpha((alpha * 40.0) as u8),
+                    ))
                     .inner_margin(egui::Margin::symmetric(10, 6))
-                    .corner_radius(6.0)
+                    .corner_radius(10.0)
                     .show(ui, |ui| {
-                        ui.set_max_width(340.0);
-                        ui.label(
-                            egui::RichText::new(&t.text)
-                                .small()
-                                .color(egui::Color32::from_white_alpha((alpha * 235.0) as u8)),
-                        );
+                        ui.set_max_width(320.0);
+                        ui.horizontal(|ui| {
+                            ui.label(
+                                egui::RichText::new(t.icon)
+                                    .size(12.0)
+                                    .color(mul_alpha(t.color, alpha)),
+                            );
+                            ui.label(
+                                egui::RichText::new(&t.text)
+                                    .size(10.5)
+                                    .color(mul_alpha(theme::TEXT_WARM, alpha)),
+                            );
+                        });
                     });
             }
         });
+}
+
+fn mul_alpha(c: egui::Color32, a: f32) -> egui::Color32 {
+    let [r, g, b, ca] = c.to_array();
+    egui::Color32::from_rgba_unmultiplied(r, g, b, (ca as f32 * a) as u8)
 }

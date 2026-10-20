@@ -26,6 +26,8 @@
                 letter-spacing: 0.04em;
                 pointer-events: none;
             }
+            /* 진단 상태줄 — ?diag=1일 때만 표시(평시 게임 크롬에서 제외).
+               E2E(state 스텝)는 DOM 텍스트를 읽으므로 숨김과 무관하게 동작. */
             #status {
                 position: fixed;
                 left: 0;
@@ -40,7 +42,9 @@
                 text-align: center;
                 pointer-events: none;
                 z-index: 10;
+                opacity: 0;
             }
+            #status.diag-on, #gldiag.diag-on { opacity: 1; }
             #gldiag {
                 position: fixed;
                 left: 0;
@@ -53,6 +57,7 @@
                 text-align: center;
                 pointer-events: none;
                 z-index: 10;
+                opacity: 0;
             }
             canvas {
                 width: 100vw;
@@ -67,6 +72,12 @@
         <canvas id="bevy"></canvas>
         <div id="gldiag"></div>
         <div id="status">v3.4-019 부팅…</div>
+        <script>
+            if (/[?&]diag=1/.test(location.search)) {
+                document.getElementById('status').classList.add('diag-on');
+                document.getElementById('gldiag').classList.add('diag-on');
+            }
+        </script>
         <!-- 라이브 브리지 — colyseus.js(벤더 UMD) 먼저, worldsim.js가 DOMContentLoaded에
              접속. Rust(wasm)는 Startup에 window.terrafolk.setSink(fn) 등록 — 늦게 등록돼도
              worldsim.js가 lastMap을 캐시해 매 스냅숏 map을 재전송하므로 첫 상태 유실 없음.
