@@ -1,0 +1,1 @@
+{"part": "hair_page", "png": "c0", "cat": "hair", "seed": 525279, "ok": true, "log": ["  행 3 완료 (IoU 최저 0.979, drift σ 6.3)", "게이트 PASS", "측정 {'seed': 525280, 'iou_min': 0.979, 'drift_sigma_max': 6.28, 'drift_mean': 30.5, 'frames': 36} → /Users/openclaw/workspace/terrafolk-rust/assets/painted-parts/hair_page/c0.png"]}

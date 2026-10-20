@@ -1,0 +1,8 @@
+{
+  "part": "eyebrows_thick",
+  "png": "male0",
+  "cat": "brows",
+  "seed": 525263,
+  "ok": true,
+  "log": ["커밋 통과본 복구(2026-10-20 코드리뷰) — provenance 실측: drift σ 14.08 < 22, |drift| 33.6 < 35, IoU 최저 0.894 → 게이트 PASS 산출물과 일치"]
+}
