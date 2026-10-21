@@ -9,13 +9,18 @@ use bevy::window::PrimaryWindow;
 use bevy::winit::WINIT_WINDOWS;
 use std::io::Cursor;
 use terrafolk_bevy::GamePlugin;
+#[cfg(not(target_arch = "wasm32"))]
+use terrafolk_bevy::net::remote_assets;
 use winit::window::Icon;
 
 fn main() {
     #[cfg(target_arch = "wasm32")]
     console_error_panic_hook::set_once();
-    App::new()
-        .insert_resource(ClearColor(Color::linear_rgb(0.4, 0.4, 0.4)))
+    let mut app = App::new();
+    // 원격 에셋 소스 — AssetPlugin 확정 전 등록(발명품 3D 모델 §17.86).
+    #[cfg(not(target_arch = "wasm32"))]
+    remote_assets::register_source(&mut app);
+    app.insert_resource(ClearColor(Color::linear_rgb(0.4, 0.4, 0.4)))
         .add_plugins(
             DefaultPlugins
                 .set(WindowPlugin {

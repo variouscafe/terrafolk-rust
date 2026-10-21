@@ -150,6 +150,7 @@ impl Plugin for NetPlugin {
             .init_resource::<feed::EventLog>()
             .init_resource::<feed::ToastQ>()
             .add_systems(Startup, (connect_bridge, apply::prime_live_world).chain())
+            .add_plugins(inventions::plugin)
             .add_systems(
                 Update,
                 (
@@ -263,6 +264,8 @@ pub fn drain_frames(queue: Res<FrameQueue>, phase: Res<NetLinkPhase>, mut net: R
 pub mod apply;
 pub mod agent_hud;
 pub mod dbg_gate;
+pub mod inventions;
+pub mod remote_assets;
 /// 관전 피드(채팅·이벤트·관계·생활기록) 버퍼와 드레인
 pub mod feed;
 /// HTTP 관전 폴러(백로그·관계·생활기록) — 네이티브 전용

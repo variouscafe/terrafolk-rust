@@ -570,3 +570,46 @@ pub fn flicker_campfires(
         }
     }
 }
+
+/// 동적 원격 프롭(발명품 3D 모델 §17.86 확장) — PropKind 없이 씬 핸들+목표높이.
+/// 리소스 동기(resources.rs)가 발명명 매칭 원격 GLB를 스폰할 때 쓴다.
+/// 핏은 fit_props와 동일 규칙(계층 AABB→목표높이, FitTransform→apply_fit).
+#[derive(Component)]
+pub struct DynProp {
+    pub target_h: f32,
+    pub ground_y: f32,
+    pub rot_y: f32,
+}
+
+pub fn fit_dyn_props(
+    mut commands: Commands,
+    q_root: Query<
+        (Entity, &DynProp, &Children),
+        (With<DynProp>, Without<Fitted>, Without<FitTransform>),
+    >,
+    q_all: FitQuery,
+    meshes: Res<Assets<Mesh>>,
+    mut aabb_cache: ResMut<MeshAabbCache>,
+) {
+    for (root_e, prop, children) in &q_root {
+        let mut all_meshes = Vec::new();
+        for c in children.iter() {
+            collect_meshes(c, &q_all, &mut all_meshes);
+        }
+        let measure: Vec<Entity> = all_meshes.into_iter().map(|(e, _)| e).collect();
+        let Some((mn, mx)) = meshes_aabb(&measure, root_e, &q_all, &meshes, &mut aabb_cache)
+        else {
+            continue; // 메시 미로딩 — 다음 프레임 재시도
+        };
+        let size = (mx - mn).max(Vec3::splat(1e-4));
+        let s = (prop.target_h / size.y).clamp(0.02, 6.0);
+        if !s.is_finite() {
+            continue;
+        }
+        commands.entity(root_e).insert(FitTransform {
+            root_y: prop.ground_y - mn.y * s,
+            scale: s,
+            rot_y: prop.rot_y,
+        });
+    }
+}

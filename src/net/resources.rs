@@ -82,6 +82,7 @@ pub fn sync_resources(
     net: Res<NetState>,
     world: Res<WorldData>,
     assets: Res<AssetServer>,
+    ready: Option<Res<super::inventions::ReadyModels>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut std_mats: ResMut<Assets<bevy::pbr::StandardMaterial>>,
     mut q_live: Query<(
@@ -277,24 +278,48 @@ pub fn sync_resources(
                     .entity(pile)
                     .insert((LiveResourceTag(r.id), LiveResMeta(sig)));
             } else if let Some((kind, target_h)) = live_visual(&r.kind, &r.species, &st) {
-                let b = commands
-                    .spawn((
-                        crate::world::models::PropRoot {
-                            kind,
-                            target_h,
-                            ground_y: ground,
-                            rot_y: (r.id % 4) as f32 * std::f32::consts::FRAC_PI_2,
-                            scale_jitter: 1.0,
-                            variants: crate::world::models::prop_model(kind).1,
-                        },
-                        bevy::world_serialization::WorldAssetRoot(
-                            crate::world::models::prop_scene(kind, &assets),
-                        ),
-                        LiveResourceTag(r.id),
-                        LiveResMeta(sig),
-                        Transform::from_translation(Vec3::new(cx, ground, cz)),
-                    ))
-                    .id();
+                // 발명품 3D 모델 우선(§17.86 확장) — relic 부지의 species가
+                // 모델 보유 발명명과 일치하면 원격 GLB(DynProp)로 스폰.
+                // 미매칭·미로딩은 기존 정적 종(folder relic) 폴백 그대로.
+                let invention_model = if kind == PropKind::Relic {
+                    ready.as_ref().and_then(|rd| rd.by_name.get(&r.species).cloned())
+                } else {
+                    None
+                };
+                let b = if let Some(scene) = invention_model {
+                    commands
+                        .spawn((
+                            crate::world::models::DynProp {
+                                target_h: 1.4,
+                                ground_y: ground,
+                                rot_y: (r.id % 4) as f32 * std::f32::consts::FRAC_PI_2,
+                            },
+                            bevy::world_serialization::WorldAssetRoot(scene),
+                            LiveResourceTag(r.id),
+                            LiveResMeta(sig),
+                            Transform::from_translation(Vec3::new(cx, ground, cz)),
+                        ))
+                        .id()
+                } else {
+                    commands
+                        .spawn((
+                            crate::world::models::PropRoot {
+                                kind,
+                                target_h,
+                                ground_y: ground,
+                                rot_y: (r.id % 4) as f32 * std::f32::consts::FRAC_PI_2,
+                                scale_jitter: 1.0,
+                                variants: crate::world::models::prop_model(kind).1,
+                            },
+                            bevy::world_serialization::WorldAssetRoot(
+                                crate::world::models::prop_scene(kind, &assets),
+                            ),
+                            LiveResourceTag(r.id),
+                            LiveResMeta(sig),
+                            Transform::from_translation(Vec3::new(cx, ground, cz)),
+                        ))
+                        .id()
+                };
                 let glow = crate::world::bld::spawn_window_glow(
                     &mut commands,
                     &mut meshes,

@@ -110,6 +110,7 @@ impl Plugin for WorldPlugin {
                 daynight::advance_time,
                 daynight::apply_sky,
                 models::fit_props,
+                models::fit_dyn_props,
                 models::apply_fit,
                 wind::apply_wind,
                 models::flicker_campfires,
