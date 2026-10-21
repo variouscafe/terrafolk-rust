@@ -2,8 +2,6 @@
 //! 기반. URL → 캐시 파일(sha16 파일명) → bevy "remote" 소스(FileAssetReader)
 //! 로드. 네이티브 전용(안드로이드 우선 계약 — wasm은 JS fetch 경로 후속).
 
-use bevy::asset::io::AssetSourceBuilder;
-use bevy::asset::io::file::FileAssetReader;
 use bevy::prelude::*;
 
 /// 캐시 루트 — 진단 스크린샷(shot_path)과 동일한 플랫폼 쓰기 경로 규칙.
@@ -17,8 +15,11 @@ pub(crate) fn cache_dir() -> std::path::PathBuf {
 }
 
 /// "remote" 소스 등록 — main.rs 플러그인 구성에서 1회 호출(프로세서 이전).
+/// wasm은 파일 리더가 없어 미등록(원격 로드 JS 경로 후속 — 지금은 비활성).
 #[cfg(not(target_arch = "wasm32"))]
 pub fn register_source(app: &mut App) {
+    use bevy::asset::io::AssetSourceBuilder;
+    use bevy::asset::io::file::FileAssetReader;
     let dir = cache_dir();
     let _ = std::fs::create_dir_all(&dir);
     let reader_dir = dir.clone();

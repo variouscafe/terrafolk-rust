@@ -245,3 +245,31 @@ pub fn apply_sky(
         gg.exposure = night * 0.2;
     }
 }
+
+/// 시각 오버라이드(진단·야간 검증) — env TF_HOUR 또는 쓰기 가능 경로의
+/// `tf_hour` 파일(adb push로 주입 — auth.json 패턴). 미지정이면 기본 9시.
+/// 네이티브 전용(wasm는 std::env 없음·파일 규칙 다름).
+#[cfg(not(target_arch = "wasm32"))]
+pub fn daytime_override_or_default() -> DayTime {
+    let mut d = DayTime::default();
+    let mut ovr = std::env::var("TF_HOUR").ok().and_then(|v| v.parse::<f32>().ok());
+    if ovr.is_none() {
+        if let Some(dir) = crate::platform::diagnostics::shot_path().parent() {
+            if let Ok(txt) = std::fs::read_to_string(dir.join("tf_hour")) {
+                ovr = txt.trim().parse::<f32>().ok();
+            }
+        }
+    }
+    if let Some(h) = ovr {
+        if (0.0..24.0).contains(&h) {
+            d.hour = h;
+            info!("[daynight] 시각 오버라이드 {h:.1}시(TF_HOUR)");
+        }
+    }
+    d
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn daytime_override_or_default() -> DayTime {
+    DayTime::default()
+}

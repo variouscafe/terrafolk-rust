@@ -11,6 +11,7 @@ pub mod camera_rig;
 pub mod data;
 pub mod daynight;
 pub mod legacy_world;
+pub mod night_glow;
 pub mod materials_guard;
 pub mod models;
 pub mod occlusion;
@@ -43,10 +44,11 @@ impl Plugin for WorldPlugin {
         app.init_asset::<water::WaterMaterial>();
         app.add_plugins(MaterialPlugin::<splat::TerrainMaterial>::default());
         app.add_plugins(MaterialPlugin::<wind::WindMaterial>::default());
+        app.add_plugins(night_glow::plugin);
         app.insert_resource(ClearColor(Color::srgb(0.30, 0.48, 0.68)))
             .init_resource::<models::MeshAabbCache>()
             .insert_resource(data::WorldData::generate(20261015))
-            .insert_resource(daynight::DayTime::default())
+            .insert_resource(daynight::daytime_override_or_default())
             .insert_resource(precip::WeatherState::default())
             .insert_resource(camera_rig::CameraRig::default())
             .insert_resource(camera_input::PointerInput::default())
