@@ -133,6 +133,9 @@ pub enum Tr {
     EcoVolume,
     EcoGoldDeals,
     EcoUpdated, // "{d}일차 시세"
+    EcoColItem,
+    EcoColPrice,
+    EcoColTrades,
     // 메뉴
     Menu,
     MenuSnow,
@@ -281,6 +284,9 @@ pub fn tr(lang: Lang, key: Tr) -> &'static str {
         Tr::EcoVolume => ("누적 거래 {}", "{} trades", "交易量 {}", "取引量 {}"),
         Tr::EcoGoldDeals => ("금 거래 {}건", "{} gold deals", "金币交易 {}", "金貨取引 {}"),
         Tr::EcoUpdated => ("{}일차 기준", "As of day {}", "第 {} 天行情", "{}日目の相場"),
+        Tr::EcoColItem => ("품목", "Item", "品目", "品目"),
+        Tr::EcoColPrice => ("금가", "Gold", "金价", "金額"),
+        Tr::EcoColTrades => ("성사", "Trades", "成交", "成約"),
         Tr::Menu => ("메뉴", "Menu", "菜单", "メニュー"),
         Tr::MenuSnow => ("눈 스킨(강제)", "Snow skin (force)", "雪景（覆盖季节）", "雪景色（季節を上書き）"),
         Tr::MenuClose => ("닫기", "Close", "关闭", "閉じる"),

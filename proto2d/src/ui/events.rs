@@ -159,9 +159,21 @@ fn row_ui(
                         .size(10.0)
                         .color(ev_color(&e.kind)),
                 );
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(
+                        egui::RichText::new(fmt_hhmm(e.ts.as_deref()))
+                            .size(9.0)
+                            .color(theme::TEXT_DIM),
+                    );
+                });
             });
         });
     })
     .response
     .on_hover_text(fmt_hhmm(e.ts.as_deref()));
+    // 헤어라인 — 행 밀도 구분(스크롤 목록 가독)
+    let w = ui.available_width();
+    let (rect, _) = ui.allocate_exact_size(egui::vec2(w, 1.0), egui::Sense::hover());
+    ui.painter()
+        .line_segment([rect.left_center(), rect.right_center()], egui::Stroke::new(0.5_f32, theme::STROKE_OLIVE));
 }

@@ -83,27 +83,53 @@ pub fn panel(
                     .num_columns(3)
                     .spacing(egui::vec2(10.0, 3.0))
                     .show(ui, |ui| {
-                        for p in d.prices.iter().take(12) {
-                            ui.label(
-                                egui::RichText::new(vocab.item(lang, &p.item))
-                                    .size(10.5)
-                                    .color(theme::TEXT_WARM),
-                            );
-                            ui.label(
-                                egui::RichText::new(format!("{:.1}g", p.price_g))
-                                    .size(10.5)
-                                    .color(theme::ACCENT_SAND),
-                            );
-                            ui.label(
-                                egui::RichText::new(format!("×{}", p.trades_seen.unwrap_or(0)))
-                                    .size(9.5)
-                                    .color(theme::TEXT_DIM),
-                            );
+                        // 컬럼 헤더 — 레거시 시세표 헤더 직역(품목/금가/성사)
+                        ui.label(egui::RichText::new(tr(lang, Tr::EcoColItem)).size(9.0).color(theme::TEXT_DIM));
+                        ui.label(egui::RichText::new(tr(lang, Tr::EcoColPrice)).size(9.0).color(theme::TEXT_DIM));
+                        ui.label(egui::RichText::new(tr(lang, Tr::EcoColTrades)).size(9.0).color(theme::TEXT_DIM));
+                        ui.end_row();
+                        for (i, p) in d.prices.iter().take(12).enumerate() {
+                            // 지브라 — 짝수행 유리 틴트(행 경계 가독)
+                            let zebra = i % 2 == 0;
+                            let bg = if zebra { theme::glass() } else { egui::Color32::TRANSPARENT };
+                            egui::Frame::new()
+                                .fill(bg)
+                                .corner_radius(4.0)
+                                .inner_margin(egui::Margin::symmetric(4, 2))
+                                .show(ui, |ui| {
+                                    ui.label(
+                                        egui::RichText::new(vocab.item(lang, &p.item))
+                                            .size(10.5)
+                                            .color(theme::TEXT_WARM),
+                                    );
+                                });
+                            egui::Frame::new()
+                                .fill(bg)
+                                .corner_radius(4.0)
+                                .inner_margin(egui::Margin::symmetric(4, 2))
+                                .show(ui, |ui| {
+                                    ui.label(
+                                        egui::RichText::new(format!("{:.1}g", p.price_g))
+                                            .size(10.5)
+                                            .color(theme::ACCENT_SAND),
+                                    );
+                                });
+                            egui::Frame::new()
+                                .fill(bg)
+                                .corner_radius(4.0)
+                                .inner_margin(egui::Margin::symmetric(4, 2))
+                                .show(ui, |ui| {
+                                    ui.label(
+                                        egui::RichText::new(format!("×{}", p.trades_seen.unwrap_or(0)))
+                                            .size(9.5)
+                                            .color(theme::TEXT_DIM),
+                                    );
+                                });
                             ui.end_row();
                         }
                     });
             }
-            // 최근 성사 — A → B: 나무×3 ⇄ 열매×2
+            // 최근 성사 — A → B: 나무×3 ⇄ 열매×2 (행 카드 — 이름 강조·항목 칩)
             if !d.deals.is_empty() {
                 section(ui, regular::ARROWS_LEFT_RIGHT, tr(lang, Tr::EcoDeals));
                 egui::ScrollArea::vertical()
@@ -112,19 +138,60 @@ pub fn panel(
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
                         for deal in d.deals.iter().rev().take(10) {
-                            ui.label(
-                                egui::RichText::new(format!(
-                                    "{} → {} · {}×{} ⇄ {}×{}",
-                                    name_of(&deal.a_id),
-                                    name_of(&deal.b_id),
-                                    vocab.item(lang, &deal.give_item),
-                                    deal.give_qty.unwrap_or(0),
-                                    vocab.item(lang, &deal.get_item),
-                                    deal.get_qty.unwrap_or(0),
-                                ))
-                                .size(10.0)
-                                .color(theme::TEXT_DIM),
-                            );
+                            egui::Frame::new()
+                                .fill(theme::glass())
+                                .stroke(egui::Stroke::new(1.0_f32, theme::STROKE_OLIVE))
+                                .corner_radius(7.0)
+                                .inner_margin(egui::Margin::symmetric(7, 4))
+                                .show(ui, |ui| {
+                                    ui.set_width(ui.available_width());
+                                    ui.horizontal(|ui| {
+                                        ui.label(
+                                            egui::RichText::new(regular::ARROWS_LEFT_RIGHT)
+                                                .size(10.0)
+                                                .color(theme::TEXT_DIM),
+                                        );
+                                        ui.label(
+                                            egui::RichText::new(name_of(&deal.a_id))
+                                                .size(10.5)
+                                                .color(theme::TEXT_WARM),
+                                        );
+                                        ui.label(
+                                            egui::RichText::new("→").size(10.0).color(theme::TEXT_DIM),
+                                        );
+                                        ui.label(
+                                            egui::RichText::new(name_of(&deal.b_id))
+                                                .size(10.5)
+                                                .color(theme::TEXT_WARM),
+                                        );
+                                    });
+                                    ui.horizontal(|ui| {
+                                        chip(
+                                            ui,
+                                            &format!(
+                                                "{} ×{}",
+                                                vocab.item(lang, &deal.give_item),
+                                                deal.give_qty.unwrap_or(0)
+                                            ),
+                                            theme::INK,
+                                            theme::glass_hi(),
+                                        );
+                                        ui.label(
+                                            egui::RichText::new("⇄").size(9.0).color(theme::TEXT_DIM),
+                                        );
+                                        chip(
+                                            ui,
+                                            &format!(
+                                                "{} ×{}",
+                                                vocab.item(lang, &deal.get_item),
+                                                deal.get_qty.unwrap_or(0)
+                                            ),
+                                            theme::INK,
+                                            theme::glass_hi(),
+                                        );
+                                    });
+                                });
+                            ui.add_space(2.0);
                         }
                     });
             }
