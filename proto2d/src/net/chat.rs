@@ -63,17 +63,19 @@ pub fn drain_and_bubble(
         let Some((agent_e, _)) = q_agents.iter().find(|(_, t)| t.0 == row.agent_id) else {
             continue;
         };
-        // 같은 주민의 이전 버블 제거
+        // 같은 주민의 이전 버블 제거 — try_despawn: 같은 배치 내 같은 주민
+        // 행이 여럿이면 q_bubbles 스냅숏에 이미 지목된 버블이 재지목된다
+        // (커맨드 지연 적용이라 질의에 남는다 — 부팅 백로그에서 실측).
         for (be, of) in &q_bubbles {
             if of.0 == agent_e {
-                commands.entity(be).despawn();
+                commands.entity(be).try_despawn();
             }
         }
         // 상한 — 만료 임박(가장 오래된) 버블부터 퇴장. SpeechBubble 질의가
         // 이 시스템에 없으니 엔티티 인덱스(≈생성순) 휴리스틱으로 충분하다.
         if q_bubbles.iter().count() >= MAX_BUBBLES {
             if let Some((oldest, _)) = q_bubbles.iter().min_by_key(|(be, _)| be.index()) {
-                commands.entity(oldest).despawn();
+                commands.entity(oldest).try_despawn();
             }
         }
         // 폭 추정 — 한글 전각 ≈ 1em, 라틴/공백 ≈ 0.55em
@@ -124,14 +126,16 @@ pub fn fade(
         b.ttl -= time.delta_secs();
         if b.ttl <= 0.0 {
             // 배경 + 같은 주민의 형제 텍스트까지 철거(텍스트는 BubbleOf만 달고 있음)
+            // try_despawn — ingest의 같은 주민 버블 철거와 같은 프레임에 겹치면
+            // 이중 despawn 오류가 난다(커맨드 지연 적용 전 양쪽 질의에 존재).
             if let Ok(of) = bubbles.get(e) {
                 for (te, to, _) in &texts {
                     if to.0 == of.0 {
-                        commands.entity(te).despawn();
+                        commands.entity(te).try_despawn();
                     }
                 }
             }
-            commands.entity(e).despawn();
+            commands.entity(e).try_despawn();
             continue;
         }
         let a = b.ttl.min(1.0);
