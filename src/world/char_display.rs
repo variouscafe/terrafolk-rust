@@ -11,7 +11,7 @@ use bevy::world_serialization::{WorldAssetRoot, WorldInstanceReady};
 
 use super::chibi;
 use super::data::WorldData;
-use super::models::{FitQuery, MeshAabbCache, meshes_aabb};
+use super::prop_fit::{FitQuery, MeshAabbCache, meshes_aabb};
 
 /// 전시 캐릭터 루트.
 #[derive(Component)]

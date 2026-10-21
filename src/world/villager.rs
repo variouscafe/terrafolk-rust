@@ -161,11 +161,11 @@ pub fn villager_ready(
     q_self: Query<(&Villager, &VillagerModel, &Transform)>,
     children: Query<&Children>,
     mut players: Query<(Entity, &mut AnimationPlayer)>,
-    q_walk: super::models::FitQuery,
+    q_walk: super::prop_fit::FitQuery,
     gltfs: Res<Assets<Gltf>>,
     mut graphs: ResMut<Assets<AnimationGraph>>,
     meshes: Res<Assets<Mesh>>,
-    mut aabb_cache: ResMut<super::models::MeshAabbCache>,
+    mut aabb_cache: ResMut<super::prop_fit::MeshAabbCache>,
     world: Res<super::data::WorldData>,
 ) {
     let Ok((villager, model, tr)) = q_self.get(trigger.entity) else {
@@ -206,11 +206,11 @@ pub fn retry_villager_setup(
     )>,
     children: Query<&Children>,
     mut players: Query<(Entity, &mut AnimationPlayer)>,
-    q_walk: super::models::FitQuery,
+    q_walk: super::prop_fit::FitQuery,
     gltfs: Res<Assets<Gltf>>,
     mut graphs: ResMut<Assets<AnimationGraph>>,
     meshes: Res<Assets<Mesh>>,
-    mut aabb_cache: ResMut<super::models::MeshAabbCache>,
+    mut aabb_cache: ResMut<super::prop_fit::MeshAabbCache>,
     world: Res<super::data::WorldData>,
 ) {
     for (entity, villager, model, tr, mut pending) in &mut q {
@@ -253,11 +253,11 @@ fn finish_villager_setup(
     commands: &mut Commands,
     children: &Query<&Children>,
     players: &mut Query<(Entity, &mut AnimationPlayer)>,
-    q_walk: &super::models::FitQuery,
+    q_walk: &super::prop_fit::FitQuery,
     gltfs: &Assets<Gltf>,
     graphs: &mut Assets<AnimationGraph>,
     meshes: &Assets<Mesh>,
-    aabb_cache: &mut super::models::MeshAabbCache,
+    aabb_cache: &mut super::prop_fit::MeshAabbCache,
     world: &super::data::WorldData,
 ) -> bool {
     let Some(gltf) = gltfs.get(&model.0) else {
@@ -324,7 +324,7 @@ fn finish_villager_setup(
             measure.push(child);
         }
     }
-    if let Some((mn, mx)) = super::models::meshes_aabb(&measure, entity, q_walk, meshes, aabb_cache)
+    if let Some((mn, mx)) = super::prop_fit::meshes_aabb(&measure, entity, q_walk, meshes, aabb_cache)
     {
         let size = (mx - mn).max(Vec3::splat(1e-4));
         let s = (villager.target_h / size.y).clamp(0.05, 50.0);

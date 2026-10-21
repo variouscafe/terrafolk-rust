@@ -171,7 +171,7 @@ fn dbg_glbload(
             let (x, z) = (c + dx, c + dz);
             let ground = world.height_at(x, z);
             commands.spawn((
-                crate::world::models::DynProp {
+                crate::world::prop_fit::DynProp {
                     target_h: 2.2,
                     ground_y: ground,
                     rot_y: 0.0,

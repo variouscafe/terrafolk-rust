@@ -10,7 +10,8 @@
 use bevy::prelude::*;
 
 use super::data::PropKind;
-use super::models::{Fitted, PropRoot};
+use super::models::PropRoot;
+use super::prop_fit::Fitted;
 use super::pick::Selection;
 use super::villager::Villager;
 

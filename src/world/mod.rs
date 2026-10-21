@@ -14,6 +14,7 @@ pub mod legacy_world;
 pub mod night_glow;
 pub mod materials_guard;
 pub mod models;
+pub mod prop_fit;
 pub mod occlusion;
 pub mod outfit;
 pub mod outline;
@@ -31,6 +32,7 @@ pub mod villager;
 pub mod villager_probe;
 pub mod water;
 pub mod wear;
+#[allow(dead_code)] // 바람 흔들림 효과 제거(2026-10-22 사용자 지시 — 성능) — 모듈은 보존
 pub mod wind;
 
 use bevy::pbr::MaterialPlugin;
@@ -43,10 +45,10 @@ impl Plugin for WorldPlugin {
         app.add_plugins(bevy::pbr::MaterialPlugin::<water::WaterMaterial>::default());
         app.init_asset::<water::WaterMaterial>();
         app.add_plugins(MaterialPlugin::<splat::TerrainMaterial>::default());
-        app.add_plugins(MaterialPlugin::<wind::WindMaterial>::default());
+        // 바람 재질 플러그인 제거(2026-10-22) — 효과 비활성, 소품은 StandardMaterial
         app.add_plugins(night_glow::plugin);
         app.insert_resource(ClearColor(Color::srgb(0.30, 0.48, 0.68)))
-            .init_resource::<models::MeshAabbCache>()
+            .init_resource::<prop_fit::MeshAabbCache>()
             .insert_resource(data::WorldData::generate(20261015))
             .insert_resource(daynight::daytime_override_or_default())
             .insert_resource(precip::WeatherState::default())
@@ -111,10 +113,9 @@ impl Plugin for WorldPlugin {
                 overlay::overlay_feed,
                 daynight::advance_time,
                 daynight::apply_sky,
-                models::fit_props,
-                models::fit_dyn_props,
-                models::apply_fit,
-                wind::apply_wind,
+                prop_fit::fit_props,
+                prop_fit::fit_dyn_props,
+                prop_fit::apply_fit,
                 models::flicker_campfires,
                 (
                     bld::site_dressing,

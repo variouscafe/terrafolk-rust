@@ -52,7 +52,7 @@ pub fn apply_wind(
     mut commands: Commands,
     q_root: Query<
         (Entity, &super::models::PropRoot),
-        (With<super::models::Fitted>, Without<WindApplied>),
+        (With<super::prop_fit::Fitted>, Without<WindApplied>),
     >,
     q_walk: Query<(Option<&Children>, Option<&MeshMaterial3d<StandardMaterial>>)>,
     std_mats: Res<Assets<StandardMaterial>>,

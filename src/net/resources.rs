@@ -194,7 +194,7 @@ pub fn sync_resources(
     }
     let cleared = &cleared_cache.1;
     // 기존 실체 id 사전 — 신규 판정을 O(N×M) 순회 대신 해시 조회로.
-    let live_ids: std::collections::HashSet<u32> =
+    let mut live_ids: std::collections::HashSet<u32> =
         q_live.iter().map(|(_, t, _, _, _, _)| t.0).collect();
     // 스폰 예산 — 수천 자원이 한 프레임에 몰리면 씬 인스턴스화가 메인 스레드를
     // 수십 초 묶는다(2026-10-17 프리즈). 64/프레임 분산 — 잔여분은 다음 프레임
@@ -214,6 +214,14 @@ pub fn sync_resources(
             .and_then(|s| serde_json::from_str(s).ok())
             .unwrap_or_default();
         if world.terrain_at(r.x as i32, r.y as i32) == "water" {
+            continue;
+        }
+        // 나무 씬닝(2026-10-22 사용자 지시 — 라이브 5,576그루 과밀): 결정론
+        // 위치 해시로 35%만 렌더. 데이터는 온전(호버·수확은 서버 정본).
+        if r.kind == "tree"
+            && crate::world::models::pos_hash(r.x as usize, r.y as usize, 7) % 100 >= 35
+        {
+            live_ids.insert(r.id); // 스폰 스킵을 '이미 있음'으로 표시(재평가 방지)
             continue;
         }
         // ── hut — 다중 타일 발판(§17.75)·창불(§17.78). 서버 앵커=좌상단 타일,
@@ -295,7 +303,7 @@ pub fn sync_resources(
                 let b = if let Some(scene) = invention_model {
                     commands
                         .spawn((
-                            crate::world::models::DynProp {
+                            crate::world::prop_fit::DynProp {
                                 target_h: 1.4,
                                 ground_y: ground,
                                 rot_y: (r.id % 4) as f32 * std::f32::consts::FRAC_PI_2,
