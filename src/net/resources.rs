@@ -282,7 +282,13 @@ pub fn sync_resources(
                 // 모델 보유 발명명과 일치하면 원격 GLB(DynProp)로 스폰.
                 // 미매칭·미로딩은 기존 정적 종(folder relic) 폴백 그대로.
                 let invention_model = if kind == PropKind::Relic {
-                    ready.as_ref().and_then(|rd| rd.by_name.get(&r.species).cloned())
+                    ready.as_ref().and_then(|rd| {
+                        // species는 발명명(한글) 또는 안정 key(영문 — 시드 발명) 둘 다.
+                        rd.by_name
+                            .get(&r.species)
+                            .or_else(|| rd.key_to_name.get(&r.species).and_then(|n| rd.by_name.get(n)))
+                            .cloned()
+                    })
                 } else {
                     None
                 };

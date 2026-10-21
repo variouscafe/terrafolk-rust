@@ -14,18 +14,24 @@ pub(crate) struct InvRow {
     pub(crate) name: String,
     #[serde(default)]
     pub(crate) model: Option<String>,
+    /// §17.44 안정 key — 월드 부지 species(영문)와 매칭. 시드 발명(hut↔오두막).
+    #[serde(default)]
+    pub(crate) key: Option<String>,
 }
 
-/// 발명명 → 원격 GLB URL(모델 있는 행만).
+/// 발명명 → 원격 GLB URL(모델 있는 행만) + 안정 key → 발명명(부지 species 매칭).
 #[derive(Resource, Default)]
 pub(crate) struct InventionModels {
     pub(crate) by_name: std::collections::HashMap<String, String>,
+    pub(crate) key_to_name: std::collections::HashMap<String, String>,
 }
 
 /// 다운로드+로드 완료된 모델 — 발명명 → 씬 핸들. resources.rs가 소비.
 #[derive(Resource, Default)]
 pub(crate) struct ReadyModels {
     pub(crate) by_name: std::collections::HashMap<String, Handle<bevy::world_serialization::WorldAsset>>,
+    /// 안정 key → 발명명(부지 species가 key로 오는 경로 — 시드 발명).
+    pub(crate) key_to_name: std::collections::HashMap<String, String>,
 }
 
 /// 진행 상황(진단 로그용).
@@ -62,8 +68,12 @@ fn sync_models(
     };
     let n = rows.len();
     inv.by_name = rows
+        .iter()
+        .filter_map(|r| r.model.clone().map(|m| (r.name.clone(), m)))
+        .collect();
+    inv.key_to_name = rows
         .into_iter()
-        .filter_map(|r| r.model.map(|m| (r.name, m)))
+        .filter_map(|r| r.key.filter(|_| r.model.as_deref().is_some()).map(|k| (k, r.name)))
         .collect();
     info!("[inventions] 3D 모델 {}/{}행", inv.by_name.len(), n);
 }
@@ -97,4 +107,11 @@ fn pump_downloads(
             }
         }
     }
+    // key 인덱스 동기화(부지 species가 key로 오는 경로 — 로드 완료분만)
+    ready.key_to_name = inv
+        .key_to_name
+        .iter()
+        .filter(|(_, n)| ready.by_name.contains_key(n.as_str()))
+        .map(|(k, n)| (k.clone(), n.clone()))
+        .collect();
 }
