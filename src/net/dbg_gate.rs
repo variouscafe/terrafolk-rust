@@ -33,3 +33,8 @@ fn flags() -> &'static [String] {
 pub fn off(name: &str) -> bool {
     flags().iter().any(|f| f == name)
 }
+
+/// 긍정 플래그 — 예: on("glbload"). off의 보수(진단 스폰 훅 등).
+pub fn on(name: &str) -> bool {
+    flags().iter().any(|f| f == name)
+}

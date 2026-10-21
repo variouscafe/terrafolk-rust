@@ -44,10 +44,11 @@ pub(crate) fn plugin(app: &mut App) {
     app.init_resource::<InventionModels>()
         .init_resource::<ReadyModels>()
         .init_resource::<PendingDownloads>();
-    #[cfg(not(target_arch = "wasm32"))]
-    app.add_systems(Update, (sync_models, pump_downloads));
-    #[cfg(target_arch = "wasm32")]
     app.add_systems(Update, sync_models);
+    #[cfg(target_arch = "wasm32")]
+    app.add_systems(Update, (pump_downloads_wasm, dbg_glbload));
+    #[cfg(not(target_arch = "wasm32"))]
+    app.add_systems(Update, pump_downloads);
 }
 
 /// 프레임 inventions 원문 → 이름↔URL 맵(원문 변화 시만 재파싱).
@@ -114,4 +115,77 @@ fn pump_downloads(
         .filter(|(_, n)| ready.by_name.contains_key(n.as_str()))
         .map(|(k, n)| (k.clone(), n.clone()))
         .collect();
+}
+
+/// wasm 다운로드 펌프 — JS fetch → 메모리 Dir 삽입 → 로드(파일 캐시 없음).
+#[cfg(target_arch = "wasm32")]
+fn pump_downloads_wasm(
+    inv: Res<InventionModels>,
+    mut pending: ResMut<PendingDownloads>,
+    mut ready: ResMut<ReadyModels>,
+    assets: Res<AssetServer>,
+) {
+    for (name, url) in &inv.by_name {
+        if ready.by_name.contains_key(name) || url.is_empty() {
+            continue;
+        }
+        let file = super::remote_assets::file_name_pub(url);
+        if super::remote_assets::mem::has(&file) {
+            let handle = super::remote_assets::load_remote(
+                &assets,
+                std::path::Path::new(&file),
+            );
+            web_sys::console::log_1(&format!("[inventions] wasm 모델 로드: {name}").into());
+            ready.by_name.insert(name.clone(), handle);
+        } else if pending.started.insert(url.clone()) {
+            web_sys::console::log_1(&format!("[inventions] wasm 다운로드: {name}").into());
+            super::remote_assets::spawn_fetch(url.clone(), file);
+        }
+    }
+    ready.key_to_name = inv
+        .key_to_name
+        .iter()
+        .filter(|(_, n)| ready.by_name.contains_key(n.as_str()))
+        .map(|(k, n)| (k.clone(), n.clone()))
+        .collect();
+}
+
+/// 진단 훅 ?tfdbg=glbload — 검증용 GLB를 맵 중심에 스폰(원격 로드 통로
+/// 실측. 운영 무해 — 플래그 없으면 미동작).
+#[cfg(target_arch = "wasm32")]
+fn dbg_glbload(
+    mut commands: Commands,
+    world: Res<crate::world::data::WorldData>,
+    assets: Res<AssetServer>,
+    mut spawned: Local<bool>,
+) {
+    if !crate::net::dbg_gate::on("glbload") || *spawned {
+        return;
+    }
+    let url = "https://assetgen.pages.dev/api/f/e496bf9a951de50a.glb";
+    let file = super::remote_assets::file_name_pub(url);
+    if super::remote_assets::mem::has(&file) {
+        // 카메라 초점(룸 중심) 근처 3점 — 물속·화면 밋 진단 겸용
+        let c = world.size as i32 / 2;
+        for (dx, dz) in [(0i32, 0i32), (3, 2), (-3, 3)] {
+            let (x, z) = (c + dx, c + dz);
+            let ground = world.height_at(x, z);
+            commands.spawn((
+                crate::world::models::DynProp {
+                    target_h: 2.2,
+                    ground_y: ground,
+                    rot_y: 0.0,
+                },
+                bevy::world_serialization::WorldAssetRoot(super::remote_assets::load_remote(
+                    &assets,
+                    std::path::Path::new(&file),
+                )),
+                Transform::from_translation(Vec3::new(x as f32, ground, z as f32)),
+            ));
+        }
+        web_sys::console::log_1(&format!("[dbg] glbload 스폰 3점 @({}, {}) ground={}", c, c, world.height_at(c, c)).into());
+        *spawned = true;
+    } else {
+        super::remote_assets::spawn_fetch(url.to_string(), file);
+    }
 }

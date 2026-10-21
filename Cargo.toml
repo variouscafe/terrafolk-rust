@@ -74,9 +74,10 @@ reqwest = { version = "0.12", default-features = false, features = [
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1"
-web-sys = { version = "0.3", features = ["console", "Window", "Location"] }
+web-sys = { version = "0.3", features = ["console", "Window", "Location", "Request", "RequestInit", "Response"] }
 wasm-bindgen = "0.2"
 js-sys = "0.3"
+wasm-bindgen-futures = "0.4"
 
 [target.'cfg(target_os = "android")'.dependencies]
 # 세이프에어리어 JNI 쿼리(platform/safe_area) — bevy 전이 의존과 동일 계열

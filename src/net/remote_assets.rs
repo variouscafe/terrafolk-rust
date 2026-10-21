@@ -36,6 +36,10 @@ pub(crate) fn cached_path(url: &str) -> Option<std::path::PathBuf> {
     p.is_file().then_some(p)
 }
 
+pub(crate) fn file_name_pub(url: &str) -> String {
+    file_name(url)
+}
+
 fn file_name(url: &str) -> String {
     // sha8(url) + .glb — URL 길이·특수문자 무관 안전 파일명.
     let mut h: u64 = 0xcbf29ce484222325;
@@ -100,4 +104,79 @@ pub(crate) fn load_remote(
         .unwrap_or_default();
     let asset_path = bevy::asset::AssetPath::from(rel.to_string()).with_source("remote");
     assets.load(bevy::gltf::GltfAssetLabel::Scene(0).from_asset(asset_path))
+}
+
+// ── wasm 경로 — 메모리 에셋 소스 + JS fetch ─────────────────────────────
+// 파일 시스템이 없는 wasm은 bevy의 Dir(메모리)에 GLB 바이트를 넣고
+// MemoryAssetReader로 "remote" 소스를 밀어준다(네이티브와 동일 로드 경로).
+#[cfg(target_arch = "wasm32")]
+pub mod mem {
+    use bevy::asset::io::memory::{Dir, MemoryAssetReader};
+    use std::sync::OnceLock;
+
+    static DIR: OnceLock<Dir> = OnceLock::new();
+
+    fn dir() -> &'static Dir {
+        DIR.get_or_init(Dir::default)
+    }
+
+    /// "remote" 소스 등록 — main에서 AssetPlugin 이전 1회.
+    pub fn register_source(app: &mut bevy::prelude::App) {
+        use bevy::asset::AssetApp;
+        use bevy::asset::io::AssetSourceBuilder;
+        let root = dir().clone();
+        app.register_asset_source(
+            "remote",
+            AssetSourceBuilder::new(move || {
+                Box::new(MemoryAssetReader { root: root.clone() })
+            }),
+        );
+    }
+
+    /// 다운로드 완료 바이트 삽입 — 이후 load_remote로 로드 가능.
+    pub fn insert(name: &str, bytes: Vec<u8>) {
+        dir().insert_asset(std::path::Path::new(name), bytes);
+    }
+
+    pub fn has(name: &str) -> bool {
+        // Dir에 존재 검색 API가 제한적 — 삽입 기록으로 판정.
+        INSERTED.lock().unwrap().iter().any(|n| n == name)
+    }
+
+    use std::sync::Mutex;
+    pub struct Inserted(pub Mutex<Vec<String>>);
+    static INSERTED: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+    pub fn mark_inserted(name: &str) {
+        INSERTED.lock().unwrap().push(name.to_string());
+    }
+}
+
+/// wasm fetch — URL → 바이트(wasm-bindgen-futures, spawn_local으로 기동).
+#[cfg(target_arch = "wasm32")]
+pub fn spawn_fetch(url: String, name: String) {
+    wasm_bindgen_futures::spawn_local(async move {
+        let window = web_sys::window().unwrap();
+        let resp = match js_sys::Promise::from(window.fetch_with_str(&url)) {
+            p => match wasm_bindgen_futures::JsFuture::from(p).await {
+                Ok(r) => r,
+                Err(e) => {
+                    web_sys::console::log_1(&format!("[remote] fetch 실패 {url}: {e:?}").into());
+                    return;
+                }
+            },
+        };
+        let resp: web_sys::Response = wasm_bindgen::JsCast::dyn_into(resp).unwrap();
+        let buf = match wasm_bindgen_futures::JsFuture::from(resp.array_buffer().unwrap()).await {
+            Ok(b) => b,
+            Err(e) => {
+                web_sys::console::log_1(&format!("[remote] 본문 실패 {url}: {e:?}").into());
+                return;
+            }
+        };
+        let bytes = js_sys::Uint8Array::new(&buf).to_vec();
+        mem::insert(&name, bytes);
+        mem::mark_inserted(&name);
+        web_sys::console::log_1(&format!("[remote] wasm 다운로드 완료 {name}").into());
+    });
 }
