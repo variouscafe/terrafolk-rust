@@ -37,6 +37,8 @@ pub enum PropKind {
     Stash,
     Relic,
     WoodLog,
+    // meshgen 산출(assetgen 스프라이트→절출 GLB — 발명품 3D 경로 1단계)
+    ClayPot,
     // 동물(라이브 전용 — resources kind='animal', Poly by Google CC-BY)
     AnimalBoar,
     AnimalDeer,

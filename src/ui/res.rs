@@ -113,6 +113,7 @@ fn prop_kind_str(p: crate::world::data::PropKind) -> (&'static str, &'static str
         StorageHut => ("hut", "저장고"),
         Tent => ("hut", "천막"),
         Windbreak => ("hut", "바람막이"),
+        ClayPot => ("prop", "질그릇"),
         Campfire => ("campfire", "모닥불"),
         Grave => ("grave", "무덤"),
         Stash | WoodLog => ("plant", "저장 더미"),

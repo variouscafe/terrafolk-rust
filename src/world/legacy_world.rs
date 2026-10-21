@@ -76,4 +76,25 @@ pub fn prime_legacy_world(
         );
     }
     super::villager::spawn_legacy_villagers(&mut commands, &world, &assets);
+
+    // meshgen GLB 프로브(발명품 3D 경로 1단계) — assetgen 스프라이트 절출
+    // 질그릇 3점을 맵 중심 부근에 배치. 핏·바람·미니맵은 기존 프롭 파이프라인
+    // 그대로 통과한다(검증: 질감·스케일·지면 안착).
+    let c = world.size as i32 / 2;
+    for (dx, dy) in [(0i32, 0i32), (2, 1), (-2, 2)] {
+        let p = super::data::PropSpec {
+            kind: super::data::PropKind::ClayPot,
+            x: (c + dx) as usize,
+            y: (c + dy) as usize,
+        };
+        super::models::spawn_one_prop(
+            &mut commands,
+            &world,
+            &assets,
+            &mut meshes,
+            &mut std_mats,
+            &mut scene_cache,
+            &p,
+        );
+    }
 }

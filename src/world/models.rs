@@ -23,6 +23,12 @@ pub struct ModelSpec {
 impl PropKind {
     pub fn model(self) -> ModelSpec {
         match self {
+            PropKind::ClayPot => ModelSpec {
+                // meshgen(assetgen) 산출 — 스프라이트 절출 GLB, 1.4m 정규화
+                path: "models/clay_pot.glb",
+                target_h: 1.4,
+                variants: &[],
+            },
             PropKind::TreeBroadleaf => ModelSpec {
                 path: "models/qnature/tree-0.glb",
                 target_h: 7.2,

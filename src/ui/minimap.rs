@@ -448,6 +448,7 @@ fn draw_demo_props(buf: &mut [u8], size: usize, world: &WorldData) {
             PropKind::FlowerClump
             | PropKind::GrassClump
             | PropKind::WoodLog
+            | PropKind::ClayPot
             | PropKind::AnimalBoar
             | PropKind::AnimalDeer
             | PropKind::AnimalWaterDeer
