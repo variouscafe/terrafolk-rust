@@ -26,7 +26,7 @@ const TABS: [(&str, Tr); 7] = [
 
 pub fn panel(
     mut contexts: bevy_egui::EguiContexts,
-    ui_state: Res<UiState>,
+    mut ui_state: ResMut<UiState>,
     log: Res<EventLog>,
     vocab: Res<Vocab>,
     net: Option<Res<NetState>>,
@@ -57,7 +57,10 @@ pub fn panel(
         .frame(card())
         .title_bar(false)
         .show(&c, |ui| {
-            super::widgets::title_bar(ui, regular::CLOCK_COUNTER_CLOCKWISE, tr(lang, Tr::Events));
+            let close = super::widgets::title_bar_close(ui, regular::CLOCK_COUNTER_CLOCKWISE, tr(lang, Tr::Events));
+            if close {
+                ui_state.show_events = false;
+            }
             ui.add_space(2.0);
             // 탭 행 — 카운트 포함
             ui.horizontal_wrapped(|ui| {

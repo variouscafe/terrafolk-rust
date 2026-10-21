@@ -40,7 +40,7 @@ fn parse_state(raw: Option<&str>) -> serde_json::Value {
 
 pub fn panel(
     mut contexts: bevy_egui::EguiContexts,
-    ui_state: Res<UiState>,
+    mut ui_state: ResMut<UiState>,
     net: Option<Res<NetState>>,
     vocab: Res<Vocab>,
     mut mt: ResMut<super::mt::MtCache>,
@@ -85,7 +85,10 @@ pub fn panel(
         .title_bar(false)
         .show(&c, |ui| {
             ui.set_min_width((c.screen_rect().width() - 24.0).min(300.0).max(240.0));
-            super::widgets::title_bar(ui, "木", tr(lang, Tr::ToggleResources));
+            let close = super::widgets::title_bar_close(ui, "木", tr(lang, Tr::ToggleResources));
+            if close {
+                ui_state.show_resources = false;
+            }
             ui.add_space(2.0);
             if stats.is_empty() {
                 ui.label(
@@ -102,16 +105,18 @@ pub fn panel(
                 .show(ui, |ui| {
                     for kind in &order {
                         let Some((total, ok, species)) = stats.get(*kind) else { continue };
+                        // Phosphor 아이콘(레거시 lucide TreePine 대응 — 한자보다 시인성)
                         let icon = match *kind {
-                            "tree" => "木",
-                            "plant" => "草",
-                            "gold_vein" => "金",
-                            "animal" => "獸",
-                            "grave" => "墓",
-                            _ => "·",
+                            "tree" => egui_phosphor::regular::TREE,
+                            "plant" => egui_phosphor::regular::PLANT,
+                            "gold_vein" => egui_phosphor::regular::DIAMOND,
+                            "animal" => egui_phosphor::regular::PAW_PRINT,
+                            "grave" => egui_phosphor::regular::MARTINI, // 묘비 대체 없음 — 비석 실루엣
+                            _ => egui_phosphor::regular::DOTS_NINE,
                         };
                         egui::Frame::new()
                             .fill(theme::glass_hi())
+                            .stroke(egui::Stroke::new(1.0_f32, theme::STROKE_OLIVE))
                             .corner_radius(7.0)
                             .inner_margin(egui::Margin::symmetric(8, 6))
                             .show(ui, |ui| {
@@ -148,15 +153,30 @@ pub fn panel(
                                     ui.horizontal_wrapped(|ui| {
                                         for (sp, (n, ok)) in species {
                                             let resp = egui::Frame::new()
-                                                .fill(theme::glass_hi())
+                                                .fill(egui::Color32::from_rgba_unmultiplied(20, 26, 18, 190))
+                                                .stroke(egui::Stroke::new(1.0_f32, theme::STROKE_OLIVE))
                                                 .corner_radius(6.0)
                                                 .inner_margin(egui::Margin::symmetric(6, 2))
                                                 .show(ui, |ui| {
-                                                    ui.label(
-                                                        egui::RichText::new(format!("{} ×{n}", vocab.sp(lang, sp)))
-                                                            .size(10.0)
-                                                            .color(theme::TEXT_DIM),
-                                                    );
+                                                    ui.horizontal(|ui| {
+                                                        ui.label(
+                                                            egui::RichText::new(vocab.sp(lang, sp))
+                                                                .size(10.0)
+                                                                .color(theme::TEXT_DIM),
+                                                        );
+                                                        // 개수 배지 — 골드 틴트(레거시 ×n 칩 패리티)
+                                                        egui::Frame::new()
+                                                            .fill(egui::Color32::from_rgba_unmultiplied(232, 184, 64, 36))
+                                                            .corner_radius(5.0)
+                                                            .inner_margin(egui::Margin::symmetric(4, 1))
+                                                            .show(ui, |ui| {
+                                                                ui.label(
+                                                                    egui::RichText::new(format!("{n}"))
+                                                                        .size(9.0)
+                                                                        .color(theme::GOLD_SOFT),
+                                                                );
+                                                            });
+                                                    });
                                                 })
                                                 .response;
                                             let _ = ok;

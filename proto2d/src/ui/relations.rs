@@ -27,7 +27,7 @@ fn name_of(id: &str, frame_agents: &[crate::net::LiveAgent]) -> String {
 
 pub fn panel(
     mut contexts: bevy_egui::EguiContexts,
-    ui_state: Res<UiState>,
+    mut ui_state: ResMut<UiState>,
     net: Option<Res<NetState>>,
     polls: Res<PollQueuesRes>,
     sel_q: Query<&LiveAgentTag, With<Selected>>,
@@ -56,7 +56,10 @@ pub fn panel(
                 Some(id) => tr(lang, Tr::RelFor).replacen("{}", &name_of(id, frame_agents), 1),
                 None => tr(lang, Tr::RelAll).to_owned(),
             };
-            super::widgets::title_bar(ui, regular::LINK, &title);
+            let close = super::widgets::title_bar_close(ui, regular::LINK, &title);
+            if close {
+                ui_state.show_relations = false;
+            }
             ui.add_space(2.0);
             if rows.is_empty() && !connected {
                 ui.label(egui::RichText::new(tr(lang, Tr::RelWaitLive)).size(10.5).color(theme::TEXT_DIM));
