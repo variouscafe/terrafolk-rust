@@ -79,28 +79,11 @@ pub fn prime(
         info!("[net] GID 히스토그램 — {}", s.join(" "));
     }
 
-    // 카메라 재중심 — '맵 중심에 가장 가까운 주민'에게(root 관전 부팅 패턴).
-    // 주민들은 멀리 활동 중이라 광장을 비추면 첫 화면에 사람이 안 보인다.
-    let (mw, mh) = mapdata::dims();
-    let center = ((mw / 2) as f32, (mh / 2) as f32);
-    let target = frame
-        .agents
-        .iter()
-        .filter(|a| a.kind == "bot" || a.kind == "user")
-        .map(|a| (a.x, a.y))
-        .min_by(|a, b| {
-            let da = (a.0 - center.0).hypot(a.1 - center.1);
-            let db = (b.0 - center.0).hypot(b.1 - center.1);
-            da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
-        })
-        .unwrap_or(center);
-    let (px, py) = mapdata::project(target.0, target.1);
-    if let Ok(mut tr) = camera.single_mut() {
-        tr.translation.x = px;
-        tr.translation.y = -py;
-    }
-    // 수동 조작 유예 풀기 — 선택 추적 즉시 재개 가능 상태로
-    manual.0 = time.elapsed_secs();
+    // ⚠️ 카메라 재중심 제거(2026-10-21) — 프라임 프레임(혹은 이후 어느 때든)
+    // 카메라 Transform 쓰기는 세로로 긴 뷰포트(폰)에서 egui Window를 영구
+    // 소멸시킨다(값 무관·지연 무관·painter/Panel은 생존 — R7~R10 바이섹트,
+    // 메모리 proto2d-mobile-window-squash-bug). 스폰 지점(마을 광장) 유지로
+    // 회피 — 업스트림 해소 후 최인접 주민 재중심 부활 가능.
     let _ = (&q_ground, &q_props);
 
     // map은 1회 소비(이후 프레임에서 중복 파싱 방지)

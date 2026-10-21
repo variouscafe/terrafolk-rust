@@ -110,7 +110,7 @@ async function proxyRoute(route) {
 // 데스크톱 1024x768 기준 좌표. 카드/패널은 다크 글래스(평균 <110).
 const CHECKS = [
   ['civ', 'civ:1', [340, 160, 680, 560], 130],
-  ['relations', 'relations:1', [430, 50, 750, 380], 130],
+  ['relations', 'relations:1', [430, 50, 750, 380], 140], // 부팅 카메라가 마을 중심 유지(재중심 제거)로 배경 블렌드 +
   ['economy', 'economy:1', [200, 50, 600, 460], 140],
   ['resources', 'resources:1', [340, 160, 680, 560], 130],
   ['events', 'events:1', [20, 250, 360, 640], 130],
