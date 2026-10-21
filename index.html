@@ -24,9 +24,10 @@
         <script src="assets/web/tf-data.js"></script>
         <script src="assets/web/tf-i18n.js"></script>
         <script src="assets/web/tf-look.js"></script>
-        <!-- 문명(발명품) 패널 렌더 — tf-ui.js보다 먼저(TF_UI 모듈 스코프가
-             로드 시점에 TF_CIV.create로 팩토리를 소비). 500줄·기능 분리 규칙. -->
+        <!-- 패널 렌더 모듈들 — tf-ui.js보다 먼저(TF_UI 모듈 스코프가 로드 시점에
+             TF_CIV/TF_CHARS.create로 팩토리를 소비). 500줄·기능 분리 규칙(2026-10-22). -->
         <script src="assets/web/tf-civ.js"></script>
+        <script src="assets/web/tf-chars.js"></script>
         <script src="assets/web/tf-ui.js"></script>
         <!-- 월드 앵커 오버레이 — 말풍선·이름 라벨·활동 배지·토스트·자원 툴팁.
              Rust(overlay.rs)의 tf.onOverlay 투영을 소비, TF_UI.feed를 wrap. -->
