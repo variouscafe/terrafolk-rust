@@ -22,7 +22,7 @@ pub struct WindExtension {}
 
 impl MaterialExtension for WindExtension {
     fn vertex_shader() -> ShaderRef {
-        "shaders/wind.vert.wesl".into()
+        "shaders/wind.vert.wgsl".into()
     }
 }
 

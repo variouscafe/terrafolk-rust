@@ -5,7 +5,6 @@
 //! 라이브 전용(데모는 안내 문구).
 
 use bevy::prelude::*;
-use bevy::ui_widgets::Button; // 0.20: prelude의 Button은 deprecated alias
 
 use super::i18n;
 use super::theme::{self, UiTheme};
@@ -104,7 +103,7 @@ fn rail_btn(rail: &mut ChildSpawnerCommands, theme: &UiTheme, idx: u8, sym: &str
     });
 }
 
-fn on_rail_click(trigger: On<PointerClick>, btns: Query<&RailBtn>, mut state: ResMut<RailState>) {
+fn on_rail_click(trigger: On<Pointer<Click>>, btns: Query<&RailBtn>, mut state: ResMut<RailState>) {
     if let Ok(btn) = btns.get(trigger.entity) {
         // 재클릭 닫힘(FE ChatSideRail 규약)
         state.open = if state.open == Some(btn.0) { None } else { Some(btn.0) };

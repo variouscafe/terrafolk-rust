@@ -4,7 +4,7 @@
 //! (rig.target 중심 view_box×1.5) 안에서 떨어지고 지면 도달·이탈 시 재롤.
 //! 안개·흐림 톤은 기존 sky_mix→apply_sky가 담당(구현 완료 상태).
 
-use bevy::shape::Rectangle;
+use bevy::math::primitives::Rectangle;
 use bevy::picking::Pickable;
 use bevy::prelude::*;
 

@@ -35,7 +35,7 @@ pub struct WaterMaterial {
 
 impl Material for WaterMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/water.wesl".into()
+        "shaders/water.wgsl".into()
     }
     fn alpha_mode(&self) -> AlphaMode {
         // WebGL2 방어 — Blend(alpha_blend 파이프라인)는 프래그먼트 유니폼이
@@ -151,7 +151,7 @@ fn build_water(
             ..default()
         });
     let shore = images.add(shore_img);
-    let mesh = Mesh::from(bevy::shape::Plane3d::new(
+    let mesh = Mesh::from(bevy::math::primitives::Plane3d::new(
         Vec3::Y,
         Vec2::splat(size * OCEAN_EXTEND / 2.0),
     ));

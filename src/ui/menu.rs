@@ -2,7 +2,6 @@
 //! 라이브 서버 연동 기능이 구현될 때 추가) + 설정 팝업(시간 배속).
 
 use bevy::prelude::*;
-use bevy::ui_widgets::Button; // 0.20: prelude의 Button은 deprecated alias
 
 use super::theme::{self, UiTheme};
 use super::{CloseButton, Popup, UiState};
@@ -49,13 +48,13 @@ pub fn spawn_menu_button(p: &mut ChildSpawnerCommands, theme: &UiTheme) {
 
 /// ☰ 토글 — Interaction 폴링은 빠른 탭(눌림+해제 동일 프레임)에서 Pressed
 /// 창을 놓친다(chars.rs 주석 참고). Pointer<Click> 확정 이벤트로 전환.
-fn on_menu_btn_click(_: On<PointerClick>, mut state: ResMut<UiState>) {
+fn on_menu_btn_click(_: On<Pointer<Click>>, mut state: ResMut<UiState>) {
     state.menu_open = !state.menu_open;
 }
 
 /// 드롭다운 항목(주민·설정) — 팝업 열고 메뉴 닫기
 fn on_menu_item_click(
-    trigger: On<PointerClick>,
+    trigger: On<Pointer<Click>>,
     mut state: ResMut<UiState>,
     items: Query<&MenuOpenPopup>,
 ) {
@@ -66,13 +65,13 @@ fn on_menu_item_click(
 }
 
 /// 팝업 ✕ 닫기
-fn on_close_click(_: On<PointerClick>, mut state: ResMut<UiState>) {
+fn on_close_click(_: On<Pointer<Click>>, mut state: ResMut<UiState>) {
     state.popup = None;
 }
 
 /// 시간 배속 ×1 ↔ ×40(레거시 T키와 동일)
 fn on_timescale_click(
-    _: On<PointerClick>,
+    _: On<Pointer<Click>>,
     mut day: ResMut<DayTime>,
     mut q_label: Query<&mut Text, With<TimeScaleLabel>>,
 ) {
@@ -302,7 +301,7 @@ pub struct LoginPath(pub &'static str);
 
 
 fn on_login_click(
-    trigger: On<PointerClick>,
+    trigger: On<Pointer<Click>>,
     paths: Query<&LoginPath>,
     mut state: ResMut<UiState>,
 ) {

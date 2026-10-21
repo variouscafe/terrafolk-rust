@@ -3,7 +3,6 @@
 //! 발명 목록(탭 → 상세 카드: 재료·만든 날짜·설명). 자원 팝업은 res.rs로 분리.
 
 use bevy::prelude::*;
-use bevy::ui_widgets::Button; // 0.20: prelude의 Button은 deprecated alias
 
 use super::i18n;
 use super::theme::{self, UiTheme};
@@ -467,13 +466,13 @@ fn spawn_detail(
     ));
 }
 
-fn on_inv_click(trigger: On<PointerClick>, rows: Query<&CivRow>, mut detail: ResMut<CivDetail>) {
+fn on_inv_click(trigger: On<Pointer<Click>>, rows: Query<&CivRow>, mut detail: ResMut<CivDetail>) {
     if let Ok(row) = rows.get(trigger.entity) {
         detail.0 = Some(row.0.clone());
     }
 }
 
-fn on_detail_close(_: On<PointerClick>, mut detail: ResMut<CivDetail>) {
+fn on_detail_close(_: On<Pointer<Click>>, mut detail: ResMut<CivDetail>) {
     detail.0 = None;
 }
 

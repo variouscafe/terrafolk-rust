@@ -6,7 +6,7 @@
 
 use bevy::input::keyboard::KeyboardInput;
 use bevy::input::mouse::MouseButton;
-use bevy::shape::Annulus;
+use bevy::math::primitives::Annulus;
 use bevy::prelude::*;
 
 use crate::net::apply::LiveAgentTag;

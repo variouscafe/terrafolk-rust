@@ -7,7 +7,6 @@
 use bevy::input::keyboard::KeyboardInput;
 use bevy::picking::Pickable;
 use bevy::prelude::*;
-use bevy::ui_widgets::Button; // 0.20: prelude의 Button은 deprecated alias
 
 use super::theme::{self, UiTheme};
 use super::world_overlay::OverlayRoot;
@@ -102,7 +101,7 @@ pub fn spawn(mut commands: Commands, theme: Res<UiTheme>) {
 
 /// 선택 패널 💬 칩 → 채팅 열기(chars.rs가 스폰·observe).
 pub fn open_chat(
-    _: On<PointerClick>,
+    _: On<Pointer<Click>>,
     mut chat: ResMut<ChatState>,
     mut window: Single<&mut Window>,
 ) {
@@ -111,7 +110,7 @@ pub fn open_chat(
 }
 
 fn on_close(
-    _: On<PointerClick>,
+    _: On<Pointer<Click>>,
     mut chat: ResMut<ChatState>,
     mut window: Single<&mut Window>,
 ) {
@@ -119,7 +118,7 @@ fn on_close(
 }
 
 /// 빠른 인사 — 키보드 없이 한 번에 송신(모바일 진입 장벽 완화 + E2E 검증 경로).
-fn on_greet(_: On<PointerClick>, sel: Res<Selection>, mut window: Single<&mut Window>) {
+fn on_greet(_: On<Pointer<Click>>, sel: Res<Selection>, mut window: Single<&mut Window>) {
     let chat = ChatState {
         active: true,
         buffer: "안녕! 반가워".into(),
@@ -131,7 +130,7 @@ fn on_greet(_: On<PointerClick>, sel: Res<Selection>, mut window: Single<&mut Wi
 }
 
 fn on_send(
-    _: On<PointerClick>,
+    _: On<Pointer<Click>>,
     mut chat: ResMut<ChatState>,
     sel: Res<Selection>,
     mut window: Single<&mut Window>,

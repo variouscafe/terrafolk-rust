@@ -160,7 +160,7 @@ fn apply_safe_area(
 }
 
 /// 팝업 백드롭 탭 → 팝업 닫기(모바일 표준 UX). 각 팝업 루트에 observe로 부착.
-pub fn close_on_backdrop(_: On<PointerClick>, mut state: ResMut<UiState>) {
+pub fn close_on_backdrop(_: On<Pointer<Click>>, mut state: ResMut<UiState>) {
     state.popup = None;
 }
 

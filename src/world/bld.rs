@@ -8,7 +8,7 @@
 //! 대신 비발광(unlit) 색 밝기 펄스로 링을 맥동시키고, 창불은 Bloom이 잡는
 //! 낮은 emissive 쿼드로 연출한다.
 
-use bevy::shape::{Annulus, Circle};
+use bevy::math::primitives::{Annulus, Circle};
 use bevy::prelude::*;
 
 use crate::net::apply::LiveAgentTag;
