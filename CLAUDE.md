@@ -100,7 +100,11 @@ tools/e2e/proto2d_regress.cjs`가 **allPass: true**일 때만 배포한다 —
 (bevy 0.20.0)의 웹 판 — `./tools/deploy-3d-r2.sh` 원스텝. proto2d R2
 레시피와 동일(wasm 35MB → `terrafolk-wasm` 버킷 gzip, HTML/JS/GLB는
 Pages `terrafolk-3d` 프로젝트). `assets/models` GLB 64종 필수(PR #69로
-복구 — `cc2895d^`에서 `git checkout`으로 되돌릴 수 있음). **웹(wasm)은
+복구 — `cc2895d^`에서 `git checkout`으로 되돌릴 수 있음).
+DOM UI 패널 모듈(2026-10-22, 500줄 규칙): `tf-civ.js`(문명)·
+`tf-chars.js`(캐릭터)·`tf-reslog.js`(자원·기록)가 **tf-ui.js보다 먼저**
+로드(create 팩토리를 tf-ui 모듈 스코프가 소비). 패널 분리 시 누락 클로저
+심볼은 패널 오픈 시에만 발화 — **전 패널 오픈 스윕**으로 검증할 것. **웹(wasm)은
 데모 월드가 컴파일 아웃**(src/world/mod.rs — 라이브 접속→프라임 직행,
 로딩 해제=tf.uiPrime)이므로 **라이브 백엔드 없으면 지형이 안 뜬다**:
 tf-api CORS 허용목록(../terrafolk `backend/src/terrafolk_api/config.py`)
