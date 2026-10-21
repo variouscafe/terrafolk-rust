@@ -16,6 +16,10 @@ export PATH="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/darwin-x86_64/bin:$PATH"
 VERSION=$(grep -m1 '^version' "$ROOT/Cargo.toml" | sed 's/version = "\(.*\)"/\1/')
 OUT="$ROOT/terrafolk-$VERSION.apk"
 
+# 에셋 참조 정합 — src가 참조하는 에셋이 지워졌으면 빌드 전 중단
+# (2026-10-21 하얀 맵 사고: cc2895d 에셋 삭제를 아무 게이트도 못 잡음).
+"$ROOT/tools/check-assets.sh"
+
 echo '[1/4] xbuild (rust+gradle apk) — 추가 플래그: $*'
 x build --platform android --arch arm64 --release --format apk "$@" 
 APK=$ROOT/target/x/release/android/mobile.apk

@@ -104,9 +104,13 @@ tf-api CORS 허용목록(../terrafolk `backend/src/terrafolk_api/config.py`)
 에 `https://terrafolk-3d.pages.dev` 등록돼 있다(미등록 오리진은 영구
 스피너). 게이트 `tools/e2e/root3d_smoke.cjs` — **headed 필수**(기본:
 시스템 Chrome 채널; `HEADLESS=1`은 swiftshader 부팅 검사만 — 지형
-프라임 안 됨). **루트 클라이언트도 bevy 0.19.1 핀**(cba92d4, 2026-10-21):
-0.20.0 실측에서 부팅·라이브·UI는 정상이지만 **에셋 텍스처만 미렌더**
-(지형 단색 크림 — 0.20 wasm 회귀의 데스크톱 Chrome/실GPU 재현,
-proto2d 0.19.1 핀과 같은 원인). 0.19.1 재핀+재배포로 관측소·수풀·
-주민 질감 렌더 회복 확인(프라임 6초·panic 0).
+프라임 안 됨). 루트 클라이언트는 **bevy 0.19.1 핀**(cba92d4) — 0.20은
+문서화된 wasm 텍스처 회귀(proto2d 0.19.1 핀과 같은 원인)로 보수적 회피.
+**하얀 맵 사고 정정(2026-10-21)**: 단색 지형의 주원인은 bevy 버전이 아니라
+**cc2895d가 지운 `assets/tiles/terrain_atlas.*`·`assets/shaders/` 4종 부재**
+였다(GLB 64종과 함께 삭제됐는데 src 참조가 남음 — 렌더 에러 생존 정책이
+조용한 백지를 만듦). 전부 `cc2895d^`에서 복구했고, 재발 방지로
+**`tools/check-assets.sh`(src 참조↔assets/ 실재 정합)를 deploy-3d-r2.sh·
+build-apk.sh 빌드 전에 강제**한다. 복구 후 실측: 프라임 3초·낮 지형
+초록 68%·panic 0.
 
