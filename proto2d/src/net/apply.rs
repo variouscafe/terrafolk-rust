@@ -6,7 +6,6 @@ use bevy::prelude::*;
 
 use super::{LiveFrame, NetState, NetStatus, TiledMap};
 use crate::agents::{self, Agent, SheetLibrary};
-use crate::cam::ManualUntil;
 use crate::daynight::GameTime;
 use crate::ground::{self, GroundSkin, GroundTile};
 use crate::mapdata;
@@ -36,9 +35,6 @@ pub fn prime(
     q_demo_agents: Query<Entity, (With<Agent>, Without<LiveAgentTag>)>,
     assets: Res<AssetServer>,
     skin: Res<GroundSkin>,
-    mut camera: Query<&mut Transform, With<Camera2d>>,
-    mut manual: ResMut<ManualUntil>,
-    time: Res<Time>,
 ) {
     if *primed || net.status != NetStatus::Connected {
         return;
@@ -84,7 +80,6 @@ pub fn prime(
     // 소멸시킨다(값 무관·지연 무관·painter/Panel은 생존 — R7~R10 바이섹트,
     // 메모리 proto2d-mobile-window-squash-bug). 스폰 지점(마을 광장) 유지로
     // 회피 — 업스트림 해소 후 최인접 주민 재중심 부활 가능.
-    let _ = (&q_ground, &q_props);
 
     // map은 1회 소비(이후 프레임에서 중복 파싱 방지)
     net.frame = Some(LiveFrame {

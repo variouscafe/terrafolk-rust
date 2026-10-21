@@ -139,12 +139,18 @@ const CHECKS = [
   const results = [];
   for (const [name, cmd, box, thresh] of CHECKS) {
     await pg.evaluate(c => window.terrafolk.ui.panelCmds.push(c), cmd);
-    await pg.waitForTimeout(cmd.startsWith('economy') ? 1800 : 1200);
+    // 어댑티브 대기 — 저FPS(SwiftShader)에선 panelCmds 훅 드레인이 다음
+    // 프레임까지 수 초 걸린다(2026-10-21 실측 최대 7초, 런치 후 감속).
+    // 고정 대기 대신 패널 오픈(박스 어두움 < 임계)을 폴링해 기대 없이 통과.
+    let dark = 999, tries = 0;
     const shot = `/tmp/play/rg-${name}.png`;
-    await pg.screenshot({ path: shot });
-    const dark = boxMean(pngPixels(fs.readFileSync(shot)), box);
+    do {
+      await pg.waitForTimeout(700); tries++;
+      await pg.screenshot({ path: shot });
+      dark = boxMean(pngPixels(fs.readFileSync(shot)), box);
+    } while (dark >= thresh && tries < 16);
     const pass = dark >= 0 && dark < thresh;
-    results.push({ name, dark: Math.round(dark), thresh, pass });
+    results.push({ name, dark: Math.round(dark), thresh, pass, tries });
     await pg.evaluate(c => window.terrafolk.ui.panelCmds.push(c.split(':')[0] + ':0'), cmd);
     await pg.waitForTimeout(300);
   }

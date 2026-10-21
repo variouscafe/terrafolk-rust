@@ -93,3 +93,18 @@ tools/e2e/proto2d_regress.cjs`가 **allPass: true**일 때만 배포한다 —
 기능 하나만 검증하면 다른 표면 회귀(#63: 월드 스프라이트가 플로팅
 패널 전멸)를 놓친다.
 
+**3D 웹 배포(terrafolk-3d.pages.dev, 2026-10-21)**: 루트 3D 클라이언트
+(bevy 0.20.0)의 웹 판 — `./tools/deploy-3d-r2.sh` 원스텝. proto2d R2
+레시피와 동일(wasm 35MB → `terrafolk-wasm` 버킷 gzip, HTML/JS/GLB는
+Pages `terrafolk-3d` 프로젝트). `assets/models` GLB 64종 필수(PR #69로
+복구 — `cc2895d^`에서 `git checkout`으로 되돌릴 수 있음). **웹(wasm)은
+데모 월드가 컴파일 아웃**(src/world/mod.rs — 라이브 접속→프라임 직행,
+로딩 해제=tf.uiPrime)이므로 **라이브 백엔드 없으면 지형이 안 뜬다**:
+tf-api CORS 허용목록(../terrafolk `backend/src/terrafolk_api/config.py`)
+에 `https://terrafolk-3d.pages.dev` 등록돼 있다(미등록 오리진은 영구
+스피너). 게이트 `tools/e2e/root3d_smoke.cjs` — **headed 필수**(기본:
+시스템 Chrome 채널; `HEADLESS=1`은 swiftshader 부팅 검사만 — 지형
+프라임 안 됨). 0.20.0 실측(2026-10-21): 부팅·라이브·주민 동기화·UI
+정상, **에셋 텍스처만 미렌더**(지형 단색 — 0.20 wasm 회귀가 데스크톱
+Chrome/실GPU에서도 재현; 프로토2d의 0.19.1 핀과 같은 원인).
+
