@@ -115,10 +115,10 @@ pub fn panel(
                                         },
                                     );
                                 });
-                                // 온기 바(hsl) + 대화·거래 수
+                                // 온기 바(hsl) + 대화·거래 수(아이콘 — 자원 패널과 동일 계열)
                                 ui.horizontal(|ui| {
                                     let (rect, _) = ui.allocate_exact_size(
-                                        egui::vec2((ui.available_width() - 110.0).max(50.0), 6.0),
+                                        egui::vec2((ui.available_width() - 92.0).max(50.0), 6.0),
                                         egui::Sense::hover(),
                                     );
                                     let p = ui.painter();
@@ -127,7 +127,22 @@ pub fn panel(
                                     fr.set_width(rect.width() * warmth / 100.0);
                                     p.rect_filled(fr, 3.0, col);
                                     ui.label(
-                                        egui::RichText::new(format!("話{} 換{}", r.chats, r.trades))
+                                        egui::RichText::new(regular::CHAT_CIRCLE)
+                                            .size(9.5)
+                                            .color(theme::TEXT_DIM),
+                                    );
+                                    ui.label(
+                                        egui::RichText::new(r.chats.to_string())
+                                            .size(9.5)
+                                            .color(theme::TEXT_DIM),
+                                    );
+                                    ui.label(
+                                        egui::RichText::new(regular::ARROWS_LEFT_RIGHT)
+                                            .size(9.5)
+                                            .color(theme::TEXT_DIM),
+                                    );
+                                    ui.label(
+                                        egui::RichText::new(r.trades.to_string())
                                             .size(9.5)
                                             .color(theme::TEXT_DIM),
                                     );
