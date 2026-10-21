@@ -15,7 +15,7 @@ use crate::net::{EcoQueue, NetState};
 
 pub fn panel(
     mut contexts: bevy_egui::EguiContexts,
-    ui_state: Res<UiState>,
+    mut ui_state: ResMut<UiState>,
     net: Option<Res<NetState>>,
     vocab: Res<Vocab>,
     eco: Res<EcoQueue>,
@@ -39,7 +39,10 @@ pub fn panel(
         .frame(card())
         .title_bar(false)
         .show(&c, |ui| {
-            super::widgets::title_bar(ui, regular::COINS, tr(lang, Tr::Economy));
+            let close = super::widgets::title_bar_close(ui, regular::COINS, tr(lang, Tr::Economy));
+            if close {
+                ui_state.show_economy = false;
+            }
             ui.add_space(2.0);
             let Some(d) = data else {
                 ui.label(

@@ -138,6 +138,34 @@ pub fn title_bar(ui: &mut egui::Ui, icon: &str, title: &str) {
     });
 }
 
+/// 타이틀 바 + 우측 ✕ 닫기(클릭 시 true 반환) — 플로팅 패널 공통(상용 UX).
+/// 레거시 팝업과 동일한 닫기 경로: ☰ 말고 카드에서 즉시 닫힌다.
+pub fn title_bar_close(ui: &mut egui::Ui, icon: &str, title: &str) -> bool {
+    let mut close = false;
+    ui.horizontal(|ui| {
+        icon_chip(ui, icon, 20.0);
+        ui.label(
+            egui::RichText::new(title)
+                .font(theme::font_semi(13.5))
+                .color(theme::INK),
+        );
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            let b = ui.add(
+                egui::Button::new(
+                    egui::RichText::new("\u{2715}").size(11.0).color(theme::TEXT_DIM),
+                )
+                .fill(egui::Color32::TRANSPARENT)
+                .corner_radius(999.0),
+            );
+            if b.clicked() {
+                close = true;
+            }
+            b.on_hover_cursor(egui::CursorIcon::PointingHand);
+        });
+    });
+    close
+}
+
 /// 섹션 헤더 — 골드 아이콘 칩(소형) + 잉크 타이틀 + 어두운 헤어라인
 pub fn section(ui: &mut egui::Ui, icon: &str, title: &str) {
     ui.add_space(4.0);

@@ -194,11 +194,14 @@ pub fn conversation(
                 });
             });
             ui.add_space(3.0);
-            // ── 이 주민과의 로그 — 시간순, 하단 고정 ──
+            // 헤더 위계 — 얇은 구분선(이름/목적 vs 대화 흐름 영역 분리)
+            ui.separator();
+            ui.add_space(2.0);
+            // ── 이 주민과의 로그 — 말풍선(사람=우측 골드), 하단 고정 ──
             let rows: Vec<&ChatLogRow> = log.rows.iter().filter(|r| r.agent_id == id).collect();
             egui::ScrollArea::vertical()
                 .id_salt("conv_log")
-                .max_height(if narrow { 130.0 } else { 190.0 })
+                .max_height(if narrow { 170.0 } else { 210.0 })
                 .stick_to_bottom(true)
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
@@ -209,8 +212,11 @@ pub fn conversation(
                                 .color(theme::TEXT_DIM),
                         );
                     }
-                    for r in rows {
-                        log_row(ui, r, agents, 11.0);
+                    for (i, r) in rows.iter().enumerate() {
+                        let prev =
+                            i.checked_sub(1).and_then(|j| rows.get(j)).map(|p| p.speaker.as_str());
+                        let next = rows.get(i + 1).map(|p| p.speaker.as_str());
+                        bubble_row(ui, r, agents, prev, next, 11.0);
                     }
                 });
             ui.add_space(4.0);
@@ -280,6 +286,90 @@ fn log_row(ui: &mut egui::Ui, r: &ChatLogRow, agents: &[LiveAgent], size: f32) {
                 .color(theme::TEXT_WARM),
         );
     });
+}
+
+/// 말풍선 행 — 상용 메신저 패턴(대화창 전용). 사람=우측 골드 틴트 풍선,
+/// 주민=좌측 글래스 풍선(꼬리 각진 비대칭 radius). 연속 화자는 이름 생략,
+/// 시각은 그룹 마지막 행에만 — 가독성(2026-10-21 대화창 개선).
+#[allow(clippy::too_many_arguments)]
+fn bubble_row(
+    ui: &mut egui::Ui,
+    r: &ChatLogRow,
+    agents: &[LiveAgent],
+    prev: Option<&str>,
+    next: Option<&str>,
+    size: f32,
+) {
+    let agent_name = agents
+        .iter()
+        .find(|la| la.id == r.agent_id)
+        .map(|la| la.name.as_str());
+    let is_human =
+        r.speaker.contains('@') || agent_name.map(|n| n != r.speaker.as_str()).unwrap_or(false);
+    let stamp = r
+        .gmin
+        .map(super::villagers::fmt_gmin)
+        .or_else(|| r.ts.as_deref().map(|t| fmt_hhmm(Some(t))))
+        .unwrap_or_default();
+    let group_first = prev != Some(r.speaker.as_str());
+    let group_last = next != Some(r.speaker.as_str());
+    let max_w = (ui.available_width() * 0.74).max(120.0);
+    let name_col = if is_human {
+        theme::GOLD_DEEP
+    } else {
+        theme::agent_ink(&r.agent_id)
+    };
+    ui.horizontal(|ui| {
+        if is_human {
+            // 사람 — 우측 정렬: 왼쪽을 스페이서로 밀기
+            let used = ui.available_width() - max_w - 8.0;
+            if used > 0.0 {
+                ui.add_space(used.min(ui.available_width() - max_w));
+            }
+        }
+        ui.vertical(|ui| {
+            ui.set_max_width(max_w);
+            if group_first && !is_human {
+                ui.label(
+                    egui::RichText::new(&r.speaker)
+                        .size(size - 2.0)
+                        .strong()
+                        .color(name_col),
+                );
+            }
+            // 풍선 — 꼬리는 화자 쪽 아래 귀퉁이를 각지게(비대칭 radius)
+            let radius = if is_human {
+                egui::CornerRadius { nw: 12, ne: 12, sw: 3, se: 12 }
+            } else {
+                egui::CornerRadius { nw: 12, ne: 12, sw: 12, se: 3 }
+            };
+            egui::Frame::new()
+                .fill(if is_human {
+                    egui::Color32::from_rgba_unmultiplied(56, 46, 22, 215) // 골드 틴트 글래스
+                } else {
+                    theme::glass_hi()
+                })
+                .corner_radius(radius)
+                .inner_margin(egui::Margin::symmetric(9, 5))
+                .show(ui, |ui| {
+                    ui.set_max_width(max_w - 18.0);
+                    ui.label(
+                        egui::RichText::new(&r.text)
+                            .size(size)
+                            .color(theme::TEXT_WARM),
+                    );
+                });
+            if group_last && !stamp.is_empty() {
+                ui.label(
+                    egui::RichText::new(&stamp)
+                        .size(size - 3.0)
+                        .color(theme::TEXT_DIM),
+                );
+            }
+        });
+        ui.spacing_mut().item_spacing.y = 4.0;
+    });
+    ui.add_space(3.0);
 }
 
 /// 상용급 컴포저 — 인셋 필 입력란(포커스 골드 글로우) + 대상 미니 아바타 +

@@ -48,7 +48,7 @@ pub(crate) struct CivView {
 
 pub fn panel(
     mut contexts: bevy_egui::EguiContexts,
-    ui_state: Res<UiState>,
+    mut ui_state: ResMut<UiState>,
     net: Option<Res<NetState>>,
     vocab: Res<Vocab>,
     events: Res<EventLog>,
@@ -92,7 +92,9 @@ pub fn panel(
                 inv_detail(ui, lang, &vocab, &mut mt, &mut icons, r, &mut |v| *view = CivView { detail: v });
                 return;
             }
-            summary(ui, lang, &vocab, rows);
+            if summary(ui, lang, &vocab, rows) {
+                ui_state.show_civ = false;
+            }
             groups_grid(ui, lang, &vocab, rows);
             makers(ui, lang, rows);
             traditions(ui, lang, &vocab, rows);
@@ -102,9 +104,10 @@ pub fn panel(
 }
 
 /// 요약 카드 — 시대 라벨 + 발명 수·문명 점수
-fn summary(ui: &mut egui::Ui, lang: Lang, vocab: &Vocab, rows: &[InventionRow]) {
+fn summary(ui: &mut egui::Ui, lang: Lang, vocab: &Vocab, rows: &[InventionRow]) -> bool {
+    let mut close = false;
     ui.horizontal(|ui| {
-        super::widgets::title_bar(ui, regular::SCROLL, tr(lang, Tr::Civ));
+        close = super::widgets::title_bar_close(ui, regular::SCROLL, tr(lang, Tr::Civ));
         let groups = rows
             .iter()
             .map(|r| vocab.inv_group_of(r.category.as_deref().unwrap_or("")).map(str::to_owned));
@@ -129,6 +132,7 @@ fn summary(ui: &mut egui::Ui, lang: Lang, vocab: &Vocab, rows: &[InventionRow]) 
         });
     });
     ui.add_space(2.0);
+    close
 }
 
 /// 6대분류 진척 — 그룹명 + 수 + 도트 8칸(레거시 GroupDots)
