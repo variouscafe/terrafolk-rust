@@ -208,6 +208,7 @@ pub fn sync_agents(
         &mut crate::world::villager::Villager,
         Option<&mut AgentGrace>,
     )>,
+    q_model: Query<&crate::world::villager::VillagerModel, With<LiveAgentTag>>,
     mut first_log: Local<u32>,
 ) {
     if net.status != NetStatus::Connected {
@@ -251,6 +252,15 @@ pub fn sync_agents(
         if let Some(mut g) = grace {
             g.0 = 0.0;
         }
+        // 외형 변경(§17.32 lookJson 패치) — 편집기 저장 직후 반영: look이
+        // 바뀌면 재스폰(모델 성별 전환·look_tint 재적용). 다음 프레임
+        // spawn_missing이 새 look으로 살린다(2026-10-23 외형 3D 반영).
+        if let (Ok(vm), Some(look)) = (q_model.get(e), a.look.as_deref()) {
+            if vm.1.as_deref() != Some(look) {
+                commands.entity(e).despawn();
+                continue;
+            }
+        }
         let target = Vec3::new(
             a.x,
             // 착지 클램프 — 물 타일 위에서도 수면(-0.18) 아래로 잠기지 않게
@@ -289,8 +299,25 @@ pub fn sync_agents(
         if super::dbg_gate::off("no_villagers") {
             continue; // 진단 게이트
         }
-        let look = a.look.clone();
-        let path = crate::world::villager::model_path_for(&a.id, a.look.as_deref());
+        let mut look = a.look.clone();
+        // 외형 틴트 시각 검증 게이트 — ?tfdbg=looktest: 주민마다 진한 팔레트를
+        // 강제 주입(블론드·브론즈·블루눈·옷색)해 3D 반영을 컷 한 장으로 판정.
+        if super::dbg_gate::on("looktest") {
+            const TESTS: [(&str, &str, &str, &str, &str, &str); 5] = [
+                ("black", "blonde", "blue", "red", "navy", "black"),
+                ("bronze", "raven", "green", "teal", "charcoal", "brown"),
+                ("olive", "chestnut", "brown", "orange", "blue", "walnut"),
+                ("light", "dark_gray", "gray", "lavender", "forest", "leather"),
+                ("amber", "ash", "blue", "yellow", "maroon", "slate"),
+            ];
+            let idx = spawned % TESTS.len();
+            let (sk, hc, ey, tp, bt, ft) = TESTS[idx];
+            let sex = if idx % 2 == 0 { "F" } else { "M" };
+            look = Some(format!(
+                "{{\"sex\":\"{sex}\",\"parts\":{{\"skin\":\"{sk}\",\"hairColor\":\"{hc}\",\"eye\":\"{ey}\",\"topColor\":\"{tp}\",\"bottomColor\":\"{bt}\",\"feetColor\":\"{ft}\"}}}}"
+            ));
+        }
+        let path = crate::world::villager::model_path_for(&a.id, look.as_deref());
         let scene = assets.load(GltfAssetLabel::Scene(0).from_asset(path));
         let gltf = assets.load(path);
         // 착지 클램프 — 서버가 물 타일에 세워도(§17.80 취수) 몸이 불투명

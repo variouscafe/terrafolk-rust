@@ -19,6 +19,7 @@ pub mod occlusion;
 pub mod outfit;
 pub mod outline;
 pub mod toon;
+pub mod look_tint;
 pub mod overlay;
 pub mod pick;
 pub mod precip;
