@@ -159,10 +159,17 @@ pub fn apply_sky(
     let day_t = ((h * 60.0 - day.sunrise_min) / day_len).clamp(-0.2, 1.2);
     let elev = (day_t.clamp(0.0, 1.0) * std::f32::consts::PI).sin() * 68.0;
     let azimuth = -110.0 + (day_t.clamp(0.0, 1.0) * 220.0);
+    // 밤 요인 — 직접 플레이 QA(2026-10-22): 구 램프(1−2.4·t, t≈0.417 소등)는
+    // 겨울처럼 짧은 낮에 새벽 08시대까지 night≈0.7을 유지해 발밑 미광·달이
+    // 햇빛과 동시에 보였다. 일출 뒤 13% 지점에 소등, 일몰 87%부터 재점등.
     let night = if day_t <= 0.0 || day_t >= 1.0 {
         1.0
+    } else if day_t < 0.13 {
+        (1.0 - day_t / 0.13).clamp(0.0, 1.0)
+    } else if day_t > 0.87 {
+        ((day_t - 0.87) / 0.13).clamp(0.0, 1.0)
     } else {
-        (1.0 - (day_t * 2.4).clamp(0.0, 1.0)).clamp(0.0, 1.0)
+        0.0
     };
     let dusk_w = ((1.0 - (day_t - 0.06).abs() * 7.0).clamp(0.0, 1.0)
         + (1.0 - (day_t - 0.94).abs() * 7.0).clamp(0.0, 1.0))

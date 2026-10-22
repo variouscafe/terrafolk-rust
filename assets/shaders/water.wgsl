@@ -49,13 +49,27 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     var col = mix(shallow.rgb, deep.rgb, clamp(n * 0.7 + fres * 0.4, 0.0, 1.0));
 
     // ── 해안 포말 — 베이크 거리장 + 노이즈 요동으로 유기적 물결선
-    let sd = textureSample(t_shore, s_shore, wp / world_size).r * MAX_SHORE;
-    let wob = (vnoise(wp * 1.1 + vec2<f32>(t * 0.22, -t * 0.17)) - 0.5) * 1.1;
+    // 원거리 감쇠 — 직접 플레이 QA(2026-10-22): 고주파 포말·스파클 노이즈는
+    // 광역 줌에서 픽셀 밀도 부족으로 모아레(격자 무늬)로 보였다. 24m까지 풀
+    // 디테일, 80m 이상에선 사라져 2톤 수면만 남는다.
+    let dist = distance(view.world_position, in.world_position.xyz);
+    let hi = clamp(1.0 - (dist - 24.0) / 56.0, 0.0, 1.0);
+    let sd = min(
+        textureSample(t_shore, s_shore, wp / world_size).r,
+        min(
+            textureSample(t_shore, s_shore, wp / world_size + vec2<f32>(0.7, 0.4) / world_size).r,
+            min(
+                textureSample(t_shore, s_shore, wp / world_size + vec2<f32>(-0.5, 0.6) / world_size).r,
+                textureSample(t_shore, s_shore, wp / world_size + vec2<f32>(0.3, -0.7) / world_size).r,
+            ),
+        ),
+    ) * MAX_SHORE;
+    let wob = (vnoise(wp * 1.1 + vec2<f32>(t * 0.22, -t * 0.17)) - 0.5) * 1.1 * hi;
     let band = 0.75 + wob;
     let foam_edge = 1.0 - smoothstep(band - 0.35, band + 0.55, sd);
     // 포말 텍스처 — 미세 거품 얼룩
-    let foam_tex = vnoise(wp * 3.0 + vec2<f32>(t * 0.35, t * 0.2)) * 0.7
-                 + vnoise(wp * 6.5 - vec2<f32>(t * 0.5)) * 0.3;
+    let foam_tex = (vnoise(wp * 3.0 + vec2<f32>(t * 0.35, t * 0.2)) * 0.7
+                 + vnoise(wp * 6.5 - vec2<f32>(t * 0.5)) * 0.3) * hi;
     let foam = foam_edge * smoothstep(0.35, 0.75, foam_tex + foam_edge * 0.35);
     col = mix(col, vec3<f32>(0.94, 0.97, 0.98), clamp(foam, 0.0, 1.0) * 0.92);
 
@@ -63,7 +77,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let shallow_w = 1.0 - smoothstep(0.0, 3.2, sd);
     col = mix(col, shallow.rgb * 1.12, shallow_w * 0.35);
 
-    let sparkle = smoothstep(0.82, 0.93, vnoise(uv2 * 2.7 + vec2<f32>(t * 0.02)));
+    let sparkle = smoothstep(0.82, 0.93, vnoise(uv2 * 2.7 + vec2<f32>(t * 0.02))) * hi;
     col += sparkle * 0.3 * (1.0 - foam_edge * 0.6);
 
     // AlphaMode::Opaque(블렌딩 불가) — 알파는 프레임버퍼에 남아 캔버스가
