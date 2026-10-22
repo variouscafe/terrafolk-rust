@@ -25,11 +25,16 @@ pub struct ChibiDone;
 ///   - 머리: Head(양쪽 동일) · 몸통: Abdomen(q)/spine_01(u) — 다리는 형제라
 ///     영향 없음 · 다리: UpperLeg.X(q)/thigh_x(u) — 종아리는 자손이라 함께 단축 ·
 ///     팔: UpperArm.X(q)/upperarm_x(u) — 손은 자손이라 함께 단축(2026-10-19).
+///   - 발: qchar 리그는 Foot.X가 **Body 직속**(다리 체인과 형제)이라 다리 축소가
+///     전파되지 않는다 — 명시 매칭 없이 두면 원본 크기 발이 짧아진 다리에 붙어
+///     스키처럼 앞으로 뻗는다(2026-10-22 직접 플레이 QA '패들 발'). PT(발가락)는
+///     Foot 자손이라 함께 축소된다. UE5(foot_l)는 calf_l 자손이라 전파됨.
 pub fn bone_scale(name: &str) -> Option<f32> {
     match name {
         "Head" => Some(HEAD_SCALE),
         "Abdomen" | "spine_01" => Some(SPINE_SCALE),
         "UpperLeg.L" | "UpperLeg.R" | "thigh_l" | "thigh_r" => Some(LEG_SCALE),
+        "Foot.L" | "Foot.R" => Some(LEG_SCALE),
         "UpperArm.L" | "UpperArm.R" | "upperarm_l" | "upperarm_r" => Some(ARM_SCALE),
         _ => None,
     }

@@ -189,14 +189,31 @@
       var p = proj[id2];
       var n = ensureNode(id2);
       var a = live[id2];
-      var onScreen = p.x > -80 && p.y > -60 && p.x < window.innerWidth + 80 &&
-        p.y < window.innerHeight + 60;
+      // 가장자리 컬링 — 직접 플레이 QA(2026-10-22): ±80/-60 여유는 화면 밖
+      // 주민의 말풍선·활동 배지를 반쯤 잘라 보여줬다. 좌우는 타이트하게,
+      // 상단은 배지+라벨 머리공간만큼, 하단은 이름표 삐져보임(피크)만 남긴다.
+      var onScreen = p.x > -12 && p.y > 46 && p.x < window.innerWidth + 12 &&
+        p.y < window.innerHeight + 22;
       if (!onScreen) {
         n.el.classList.add('off');
         continue;
       }
       n.el.classList.remove('off');
       n.el.style.transform = 'translate(' + p.x.toFixed(1) + 'px,' + p.y.toFixed(1) + 'px) translate(-50%,-100%)';
+
+      // 말풍선 가장자리 시프트 — 직접 플레이 QA(2026-10-22): 넓은 말풍선은
+      // 좌우 끝 주민에서 화면 밖으로 반 잘렸다. 노드(라벨·배지)는 발판에
+      // 고정하고 풍선만 화면 안으로 민다(꼬리 없는 스타일이라 시프트 무해).
+      if (n.bubble) {
+        var half = ((n.bubble.offsetWidth || 190) / 2) + 6;
+        var bx = 0;
+        if (p.x - half < 4) bx = half - p.x + 4;
+        else if (p.x + half > window.innerWidth - 4) bx = (window.innerWidth - 4) - (p.x + half);
+        if (bx !== (n.bubbleX || 0)) {
+          n.bubbleX = bx;
+          n.bubble.style.transform = 'translateX(' + bx.toFixed(0) + 'px)';
+        }
+      }
 
       // 이름 — 라벨 저줌 숨김(선택 주민은 유지)
       var labelOn = showLabel || id2 === selId;
@@ -452,7 +469,9 @@
         var w = Number.isInteger(st.w) && st.w >= 1 ? st.w : (st.type === 'LONGHOUSE' ? 3 : st.type === 'WAREHOUSE' ? 3 : st.type === 'WINDBREAK' ? 1 : 2);
         var h = Number.isInteger(st.h) && st.h >= 1 ? st.h : (st.type === 'WAREHOUSE' ? 3 : st.type === 'WINDBREAK' ? 1 : 2);
         if (tx >= r.x && tx < r.x + w && ty >= r.y && ty < r.y + h) { best = r; break; }
-      } else if (r.kind === 'grave' || r.kind === 'relic') {
+      } else if (r.kind === 'grave') {
+        // relic은 여기서 가로치지 않는다(직접 플레이 QA 2026-10-22) — 툴팁이
+        // 유물 카드(pickAt §17.38)를 대신해 카드가 열리지 않았다.
         var d = (r.x + 0.5 - x) * (r.x + 0.5 - x) + (r.y + 0.5 - y) * (r.y + 0.5 - y);
         if (d < bestD) { bestD = d; best = r; }
       }
