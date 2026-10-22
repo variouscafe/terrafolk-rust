@@ -43,10 +43,12 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let t = smoothstep(0.28, 0.47, nd) * 0.55 + smoothstep(0.52, 0.72, nd) * 0.45;
 
     // 웜 라이트 / 쿨 섀도 — 레퍼런스 좌상단 웜키 광원 감각. 강도 정규화 게인
-    // (낮 1.0 · 밤 ≈0.37)으로 daynight 감광 전파.
-    let lit_c = albedo * vec3<f32>(1.06, 1.00, 0.90) * sun_col
-        * (0.30 + 0.70 * sun_gain) * 0.95;
-    let sha_c = albedo * vec3<f32>(0.66, 0.70, 0.86) * (0.55 + 0.45 * sun_gain);
+    // (낮 1.0 · 밤 ≈0.37)으로 daynight 감광 전파. ⚠️ 섀도 스케일러는 lit와
+    // 같은 lit_f에서 파생 — 별도 상수식이면 밤(gain 0.1)에 섀도(0.60)가
+    // 리트(0.37)보다 밝아져 밴드가 뒤집힌다(2026-10-23 '카툰→3D처럼' 보고).
+    let lit_f = 0.30 + 0.70 * sun_gain;
+    let lit_c = albedo * vec3<f32>(1.06, 1.00, 0.90) * sun_col * lit_f * 0.95;
+    let sha_c = albedo * vec3<f32>(0.66, 0.70, 0.86) * lit_f * 0.92;
     var col = mix(sha_c, lit_c, t);
     // 중간 밴드 하이라이트 — 테두리진 카툰보다 붓질감
     col += albedo * 0.06 * (hemi - 0.5);

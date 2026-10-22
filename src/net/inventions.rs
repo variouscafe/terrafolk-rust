@@ -28,7 +28,7 @@ pub(crate) struct InventionModels {
 
 /// 다운로드+로드 완료된 모델 — 발명명 → 씬 핸들. resources.rs가 소비.
 #[derive(Resource, Default)]
-pub(crate) struct ReadyModels {
+pub struct ReadyModels {
     pub(crate) by_name: std::collections::HashMap<String, Handle<bevy::world_serialization::WorldAsset>>,
     /// 안정 key → 발명명(부지 species가 key로 오는 경로 — 시드 발명).
     pub(crate) key_to_name: std::collections::HashMap<String, String>,
