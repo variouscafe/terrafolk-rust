@@ -22,6 +22,8 @@ pub enum WearSlot {
     Hair,
     /// 턱·콧수염 — LPC 절출 GLB(meshgen): head 본
     Beard,
+    /// 안경 — LPC 절출 GLB(meshgen): head 본(눈 위치)
+    Glasses,
     /// 오른손 — 지팡이·도구: arm-right 본
     HandRight,
     /// 왼손: arm-left 본
@@ -36,6 +38,7 @@ impl WearSlot {
             Self::Eyes => &["Head", "head"],
             Self::Hair => &["Head", "head"],
             Self::Beard => &["Head", "head"],
+            Self::Glasses => &["Head", "head"],
             Self::HandRight => &["LowerArm.R", "hand_r", "arm-right"],
             Self::HandLeft => &["LowerArm.L", "hand_l", "arm-left"],
         }
@@ -55,6 +58,8 @@ impl WearSlot {
             // 수염 — meshgen 절출 GLB(원점=발 앵커, 실루엣이 y 0~0.5·폭 ~1.2로
             // 생성됨)을 턱 위치로 끌어내리고 치비 얼굴폭에 축소.
             Self::Beard => Vec3::new(0.0, -0.32, 0.10),
+            // 안경 — 같은 절출 계약. 렌즈 중심(실루엣 y≈0.35)을 눈 높이(0.13)로.
+            Self::Glasses => Vec3::new(0.0, -0.22, 0.12),
             // 손은 어깨 본에서 아래(침비 팔은 거의 발끝까지) — 몸 옆 살짝 전방
             Self::HandRight => Vec3::new(0.0, -0.09, 0.06),
             Self::HandLeft => Vec3::new(0.0, -0.09, 0.06),
@@ -66,6 +71,7 @@ impl WearSlot {
         match self {
             Self::Hair => 0.85,
             Self::Beard => 0.30,
+            Self::Glasses => 0.28,
             _ => 1.0,
         }
     }
@@ -88,6 +94,11 @@ pub fn wear_asset(item_id: &str) -> Option<(&'static str, WearSlot)> {
         "beards_medium" => Some(("models/lpc/beards_medium.glb", WearSlot::Beard)),
         "beards_mustache" => Some(("models/lpc/beards_mustache.glb", WearSlot::Beard)),
         "beards_trimmed" => Some(("models/lpc/beards_trimmed.glb", WearSlot::Beard)),
+        // 안경 — LPC 절출 GLB(meshgen, black 스프라이트 행2=정면). halfmoon은
+        // 분리 렌즈(멀티폴리곤)라 미생성.
+        "facial_glasses" => Some(("models/lpc/facial_glasses.glb", WearSlot::Glasses)),
+        "facial_glasses_nerd" => Some(("models/lpc/facial_glasses_nerd.glb", WearSlot::Glasses)),
+        "facial_glasses_round" => Some(("models/lpc/facial_glasses_round.glb", WearSlot::Glasses)),
         _ => None,
     }
 }
@@ -127,6 +138,18 @@ pub fn wear_ids_from_look(look: &str) -> Vec<String> {
         && beard != "none"
     {
         out.push(beard);
+    }
+    // 안경 — parts.glasses. 'none'·미지정은 미부착. 봇 기본값(glasses_prob)은
+    // lookJson에 명시되지 않아 사용자 선택만 반영.
+    if let Some(glasses) = serde_json::from_str::<serde_json::Value>(look)
+        .ok()
+        .and_then(|d| {
+            d.pointer("/parts/glasses")
+                .and_then(|v| v.as_str().map(str::to_string))
+        })
+        && glasses != "none"
+    {
+        out.push(glasses);
     }
     let hair_key = serde_json::from_str::<serde_json::Value>(look)
         .ok()
