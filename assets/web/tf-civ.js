@@ -106,7 +106,7 @@
               return '<span class="tf-chipbox"' +
                 (i.last_perform_day != null ? ' title="' + esc(t('civ.living.last', { d: i.last_perform_day })) + '"' : '') + '>' +
                 '<span style="font-size:14px;line-height:1">' + (i.icon && i.icon.tpl ? chipIconHtml(i.name, 20) : invCatEmoji(i.category)) + '</span>' +
-                esc(i.name) +
+                '<span class="tf-chipbox-nm">' + esc(i.name) + '</span>' +
                 '<span class="tf-qty" style="color:#fcd34d">' + esc(t('civ.living.holds', { n: n, d: depth })) + '</span>' +
                 '</span>';
             }).join('') + '</div>') +

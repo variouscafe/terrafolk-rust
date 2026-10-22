@@ -227,7 +227,7 @@
           '</span>' +
           weather +
           '<span class="tf-chip">' + esc(t('world.people', { n: n })) + '</span>' +
-          '<span class="tf-chip' + (isUser ? ' tf-chip-user' : '') + '">' +
+          '<span class="tf-chip tf-chip-mode' + (isUser ? ' tf-chip-user' : '') + '">' +
             esc(isUser ? t('world.joined') : t('world.spectate')) + '</span>' +
           '<span class="tf-topbar-spacer"></span>' +
           '<div class="tf-menu-anchor">' +
