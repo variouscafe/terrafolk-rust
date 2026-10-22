@@ -37,6 +37,9 @@
         <!-- 앰비언스 — 계절 틴트·번개·사망 연출 / 미니맵 — 베이크·점·클릭 점프 -->
         <script src="assets/web/tf-ambience.js"></script>
         <script src="assets/web/tf-minimap.js"></script>
+        <!-- 배포 버전 감시 — 낡은 wasm 캐시 갱신 가이드(tf-update.js).
+             meta[name=tf-version]은 deploy-3d-r2.sh가 wasm 해시로 주입한다. -->
+        <script src="assets/web/tf-update.js"></script>
         <div class="game-container">
             <div class="lds-dual-ring"></div>
             <!-- 폴백 텍스트 — tf-ui.js가 DOMContentLoaded에 tOr('boot.loading')로 교체 -->

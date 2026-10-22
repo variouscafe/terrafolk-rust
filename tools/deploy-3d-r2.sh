@@ -37,17 +37,36 @@ open('dist/index.html', 'w').write(new2)
 print('glue →', f'{r2}/{w}'[:80])
 PY
 
-# ④ wasm은 dist 밖으로(하위 디렉터리도 업로드 트리에 포함된다 — /tmp 대피)
+# ④ 버전 지문 — 부팅 버전 meta 주입 + /version.json(tf-update.js 폴링용).
+#    낡은 wasm 캐시로 고장나는 사고(2026-10-22 '하늘색만 보임')를 감지·갱신
+#    가이드로 예방한다. wasm 해시=배포마다 단조 변화.
+GITV=$(git -C "$R" rev-parse --short HEAD)
+python3 - "$W" "$GITV" <<'PY'
+import sys, time, json, re
+w, gitv = sys.argv[1], sys.argv[2]
+src = open('dist/index.html').read()
+v = gitv + '-' + w.replace('_bg.wasm', '').split('-')[-1]
+if 'name="tf-version"' not in src:
+    src = src.replace('<head>', '<head>\n    <meta name="tf-version" content="%s">' % v, 1)
+else:
+    src = re.sub(r'content="[^"]*"([^>]*name="tf-version")', r'content="%s"\g<1>' % v, src)
+    src = re.sub(r'(name="tf-version"[^>]*content=")[^"]*', r'\g<1>%s' % v, src)
+open('dist/index.html', 'w').write(src)
+open('dist/version.json', 'w').write(json.dumps({'v': v, 't': int(time.time())}))
+print('version →', v)
+PY
+
+# ⑤ wasm은 dist 밖으로(하위 디렉터리도 업로드 트리에 포함된다 — /tmp 대피)
 TMPD=$(mktemp -d)
 [ -d dist/wasm ] && mv dist/wasm "$TMPD/wasm_old"
 mv "dist/$W" "$TMPD/"
 
-# ⑤ Pages 배포(HTML/JS/GLB 에셋) — 명시적 프로젝트 지정
+# ⑥ Pages 배포(HTML/JS/GLB 에셋) — 명시적 프로젝트 지정
 # (루트 wrangler.jsonc name=terrafolk-rust 를 따라가지 않게 CLI로 덮는다)
 npx wrangler pages deploy dist --project-name terrafolk-3d \
   --branch main --commit-dirty=true
 
-# ⑥ 대피 복구(로컬 8080 서빙용) — glue 원문도 복원(상대 경로 복귀)
+# ⑦ 대피 복구(로컬 8080 서빙용) — glue 원문도 복원(상대 경로 복귀)
 mv "$TMPD/$W" dist/ 2>/dev/null || true
 [ -d "$TMPD/wasm_old" ] && mv "$TMPD/wasm_old" dist/wasm
 [ -f "$GLUE_BAK" ] && mv "$GLUE_BAK" dist/index.html
