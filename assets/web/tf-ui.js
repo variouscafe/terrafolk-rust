@@ -390,27 +390,27 @@
       }).join('');
     } else if (tab === 'hair') {
       rows = optRowHtml(t('look.hair'), E.opts.hairs.map(function (v) { return { key: v, ko: E.prettyPart(v) }; }), E.parts.hair || E.opts.hairs[0], E) +
-        optRowHtml(t('look.hairColor'), E.opts.hairColors.map(function (v) { return { key: v, ko: E.prettyPart(v) }; }), E.parts.hairColor || E.opts.hairColors[0], E);
+        optRowHtml(t('look.hairColor'), E.opts.hairColors.map(function (v) { return { key: v, ko: E.prettyPart(v) }; }), E.parts.hairColor || E.opts.hairColors[0], E, 'hairColor');
     } else {
-      rows = optRowHtml(t('look.skin'), E.opts.skins.map(function (v) { return { key: v, ko: E.prettyPart(v) }; }), E.parts.skin || E.opts.skins[0], E) +
-        optRowHtml(t('look.eye'), E.opts.eyes.map(function (v) { return { key: v, ko: E.prettyPart(v) }; }), E.parts.eye || E.opts.eyes[0], E) +
+      rows = optRowHtml(t('look.skin'), E.opts.skins.map(function (v) { return { key: v, ko: E.prettyPart(v) }; }), E.parts.skin || E.opts.skins[0], E, 'skin') +
+        optRowHtml(t('look.eye'), E.opts.eyes.map(function (v) { return { key: v, ko: E.prettyPart(v) }; }), E.parts.eye || E.opts.eyes[0], E, 'eye') +
         optRowHtml(t('look.beard'), E.opts.beards.map(function (v) { return { key: v, ko: E.prettyPart(v) }; }), E.parts.beard || 'none', E) +
         optRowHtml(t('look.glasses'), E.opts.glasses.map(function (v) { return { key: v, ko: E.prettyPart(v) }; }), E.parts.glasses || 'none', E);
     }
     var tabs = [['clothes', 'look.tab.clothes'], ['hair', 'look.tab.hair'], ['face', 'look.tab.face']].map(function (tb) {
       return '<button class="tf-look-tab' + (tab === tb[0] ? ' on' : '') + '" data-act="look-tab" data-key="' + tb[0] + '">' + esc(t(tb[1])) + '</button>';
     }).join('');
-    return '<div class="tf-overlay" data-act="close-look">' +
+    return '<div class="tf-overlay tf-lookwrap" data-act="close-look">' +
       '<div class="tf-look tf-scroll" data-scroll="look">' +
         '<div class="tf-look-head">' +
           '<h3 class="tf-look-title">' + esc(t('look.title')) + ' — ' + esc(E.name) + '</h3>' +
           '<button class="tf-dialog-close" data-act="close-look">' + svg(ICONS.X, 16) + '</button>' +
         '</div>' +
         '<div class="tf-look-body">' +
-          frameHtml(E, 136, false) +
           '<div class="tf-look-main">' +
             '<div class="tf-look-tabs">' + tabs + '</div>' +
             '<div class="tf-look-rows">' + rows + '</div>' +
+            '<p class="tf-look-note">' + esc(tOr('look.preview3d', '바꾸면 바로 저장되어 세계의 3D 모습에 반영돼요')) + '</p>' +
           '</div>' +
         '</div>' +
         '<div class="tf-look-actions">' +
@@ -424,24 +424,18 @@
     '</div>';
   }
 
-  /** 시트 프레임 크롭 박스(FE Frame 포트) — walk 시트 down행(2행) 0프레임. */
-  function frameHtml(E, size, dim) {
-    var s = size / 64;
-    return '<div class="tf-frame" style="width:' + size + 'px;height:' + size + 'px">' +
-      (E.frameUrl
-        ? '<img src="' + E.frameUrl + '" alt="" class="' + (dim ? 'dim' : '') +
-          '" style="top:' + (-64 * 2 * s) + 'px;width:' + (576 * s) + 'px;height:' + (256 * s) + 'px">'
-        : '<div style="display:flex;height:100%;align-items:center;justify-content:center;font-size:10px;color:var(--ink-500)">…</div>') +
-      '</div>';
-  }
-  function optRowHtml(label, options, value, E) {
+  /** 옵션 행 — 색 옵션(hairColor·skin·eye)은 3D 틴트 팔레트 스와치, 스타일은
+   *  이름만(2D 시트 프리뷰 폐지 — 3D 반영 시대, 실 프리뷰는 저장 후 세계). */
+  function optRowHtml(label, options, value, E, swatchKind) {
     var idx = Math.max(0, options.findIndex(function (o) { return o.key === value; }));
     var cur = options[idx] || options[0] || { key: 'none', ko: '' };
+    var sw = swatchKind ? window.TF_LOOK.swatch(swatchKind, cur.key) : null;
+    var thumb = sw ? '<span class="tf-swatch" style="background:' + sw + '"></span>' : '';
     return '<div class="tf-optrow">' +
       '<span class="tf-optrow-label">' + esc(label) + '</span>' +
       '<button class="tf-optrow-nav" data-act="look-slide" data-dir="-1">' + svg(ICONS.ChevronLeft, 16) + '</button>' +
       '<div class="tf-optrow-main">' +
-        frameHtml(E, 44, !!cur.locked) +
+        thumb +
         '<div class="tf-optrow-name">' +
           '<div class="tf-optrow-nm' + (cur.locked ? ' locked' : '') + '">' +
             (cur.key === 'none' ? esc(t('look.none')) : esc(cur.ko)) + '</div>' +
@@ -463,17 +457,15 @@
       tab: 'clothes',
       parts: Object.assign({}, base, m.parts || {}),
       wears: Object.assign({}, m.wears || {}),
-      frameUrl: '',
       busy: false,
       prettyPart: function (v) {
         var s = (String(v).split('_').pop() || v).replace(/([a-z])([A-Z])/g, '$1 $2');
         return s.charAt(0).toUpperCase() + s.slice(1);
       },
-      setPart: function (k, v) { E.parts[k] = v; E.refreshFrame(); schedule(); },
+      setPart: function (k, v) { E.parts[k] = v; schedule(); },
       pickWear: function (slot, key) {
         if (key === 'auto') delete E.wears[slot];
         else E.wears[slot] = key;
-        E.refreshFrame();
         schedule();
       },
       // 옷 카탈로그(FE CLOTHES 미러) — 소지 기반 잠금
@@ -512,13 +504,7 @@
           }))
           .concat(E.invClothes.map(function (ic) { return { key: ic.name, ko: ic.name }; }));
       },
-      refreshFrame: function () {
-        window.TF_LOOK.charSheetUrl({ uuid: E.agentId, sex: E.sex, age: E.age, parts: E.fullParts() })
-          .then(function (u) { if (S.lookEdit === E) { E.frameUrl = u; schedule(); } })
-          .catch(function () {});
-      },
     };
-    E.refreshFrame();
     return E;
   }
 
@@ -881,7 +867,9 @@
       if (!r.ok) return r.json().then(function (j) { throw new Error(j.message || j.detail || 'save failed'); });
       return r.json();
     }).then(function () {
-      S.lookEdit = null;
+      // 편집기 유지(2026-10-23) — 슬라이드마다 즉시 저장되므로 닫지 않고
+      // 계속 조정하게 한다. 실 프리뷰는 투명 오버레이 너머 3D 세계.
+      E.busy = false;
       notify(t('look.saved'));
       loadMine();
       schedule();

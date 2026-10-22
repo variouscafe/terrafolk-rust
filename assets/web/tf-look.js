@@ -367,9 +367,18 @@
     return p;
   }
 
+  // 색상 스와치 — 3D 틴트 팔레트(look_tint.rs, Universal-LPC ramp[3])와 동일값.
+  // 외형 편집기의 색 옵션 프리뷰(2D 스프라이트 폐지 — 2026-10-23 3D 반영 시대).
+  var SWATCH = {
+    hairColor: { black: '#1C2222', raven: '#071F2A', dark_brown: '#421603', chestnut: '#81310A', light_brown: '#7D4513', dark_gray: '#3B3B3B', ash: '#C18F8A', gray: '#777777', blonde: '#E09E2B' },
+    skin: { light: '#E4A47C', amber: '#EA9F54', olive: '#AE6B3F', taupe: '#936849', bronze: '#7F4C31', brown: '#76513A', black: '#442725' },
+    eye: { brown: '#7E4E20', gray: '#ADA18F', green: '#84EC50', blue: '#57CEE4' },
+  };
+
   window.TF_LOOK = {
     hash32: hash32, mulberry32: mulberry32,
     lookPartOptions: lookPartOptions, buildLook: buildLook, charSheetUrl: charSheetUrl,
     renderItemIcon: renderItemIcon,
+    swatch: function (kind, key) { return (SWATCH[kind] || {})[key] || null; },
   };
 })();
