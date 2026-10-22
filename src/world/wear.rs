@@ -44,10 +44,11 @@ impl WearSlot {
         match self {
             // head 본은 목 뿌리(y≈0.34) — 눈 위치까지 상승 + 정면 전진
             Self::Eyes => Vec3::new(0.0, 0.13, 0.13),
-            // 헤어 — qubase 헤어 GLB는 ubase Head 본 원점 기준 모델링(전시
-            // 실증: IDENTITY 부착으로 두피에 정착). 치비 Head 스케일(2.05)을
-            // 자식으로 상속받아 커진 머리에 함께 맞는다.
-            Self::Hair => Vec3::ZERO,
+            // 헤어 — qubase 헤어 GLB는 ubase Head 본(목 뿌리) 기준 모델링.
+            // qchar 치비 Head(스케일 2.05) 원점과 원점 높이가 달라 그대로
+            // 두면 두피 위로 뜬다(라이브 줌 인 실측 10~20px 간극) — 하강
+            // 보정. 스케일도 치비 머리보다 살짝 크게 나와 축소.
+            Self::Hair => Vec3::new(0.0, -0.10, 0.0),
             // 손은 어깨 본에서 아래(침비 팔은 거의 발끝까지) — 몸 옆 살짝 전방
             Self::HandRight => Vec3::new(0.0, -0.09, 0.06),
             Self::HandLeft => Vec3::new(0.0, -0.09, 0.06),
@@ -56,7 +57,10 @@ impl WearSlot {
 
     /// 부착물 자체 스케일 — 원천 GLB 스케일 차이 흡수(필요 시 슬롯별 지정).
     fn scale(self) -> f32 {
-        1.0
+        match self {
+            Self::Hair => 0.85,
+            _ => 1.0,
+        }
     }
 }
 
