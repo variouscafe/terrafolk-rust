@@ -10,7 +10,6 @@ pub mod camera_input;
 pub mod camera_rig;
 pub mod data;
 pub mod daynight;
-pub mod legacy_world;
 pub mod night_glow;
 pub mod materials_guard;
 pub mod models;
@@ -31,7 +30,6 @@ pub mod sky;
 pub mod splat;
 pub mod terrain;
 pub mod villager;
-pub mod villager_probe;
 pub mod water;
 pub mod wear;
 #[allow(dead_code)] // 바람 흔들림 효과 제거(2026-10-22 사용자 지시 — 성능) — 모듈은 보존
@@ -83,13 +81,8 @@ impl Plugin for WorldPlugin {
                 (precip_fx::adjust_pool, precip_fx::update_precip, precip_fx::update_lightning).chain(),
             );
         }
-        // 데모 결정론 월드는 네이티브 개발 빌드 전용 — 웹(wasm)은 라이브 접속→
-        // 프라임으로 곧장 간다(스폰-철거 낭비·플래시 제거. 로딩 오버레이는
-        // tf.uiPrime 통보로 해제).
-        // 네이티브 데모 — 레거시 FE와 동일한 공용 맵(시드 20261011)으로 구동.
-        // 웹은 prime_live_world가 라이브 맵으로 교체한다.
-        #[cfg(not(target_arch = "wasm32"))]
-        app.add_systems(Update, legacy_world::prime_legacy_world);
+        // 데모 월드 제거(2026-10-23 사용자 결정) — 네이티브도 라이브 전제.
+        // 이전: 레거시 맵 임베드 데모가 네이티브에서 구동(바이너리 용량 부담).
         app.add_systems(Update, animal_anim::play_animal_idles);
         app.add_systems(Update, chibi::chibiify);
         app.add_systems(
@@ -134,9 +127,6 @@ impl Plugin for WorldPlugin {
                 villager::throttle_offscreen_anims,
                 villager::retry_villager_setup,
                 wear::apply_wears,
-                // 렌더 진단 프로브 — dev 빌드 전용(운영 콘솔 지저분함 방지, 리뷰 #9)
-                #[cfg(debug_assertions)]
-                villager_probe::villager_render_probe,
                 (pick::drain_select, pick::pick_agent, pick::follow_selection).chain(),
                 occlusion::conceal_occluders,
                 cam_follow::follow_camera,

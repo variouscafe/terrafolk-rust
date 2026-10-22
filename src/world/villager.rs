@@ -4,9 +4,9 @@
 //! 그래프(Walk/Idle/Interact/Wave 4클립) 연결. 이동 시 캐릭터가 이동 방향으로
 //! 회전. 활동(채집·건설…)은 Interact, 주고받기(give·trade)는 Wave로 연출한다.
 
-use bevy::gltf::{Gltf, GltfAssetLabel};
+use bevy::gltf::Gltf;
 use bevy::prelude::*;
-use bevy::world_serialization::{WorldAssetRoot, WorldInstanceReady};
+use bevy::world_serialization::WorldInstanceReady;
 use std::time::Duration;
 
 use super::data::WorldData;
@@ -101,60 +101,12 @@ pub fn model_path_for(id: &str, look: Option<&str>) -> &'static str {
     group[(h % group.len() as u64) as usize]
 }
 
-/// 데모 주민 이름 풀 — 스폰 순서대로(결정론). 라이브는 서버 name 사용.
-const DEMO_NAMES: [&str; 6] = ["아라", "두리", "세범", "나온", "모리", "바름"];
-
-pub fn spawn_legacy_villagers(commands: &mut Commands, world: &WorldData, assets: &AssetServer) {
-    let mut rng = super::data::Rng::new(99);
-    let c = world.size as i32 / 2;
-    let mut placed = 0;
-    let mut attempts = 0;
-    while placed < 6 && attempts < 200 {
-        attempts += 1;
-        let x = rng.range_i(c - 7, c + 7);
-        let y = rng.range_i(c - 7, c + 7);
-        if !world.walkable(x, y) {
-            continue;
-        }
-        let path = model_path_for(&format!("demo:{placed}"), None);
-        let scene = assets.load(GltfAssetLabel::Scene(0).from_asset(path));
-        let gltf = assets.load(path);
-        let ground = world.height_at(x, y);
-        let _ = &path;
-        let yaw = rng.range(0.0, std::f32::consts::TAU);
-        commands
-            .spawn((
-                VillagerModel(gltf, None),
-                super::wear::demo_wears_component(placed),
-                Villager {
-                    from: Vec3::new(x as f32 + 0.5, ground, y as f32 + 0.5),
-                    to: Vec3::new(x as f32 + 0.5, ground, y as f32 + 0.5),
-                    t: 0.0,
-                    moving: false,
-                    idle: rng.range(0.0, 2.0),
-                    target_h: VILLAGER_H,
-                    name: DEMO_NAMES[placed].into(),
-                    status: "idle".into(),
-                    act: String::new(),
-                },
-                WorldAssetRoot(scene),
-                Transform::from_translation(Vec3::new(x as f32 + 0.5, ground, y as f32 + 0.5))
-                    .with_rotation(Quat::from_rotation_y(yaw)),
-            ))
-            .observe(villager_ready);
-        placed += 1;
-    }
-}
-
 /// 스폰 완료 보장 마커 — finish_villager_setup이 아직 못 끝낸 주민.
-/// 무음 early-return이 애님+오토핏을 영구 누락시켜 원시 스케일 유령(2026-10-17
+/// 무음 early-return이 애님+오토펏을 영구 누락시켜 원시 스케일 유령(2026-10-17
 /// 신규 합류 주민 '테린' 사례 — 화면에 아예 안 보임)을 낳는다. 재시도로 보장한다.
 #[derive(Component)]
 pub struct VillagerPending(pub f32);
 
-/// 씬 스폰 완료 — 애니메이션 그래프 연결 + 오토펏. 자산 비동기 로드로 아직
-/// 못 끝내면 VillagerPending을 남기고, retry_villager_setup이 완결한다.
-#[allow(clippy::too_many_arguments)] // Bevy 시스템 파라미터 — finish_villager_setup과 동일 세트
 pub fn villager_ready(
     trigger: On<WorldInstanceReady>,
     mut commands: Commands,
