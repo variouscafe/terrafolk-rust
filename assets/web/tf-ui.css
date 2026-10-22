@@ -348,20 +348,28 @@
 
 /* ── 외형 편집 모달 ── */
 .tf-look { max-height: 86dvh; width: 100%; max-width: 24rem; overflow-y: auto;
-  border-radius: .75rem; border: 1px solid var(--ink-700); background: rgba(11, 14, 20, .92); padding: .75rem;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .5);
-  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  border-radius: 1rem; border: 1px solid rgba(255, 255, 255, .09); background: rgba(13, 17, 24, .82); padding: .875rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .6), 0 0 0 1px rgba(0, 0, 0, .25);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2);
 }
-/* 외형 편집 오버레이 — 차광 없이 우하단 고정(2026-10-23): 실시간 프리뷰는
-   투명 오버레이 너머 3D 세계(슬라이드마다 즉시 저장·재스폰). 모바일은 하단 시트. */
-.tf-lookwrap { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; place-items: end center; padding: .75rem; }
+/* 외형 편집 오버레이(2026-10-23 실시간 미리보기) — 차광 없이: 데스크톱은
+   우측 사이드 패널, 모바일은 하단 시트. 3D 캐릭터는 카메라가 맵 중앙~상단에
+   비춘다(look_edit 포커스 — 줌 인 팔로우 + 화면 위 시프트). */
+.tf-lookwrap { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none;
+  place-items: center end; padding: .75rem; }
 .tf-swatch { flex-shrink: 0; width: 22px; height: 22px; border-radius: 999px;
   border: 2px solid rgba(255, 255, 255, .28); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .45), 0 1px 3px rgba(0, 0, 0, .4); }
 @media (max-width: 600px) {
-  .tf-lookwrap { align-items: flex-end; justify-content: stretch; padding: .5rem; }
+  .tf-lookwrap { place-items: end stretch; padding: .5rem; }
+  .tf-look { max-height: 62dvh; border-radius: 1.25rem 1.25rem .75rem .75rem; }
 }
-.tf-look-head { margin-bottom: .5rem; display: flex; align-items: center; justify-content: space-between; }
-.tf-look-title { font-size: .875rem; font-weight: 600; color: var(--ink-200); }
+/* 저장 상태 배지 — 자동 저장(슬라이드 0.5s 디바운스) 진행 표시 */
+.tf-look-status { font-size: 10px; font-weight: 600; color: var(--ink-400);
+  padding: .125rem .5rem; border-radius: 999px; background: var(--ink-800); transition: color .2s; }
+.tf-look-status.busy { color: var(--accent); }
+.tf-look-head { margin-bottom: .5rem; display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.tf-look-title { font-size: .875rem; font-weight: 600; color: var(--ink-100); }
+.tf-look-headgroup { display: flex; align-items: center; gap: .5rem; min-width: 0; }
 .tf-look-body { display: flex; gap: .75rem; }
 .tf-look-main { min-width: 0; flex: 1 1 0%; }
 .tf-look-tabs { margin-bottom: .375rem; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .25rem;
@@ -370,10 +378,13 @@
 .tf-look-tab:hover { color: var(--ink-100); }
 .tf-look-tab.on { background: var(--accent); color: var(--ink-950); }
 .tf-look-rows { display: flex; flex-direction: column; gap: .375rem; }
-.tf-optrow { display: flex; align-items: center; gap: .375rem; }
+.tf-optrow { display: flex; align-items: center; gap: .375rem; padding: .3rem .375rem;
+  border-radius: .625rem; border: 1px solid transparent; transition: background .15s, border-color .15s; }
+.tf-optrow:hover { background: rgba(255, 255, 255, .04); border-color: rgba(255, 255, 255, .06); }
 .tf-optrow-label { width: 3rem; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--ink-400); }
-.tf-optrow-nav { border-radius: .25rem; padding: .125rem; color: var(--ink-400); }
+.tf-optrow-nav { border-radius: .5rem; padding: .25rem; color: var(--ink-400); transition: background .15s, color .15s, transform .1s; }
 .tf-optrow-nav:hover { background: var(--ink-800); color: var(--ink-100); }
+.tf-optrow-nav:active { transform: scale(.92); }
 .tf-optrow-main { display: flex; min-width: 0; flex: 1 1 0%; align-items: center; gap: .375rem; }
 .tf-optrow-name { min-width: 0; flex: 1 1 0%; }
 .tf-optrow-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--ink-200); }

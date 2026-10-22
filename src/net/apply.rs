@@ -209,6 +209,7 @@ pub fn sync_agents(
         Option<&mut AgentGrace>,
     )>,
     q_model: Query<&crate::world::villager::VillagerModel, With<LiveAgentTag>>,
+    mut local_looks: ResMut<crate::world::look_edit::LocalLooks>,
     mut first_log: Local<u32>,
 ) {
     if net.status != NetStatus::Connected {
@@ -255,7 +256,25 @@ pub fn sync_agents(
         // 외형 변경(§17.32 lookJson 패치) — 편집기 저장 직후 반영: look이
         // 바뀌면 재스폰(모델 성별 전환·look_tint 재적용). 다음 프레임
         // spawn_missing이 새 look으로 살린다(2026-10-23 외형 3D 반영).
-        if let (Ok(vm), Some(look)) = (q_model.get(e), a.look.as_deref()) {
+        // 편집 미리보기(look_edit) — 오버라이드가 서버 정본보다 우선하고,
+        // 서버 프레임이 오버라이드와 같아지면(저장 수렴) 오버라이드를 제거해
+        // 이후 서버 정본으로 환원한다.
+        let look_of = match (a.look.as_deref(), local_looks.0.get(&a.id)) {
+            (Some(base), Some(ov_parts)) => {
+                // 수렴 — 서버 정본 parts가 오버라이드와 같아지면(편집 저장 확정)
+                // 오버라이드를 제거해 이후 정본만 믿는다.
+                if crate::world::look_edit::parts_equal(base, ov_parts) {
+                    local_looks.0.remove(&a.id);
+                    a.look.clone()
+                } else {
+                    crate::world::look_edit::merged_look(base, ov_parts)
+                        .or_else(|| a.look.clone())
+                }
+            }
+            (_, Some(_)) => a.look.clone(), // 정본 부재(스폰 전) — 오버라이드 대기
+            _ => a.look.clone(),
+        };
+        if let (Ok(vm), Some(look)) = (q_model.get(e), look_of.as_deref()) {
             if vm.1.as_deref() != Some(look) {
                 commands.entity(e).despawn();
                 continue;
@@ -299,7 +318,11 @@ pub fn sync_agents(
         if super::dbg_gate::off("no_villagers") {
             continue; // 진단 게이트
         }
-        let mut look = a.look.clone();
+        let mut look = match (a.look.as_deref(), local_looks.0.get(&a.id)) {
+            (Some(base), Some(ov_parts)) => crate::world::look_edit::merged_look(base, ov_parts)
+                .or_else(|| a.look.clone()),
+            _ => a.look.clone(),
+        };
         // 외형 틴트 시각 검증 게이트 — ?tfdbg=looktest: 주민마다 진한 팔레트를
         // 강제 주입(블론드·브론즈·블루눈·옷색)해 3D 반영을 컷 한 장으로 판정.
         if super::dbg_gate::on("looktest") {
@@ -327,10 +350,10 @@ pub fn sync_agents(
             .max(-0.14);
         commands
             .spawn((
-                crate::world::villager::VillagerModel(gltf, look),
                 crate::world::wear::Wears(crate::world::wear::wear_ids_from_look(
-                    a.look.as_deref().unwrap_or(""),
+                    look.as_deref().unwrap_or(""),
                 )),
+                crate::world::villager::VillagerModel(gltf, look),
                 crate::world::villager::Villager {
                     from: Vec3::new(a.x, ground, a.y),
                     to: Vec3::new(a.x, ground, a.y),

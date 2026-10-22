@@ -18,6 +18,8 @@ use super::villager::{Villager, VillagerAnims};
 pub enum WearSlot {
     /// 눈(얼굴) — 선글라스 등: head 본
     Eyes,
+    /// 머리 — 헤어스타일 GLB(qubase): head 본
+    Hair,
     /// 오른손 — 지팡이·도구: arm-right 본
     HandRight,
     /// 왼손: arm-left 본
@@ -30,6 +32,7 @@ impl WearSlot {
     fn bones(self) -> &'static [&'static str] {
         match self {
             Self::Eyes => &["Head", "head"],
+            Self::Hair => &["Head", "head"],
             Self::HandRight => &["LowerArm.R", "hand_r", "arm-right"],
             Self::HandLeft => &["LowerArm.L", "hand_l", "arm-left"],
         }
@@ -41,10 +44,19 @@ impl WearSlot {
         match self {
             // head 본은 목 뿌리(y≈0.34) — 눈 위치까지 상승 + 정면 전진
             Self::Eyes => Vec3::new(0.0, 0.13, 0.13),
+            // 헤어 — qubase 헤어 GLB는 ubase Head 본 원점 기준 모델링(전시
+            // 실증: IDENTITY 부착으로 두피에 정착). 치비 Head 스케일(2.05)을
+            // 자식으로 상속받아 커진 머리에 함께 맞는다.
+            Self::Hair => Vec3::ZERO,
             // 손은 어깨 본에서 아래(침비 팔은 거의 발끝까지) — 몸 옆 살짝 전방
             Self::HandRight => Vec3::new(0.0, -0.09, 0.06),
             Self::HandLeft => Vec3::new(0.0, -0.09, 0.06),
         }
+    }
+
+    /// 부착물 자체 스케일 — 원천 GLB 스케일 차이 흡수(필요 시 슬롯별 지정).
+    fn scale(self) -> f32 {
+        1.0
     }
 }
 
@@ -53,6 +65,8 @@ impl WearSlot {
 pub fn wear_asset(item_id: &str) -> Option<(&'static str, WearSlot)> {
     match item_id {
         "sunglasses" => Some(("models/Kenney_aid-sunglasses.glb", WearSlot::Eyes)),
+        "hair-long" => Some(("models/qubase/hair-long.glb", WearSlot::Hair)),
+        "hair-buns" => Some(("models/qubase/hair-buns.glb", WearSlot::Hair)),
         "cane" | "cane-blind" => Some(("models/Kenney_aid-cane-blind.glb", WearSlot::HandRight)),
         _ => None,
     }
@@ -70,12 +84,29 @@ pub struct WearApplied;
 /// lookJson(원문)에서 부착형 착용 item 추출. 현재 서버 정본 의상 슬롯
 /// (top/bottom/feet — 치비 변형이 담당)엔 부착물이 없어 대부분 비고,
 /// wears에 등록된 액세서리 키가 늘어나면 여기 매칭만 확장한다.
+/// 헤어(2026-10-23) — parts.hair 스타일 id를 보유 GLB 2종(long·buns)으로
+/// 결정론 분배. 스타일이 바뀌면 헤어가 달라 붙는다(편집 미리보기 연동).
 pub fn wear_ids_from_look(look: &str) -> Vec<String> {
     let mut out = Vec::new();
     for id in ["sunglasses", "cane", "cane-blind"] {
         if look.contains(&format!("\"{id}\"")) {
             out.push(id.to_string());
         }
+    }
+    if let Some(hair) = serde_json::from_str::<serde_json::Value>(look)
+        .ok()
+        .and_then(|d| {
+            d.pointer("/parts/hair")
+                .and_then(|v| v.as_str())
+                .map(str::to_string)
+        })
+    {
+        let h = hair.bytes().fold(0u64, |a, b| a.wrapping_mul(31) + b as u64);
+        out.push(if h % 2 == 0 {
+            "hair-long".to_string()
+        } else {
+            "hair-buns".to_string()
+        });
     }
     out
 }
@@ -145,7 +176,8 @@ pub fn apply_wears(
                 .spawn((
                     Name::new(format!("wear-{id}")),
                     bevy::world_serialization::WorldAssetRoot(scene),
-                    Transform::from_translation(slot.offset()),
+                    Transform::from_translation(slot.offset())
+                        .with_scale(Vec3::splat(slot.scale())),
                 ))
                 .id();
             commands.entity(*bone_e).add_child(wear_e);

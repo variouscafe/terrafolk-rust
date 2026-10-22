@@ -88,13 +88,22 @@ fn view_offset(zoom: f32) -> Vec3 {
     Vec3::new(horiz * y.cos(), d * p.sin(), horiz * y.sin())
 }
 
-fn pan_offset(rig: &CameraRig) -> Vec3 {
-    Vec3::new(rig.target.x, 0.0, rig.target.y) + view_offset(rig.zoom)
+fn pan_offset(rig: &CameraRig, focus: &super::look_edit::LookFocus) -> Vec3 {
+    let mut at = Vec3::new(rig.target.x, 0.0, rig.target.y) + view_offset(rig.zoom);
+    // 편집 미리보기(look_edit) — 캐릭터(타깃)를 화면 위쪽으로 밀어 하단 시트·
+    // 우측 패널과 공존. 카메라 앵커를 -z(먼 쪽)로 옮기면 타깃이 위로 올라간다.
+    if focus.active {
+        at.z -= VIEW_H * rig.zoom * 0.20;
+    }
+    at
 }
 
 pub fn spawn_camera(mut commands: Commands) {
     let rig = CameraRig::default();
-    let mut tr = Transform::from_translation(pan_offset(&rig));
+    let mut tr = Transform::from_translation(pan_offset(
+        &rig,
+        &super::look_edit::LookFocus::default(),
+    ));
     tr.look_at(Vec3::new(rig.target.x, 0.0, rig.target.y), Vec3::Y);
     commands.spawn((
         Camera3d::default(),
@@ -123,6 +132,7 @@ pub fn camera_control(
     touches: Res<Touches>,
     window: Single<&Window>,
     mut rig: ResMut<CameraRig>,
+    focus: Res<super::look_edit::LookFocus>,
     mut input: ResMut<PointerInput>,
     world: Res<WorldData>,
     ui_hover: Res<crate::platform::UiHover>,
@@ -184,7 +194,7 @@ pub fn camera_control(
 
     // ── 4) 이번 프레임 적용될 카메라(줌 반영·팬 적용 전) — 그랩 광선 기준.
     //    그랩 팬 델타는 카메라 평행이동 불변이므로 팬 전 좌표로 계산해도 정확하다.
-    let gt_next = camera_at(gt, pan_offset(&rig));
+    let gt_next = camera_at(gt, pan_offset(&rig, &focus));
 
     // ── 5) 그랩 팬(마우스·한 손가락·핀치 중심) + 관성 — UI 점유 시 양보
     let frame = if ui_block {
@@ -253,7 +263,7 @@ pub fn camera_control(
         rig.zoom = PORTRAIT_INIT_ZOOM;
         rig.zoom_goal = PORTRAIT_INIT_ZOOM;
     }
-    tr.translation = pan_offset(&rig);
+    tr.translation = pan_offset(&rig, &focus);
     tr.look_at(Vec3::new(rig.target.x, 0.0, rig.target.y), Vec3::Y);
     let _ = &mut proj; // 원근 전환 — 줌은 거리(pan_offset)로, 투영 갱신 없음
 }
