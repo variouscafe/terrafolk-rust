@@ -1,10 +1,9 @@
-//! 카메라 리그 — 정사영(Orthographic) 고정 절대각 아이소 뷰.
-//! 참조 스타일(코지 페인티드 3/4): 요 45°·피치 35°, 세계 수직 고정.
-//! 줌: 투영 scale(작을수록 확대) — 휠·트랙패드 핀치·모바일 두 손가락·키보드(+/-),
-//! 줌투커서는 정사영 축척비 공식(앵커 세계점의 뷰센터 오프셋 × 줌비)으로 보정.
-//! 팬: 광선 그랩(camera_input — 1:1 추적, 정사영 평행광선에도 동일) + WASD + 관성.
+//! 카메라 리그 — 원근(Perspective) 고정 절대각 뷰(2026-10-23 전환).
+//! 참조 스타일(코지 페인티드 3/4): 피치 35°·요 0°(맵 변이 화면축과 정렬 —
+//! 마름모 아이소 잔상 제거, 사각 채움 구도). 줌=거리(D ∝ zoom, 타깃 지면
+//! 프레이밍은 구 정사영 VIEW_H·zoom와 동일) — 줌투커서 축척비 공식도 타깃면
+//! 기준으로 그대로 유효. 팬: 광선 그랩(원근에서도 1:1) + WASD + 관성.
 
-use bevy::camera::ScalingMode;
 use bevy::core_pipeline::tonemapping::DebandDither;
 use bevy::input::gestures::PinchGesture;
 use bevy::input::mouse::AccumulatedMouseScroll;
@@ -24,12 +23,18 @@ const ZOOM_SMOOTH: f32 = 9.0;
 pub const VIEW_H: f32 = 22.0;
 /// 초상 화면 초기 줌 — 마을 스케일 근접(바다 과다 완화)
 const PORTRAIT_INIT_ZOOM: f32 = 0.62;
-/// 카메라 거리(정사영은 크기 무관 — near/far 클리핑·그림자 프러스텀용).
-/// ⚠ terrain_splat.wgsl의 안개 축 상수(140.0·뷰방향)와 정합 — 변경 시 양쪽 수정.
-const CAM_DIST: f32 = 140.0;
-/// 부저각 — 요(대각)·피치(내려다봄). 참조 이미지 3/4 뷰.
-const CAM_YAW_DEG: f32 = 45.0;
+/// ⚠ far(420)은 terrain_splat.wgsl 안개 축 상수(140·뷰방향)보다 넉넉 — 정합 유지.
+/// 부저각 — 요 0°(맵 변 정렬·사각 채움)·피치 35°(내려다봄, 참조 3/4 뷰).
+const CAM_YAW_DEG: f32 = 0.0;
 pub const CAM_PITCH_DEG: f32 = 35.0;
+/// 원근 FOV(세로) — 40°는 코지 참조의 온화한 원근감(광각 왜곡 없음).
+const FOV_DEG: f32 = 40.0;
+/// 줌→카메라 거리 — 타깃 지면에서 세로 시야폭이 구 정사영(VIEW_H·zoom)과
+/// 같아지는 거리. 이 매핑 덕에 줌 체감·미니맵 view_box·줌투커서 축척비
+/// 공식이 전부 그대로 유효하다.
+pub fn cam_dist(zoom: f32) -> f32 {
+    (VIEW_H * zoom * 0.5) / (FOV_DEG.to_radians() * 0.5).tan()
+}
 
 /// 휠 줌 — 한 스텝(노치)당 배율 기수(1.65^Δ)·Δ 게인
 const WHEEL_ZOOM_BASE: f32 = 1.65;
@@ -65,27 +70,26 @@ impl Default for CameraRig {
     }
 }
 
-/// 정사영 투영 — 세로 고정(FixedVertical), scale=zoom으로 줌.
-fn ortho_projection() -> Projection {
-    Projection::Orthographic(OrthographicProjection {
-        near: 1.0,
-        far: 400.0,
-        scaling_mode: ScalingMode::FixedVertical {
-            viewport_height: VIEW_H,
-        },
-        ..OrthographicProjection::default_3d()
+/// 원근 투영 — 세로 FOV 고정, 줌은 거리(cam_dist)로.
+fn perspective_projection() -> Projection {
+    Projection::Perspective(PerspectiveProjection {
+        fov: FOV_DEG.to_radians(),
+        near: 0.5,
+        far: 420.0,
+        ..PerspectiveProjection::default()
     })
 }
 
-/// 뷰 방향 반대편 오프셋 — 요·피치 구면(정사영이라 거리는 클리핑용 상수).
-fn view_offset() -> Vec3 {
+/// 뷰 방향 반대편 오프셋 — 요·피치 구면, 거리는 줌 비례.
+fn view_offset(zoom: f32) -> Vec3 {
     let (p, y) = (CAM_PITCH_DEG.to_radians(), CAM_YAW_DEG.to_radians());
-    let horiz = CAM_DIST * p.cos();
-    Vec3::new(horiz * y.cos(), CAM_DIST * p.sin(), horiz * y.sin())
+    let d = cam_dist(zoom);
+    let horiz = d * p.cos();
+    Vec3::new(horiz * y.cos(), d * p.sin(), horiz * y.sin())
 }
 
 fn pan_offset(rig: &CameraRig) -> Vec3 {
-    Vec3::new(rig.target.x, 0.0, rig.target.y) + view_offset()
+    Vec3::new(rig.target.x, 0.0, rig.target.y) + view_offset(rig.zoom)
 }
 
 pub fn spawn_camera(mut commands: Commands) {
@@ -94,7 +98,7 @@ pub fn spawn_camera(mut commands: Commands) {
     tr.look_at(Vec3::new(rig.target.x, 0.0, rig.target.y), Vec3::Y);
     commands.spawn((
         Camera3d::default(),
-        ortho_projection(),
+        perspective_projection(),
         tr,
         // 후처리 — DebandDither(하늘 밴딩 제거)만. Bloom은 2026-10-19 아트
         // 방향(플랫·클린 렌더)에서 제거 — 그랩패스 절감 겸용.
@@ -251,7 +255,5 @@ pub fn camera_control(
     }
     tr.translation = pan_offset(&rig);
     tr.look_at(Vec3::new(rig.target.x, 0.0, rig.target.y), Vec3::Y);
-    if let Projection::Orthographic(o) = &mut *proj {
-        o.scale = rig.zoom;
-    }
+    let _ = &mut proj; // 원근 전환 — 줌은 거리(pan_offset)로, 투영 갱신 없음
 }
