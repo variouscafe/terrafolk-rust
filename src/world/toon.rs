@@ -64,11 +64,16 @@ fn white_fallback(
 /// 비용은 미미). 착용(wear)·후속 부착 메시도 자동 편입된다.
 /// ⚠️ 교체 대상은 불투명+라이트 기준 재질만: 언릿(선택 링)·알파(연기·글로우)
 /// 재질은 PBR 의도(SemiTransparent)라 건드리지 않는다.
-#[allow(clippy::type_complexity)]
+/// 외형 틴트(2026-10-23) — lookJson parts의 skin/hairColor/eye/옷색을 재질
+/// 슬롯에 반영한다. GLB 스폰 재질은 이름이 없어 Gltf.named_materials의
+/// base_color 메타데이터와 색 매칭(ε=0.01)해 재질명을 역추적한다.
+#[allow(clippy::type_complexity)] // Bevy 시스템 파라미터 — 툰 교체·틴트 전 경로
 pub fn toonify(
     mut commands: Commands,
-    villagers: Query<Entity, With<Villager>>,
+    villagers: Query<(Entity, &super::villager::VillagerModel), With<Villager>>,
     children: Query<&Children>,
+    gltfs: Res<Assets<bevy::gltf::Gltf>>,
+    gltf_mats: Res<Assets<bevy::gltf::GltfMaterial>>,
     mut std_mats: ResMut<Assets<bevy::pbr::StandardMaterial>>,
     mut toon_mats: ResMut<Assets<ToonMaterial>>,
     mut images: ResMut<Assets<Image>>,
@@ -77,13 +82,57 @@ pub fn toonify(
         Without<super::outline::OutlineHull>,
     >,
     mut white: Local<Option<Handle<Image>>>,
-    // 원본 재질 → 툰 핸들 캐시(같은 GLB 재질을 주민이 공유)
-    mut cache: Local<HashMap<bevy::asset::AssetId<bevy::pbr::StandardMaterial>, Handle<ToonMaterial>>>,
+    // (원본 재질, look 지문) → 툰 핸들 캐시 — look별 틴트가 다르므로 키에 포함
+    mut cache: Local<
+        HashMap<
+            (bevy::asset::AssetId<bevy::pbr::StandardMaterial>, u64),
+            Handle<ToonMaterial>,
+        >,
+    >,
+    // GLB → (재질 linear색, 이름) 후보표 — 첫 주민 스캔 시 1회 구축
+    mut meta: Local<HashMap<bevy::asset::AssetId<bevy::gltf::Gltf>, Vec<([f32; 4], String)>>>,
 ) {
     if villagers.is_empty() {
         return;
     }
-    for root in &villagers {
+    for (root, model) in &villagers {
+        let look = model.1.clone().unwrap_or_default();
+        let tints = if look.is_empty() {
+            None
+        } else {
+            Some(super::look_tint::parse(&look))
+        };
+        let model_stem = model
+            .0
+            .path()
+            .and_then(|p| {
+                p.path()
+                    .file_stem()
+                    .and_then(|s| s.to_str().map(|s| s.to_string()))
+            })
+            .unwrap_or_default();
+        // GLB 메타 — named_materials의 base_color(linear)·이름 쌍
+        let candidates = meta.entry(model.0.id()).or_insert_with(|| {
+            gltfs
+                .get(&model.0)
+                .map(|g| {
+                    g.named_materials
+                        .iter()
+                        .filter_map(|(name, h)| {
+                            gltf_mats.get(h).map(|gm| {
+                                let c = gm.base_color.to_linear();
+                                (
+                                    [c.red, c.green, c.blue, c.alpha],
+                                    name.to_string(),
+                                )
+                            })
+                        })
+                        .collect()
+                })
+                .unwrap_or_default()
+        });
+        // look 지문 — 캐시 키(틴트 조합별 재질 분리)
+        let look_hash = look.bytes().fold(0u64, |a, b| a.wrapping_mul(31) + b as u64);
         for d in children.iter_descendants(root) {
             let Ok((mat, swapped)) = q_mat.get(d) else {
                 continue;
@@ -99,18 +148,44 @@ pub fn toonify(
                 commands.entity(d).insert(ToonSwapped);
                 continue;
             }
+            // 틴트 — 재질명 역추적(색 매칭) → 슬롯 → 팔레트색. 실패 시 원본색.
+            let src_v4 = {
+                let c = src.base_color.to_srgba();
+                Vec4::new(c.red, c.green, c.blue, c.alpha)
+            };
+            let tint = 'tint: {
+                let Some(t) = tints.as_ref() else {
+                    break 'tint src_v4;
+                };
+                let sc = src.base_color.to_linear();
+                let Some((_, name)) = candidates.iter().find(|(c, _)| {
+                    (c[0] - sc.red).abs() < 0.01
+                        && (c[1] - sc.green).abs() < 0.01
+                        && (c[2] - sc.blue).abs() < 0.01
+                }) else {
+                    break 'tint src_v4;
+                };
+                match super::look_tint::slot_for(&model_stem, name)
+                    .and_then(|(slot, gain)| super::look_tint::tint_color(t, slot, gain))
+                {
+                    Some(col) => {
+                        let c = col.to_srgba();
+                        Vec4::new(c.red, c.green, c.blue, 1.0)
+                    }
+                    None => src_v4,
+                }
+            };
+            let tinted = tint != src_v4;
+            let key = (mat.0.id(), if tinted { look_hash } else { 0 });
             let toon = cache
-                .entry(mat.0.id())
+                .entry(key)
                 .or_insert_with(|| {
                     toon_mats.add(ToonMaterial {
                         base: src
                             .base_color_texture
                             .clone()
                             .unwrap_or_else(|| white_fallback(&mut images, &mut white)),
-                        tint: {
-                            let c = src.base_color.to_srgba();
-                            Vec4::new(c.red, c.green, c.blue, c.alpha)
-                        },
+                        tint,
                     })
                 })
                 .clone();
