@@ -20,6 +20,8 @@ pub enum WearSlot {
     Eyes,
     /// 머리 — 헤어스타일 GLB(qubase): head 본
     Hair,
+    /// 턱·콧수염 — LPC 절출 GLB(meshgen): head 본
+    Beard,
     /// 오른손 — 지팡이·도구: arm-right 본
     HandRight,
     /// 왼손: arm-left 본
@@ -33,6 +35,7 @@ impl WearSlot {
         match self {
             Self::Eyes => &["Head", "head"],
             Self::Hair => &["Head", "head"],
+            Self::Beard => &["Head", "head"],
             Self::HandRight => &["LowerArm.R", "hand_r", "arm-right"],
             Self::HandLeft => &["LowerArm.L", "hand_l", "arm-left"],
         }
@@ -49,6 +52,9 @@ impl WearSlot {
             // 두면 두피 위로 뜬다(라이브 줌 인 실측 10~20px 간극) — 하강
             // 보정. 스케일도 치비 머리보다 살짝 크게 나와 축소.
             Self::Hair => Vec3::new(0.0, -0.10, 0.0),
+            // 수염 — meshgen 절출 GLB(원점=발 앵커, 실루엣이 y 0~0.5·폭 ~1.2로
+            // 생성됨)을 턱 위치로 끌어내리고 치비 얼굴폭에 축소.
+            Self::Beard => Vec3::new(0.0, -0.32, 0.10),
             // 손은 어깨 본에서 아래(침비 팔은 거의 발끝까지) — 몸 옆 살짝 전방
             Self::HandRight => Vec3::new(0.0, -0.09, 0.06),
             Self::HandLeft => Vec3::new(0.0, -0.09, 0.06),
@@ -59,6 +65,7 @@ impl WearSlot {
     fn scale(self) -> f32 {
         match self {
             Self::Hair => 0.85,
+            Self::Beard => 0.30,
             _ => 1.0,
         }
     }
@@ -72,6 +79,15 @@ pub fn wear_asset(item_id: &str) -> Option<(&'static str, WearSlot)> {
         "hair-long" => Some(("models/qubase/hair-long.glb", WearSlot::Hair)),
         "hair-buns" => Some(("models/qubase/hair-buns.glb", WearSlot::Hair)),
         "cane" | "cane-blind" => Some(("models/Kenney_aid-cane-blind.glb", WearSlot::HandRight)),
+        // 수염 — LPC 부품 id를 절출 GLB(meshgen, 2026-10-23 행2=정면 프레임 0)
+        // 로. handlebar는 실루엣 3px 미만이라 미생성(매칭 실패=자연 스킵).
+        "beards_5oclock_shadow" => Some(("models/lpc/beards_5oclock_shadow.glb", WearSlot::Beard)),
+        "beards_beard" => Some(("models/lpc/beards_beard.glb", WearSlot::Beard)),
+        "beards_chevron" => Some(("models/lpc/beards_chevron.glb", WearSlot::Beard)),
+        "beards_lampshade" => Some(("models/lpc/beards_lampshade.glb", WearSlot::Beard)),
+        "beards_medium" => Some(("models/lpc/beards_medium.glb", WearSlot::Beard)),
+        "beards_mustache" => Some(("models/lpc/beards_mustache.glb", WearSlot::Beard)),
+        "beards_trimmed" => Some(("models/lpc/beards_trimmed.glb", WearSlot::Beard)),
         _ => None,
     }
 }
@@ -100,6 +116,18 @@ pub fn wear_ids_from_look(look: &str) -> Vec<String> {
     // 헤어 스타일 — parts.hair(사용자 편집) 우선. 봇 주민 대부분은 parts.hair가
     // 없다(서버가 오버라이드만 저장) → lookJson uuid로 결정론 기본 분배해
     // 전 주민이 헤어를 쓴다(2026-10-23 '실제 라이브 캐릭터에 적용' 요구).
+    // 수염 — parts.beard(남성 편집 축). 'none'·미지정은 미부착(봇 기본값은
+    // 서버 beard_prob 확률 파생인데 lookJson에 명시되지 않으니 사용자 선택만).
+    if let Some(beard) = serde_json::from_str::<serde_json::Value>(look)
+        .ok()
+        .and_then(|d| {
+            d.pointer("/parts/beard")
+                .and_then(|v| v.as_str().map(str::to_string))
+        })
+        && beard != "none"
+    {
+        out.push(beard);
+    }
     let hair_key = serde_json::from_str::<serde_json::Value>(look)
         .ok()
         .and_then(|d| {
