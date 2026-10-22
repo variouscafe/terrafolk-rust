@@ -113,6 +113,12 @@ tf-api CORS 허용목록(../terrafolk `backend/src/terrafolk_api/config.py`)
 시스템 Chrome 채널; `HEADLESS=1`은 swiftshader 부팅 검사만 — 지형
 프라임 안 됨). 루트 클라이언트는 **bevy 0.19.1 핀**(cba92d4) — 0.20은
 문서화된 wasm 텍스처 회귀(proto2d 0.19.1 핀과 같은 원인)로 보수적 회피.
+**외형 편집 3D 반영(2026-10-23, PR #78)**: 레거시 lookJson parts(피부·머리색·눈·옷색)가
+  3D 주민 재질 틴트로 반영된다 — `world/look_tint.rs`(LPC 팔레트·모델×재질 슬롯표,
+  악세서리 미염색) + toonify 색 매칭 역추적(Gltf named_materials) + look 변경 재스폰.
+  검증 게이트 `?tfdbg=looktest`(주민별 진한 팔레트 순환). 헤어스타일 지오메트리·
+  수염·안경 부착은 미구현(색상 축만).
+
 **하얀 맵 사고 정정(2026-10-21)**: 단색 지형의 주원인은 bevy 버전이 아니라
 **cc2895d가 지운 `assets/tiles/terrain_atlas.*`·`assets/shaders/` 4종 부재**
 였다(GLB 64종과 함께 삭제됐는데 src 참조가 남음 — 렌더 에러 생존 정책이
