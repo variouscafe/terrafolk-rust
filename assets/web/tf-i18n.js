@@ -221,13 +221,20 @@
   // ---- 시계 표시 문자열(FE world.clock 템플릿) ----
   function clockText(clock) {
     var cal = clock.day !== undefined ? dateOf(clock.day) : null;
+    var hh = String(clock.hour != null ? clock.hour : '').padStart(2, '0');
+    var mm = String(clock.minute != null ? clock.minute : 0).padStart(2, '0');
+    // 모바일 축약 — 협폭 상단바에서 전체 포맷이 ellipsis로 잘려 시각이 안
+    // 보였다(2026-10-22 메뉴 UI 모바일 우선 개선). 숫자만 쓰므로 번역 불필요.
+    if (window.matchMedia && window.matchMedia('(max-width: 640px)').matches) {
+      return (cal ? cal.month + '/' + cal.dayOfMonth + ' ' : '') + hh + ':' + mm;
+    }
     return trNow('world.clock', {
       season: clock.season ? trNow('season.' + clock.season) : '—',
       year: cal ? cal.year : 1,
       month: cal ? cal.month : 3,
       day: cal ? cal.dayOfMonth : 1,
-      hour: String(clock.hour != null ? clock.hour : '').padStart(2, '0'),
-      minute: String(clock.minute != null ? clock.minute : 0).padStart(2, '0'),
+      hour: hh,
+      minute: mm,
     });
   }
 
