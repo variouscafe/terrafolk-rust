@@ -167,3 +167,16 @@ fn build_water(
         })),
     )
 }
+
+/// 야간 감광 — 수면은 무광 커스텀 셰이더라 씬 조명을 안 받는다(직접 플레이 QA
+/// 2026-10-22: 밤에도 수면이 낮의 청색 그대로). 밤요인을 params.w(빈 슬롯 —
+/// 유니폼 예산 불변)로 매 프레임 넘겨 셰이더에서 어둡게 섞는다.
+pub fn water_night_dim(
+    day: Res<super::daynight::DayTime>,
+    mut mats: ResMut<Assets<WaterMaterial>>,
+) {
+    let n = day.night_factor.clamp(0.0, 1.0);
+    for (_, m) in mats.iter_mut() {
+        m.params.w = n;
+    }
+}
