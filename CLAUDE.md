@@ -72,8 +72,9 @@ https://assetgen.pages.dev)가 이 기준으로 생성한다(2026-10-19 결정 �
 `CODE_SSH_DOWNLOAD v1`). 실물 검증은 에뮬레이터 adb 루프 — 설치·실행·
 screencap·logcat(RustStdoutStderr 라인)으로 매번 확인한다. 네이티브 앱은
 데모 월드(레거시 FE와 동일 맵, 시드 20261011)로 동작 — 라이브 접속은 웹
-전용. **네이티브 앱의 기능 목표 = 레거시 FE 패리티**(주민 표시·선택·
-follow·메뉴 등 레거시 FE가 지원하는 관전 기능 전부 — bevy_ui로 구현).
+전용. **네이티브도 라이브 전제(2026-10-23 데모 제거, PR #83)** — 네이티브 데모
+  월드(레거시 맵 임베드)는 용량 부담으로 제거됐다. 네이티브 앱의 기능 목표는
+  레거시 FE 패리티(주민 표시·선택·follow·메뉴 — bevy_ui) 그대로.
 
 **웹 테스트 URL**: 자동화 테스트(헤드리스·Playwright 등)는 https://terrafolk-rust.pages.dev 로 접속할 것. 커스텀 도메인(terrafolk.suseona.com)은 Cloudflare 봇 방어가 자동화 접속을 챌린지(403)로 차단한다 — 사람 브라우저는 통과, 자동 검증은 pages.dev 사용. 단 suseona.com 존의 API(tf-api)도 헤드리스 지문을 차단할 수 있어 라이브 백엔드 연동 E2E가 필요하면 headed 모드(`headless: false` + `--disable-blink-features=AutomationControlled` + 실제 UA)로 실행할 것.
 
@@ -113,6 +114,9 @@ tf-api CORS 허용목록(../terrafolk `backend/src/terrafolk_api/config.py`)
 시스템 Chrome 채널; `HEADLESS=1`은 swiftshader 부팅 검사만 — 지형
 프라임 안 됨). 루트 클라이언트는 **bevy 0.19.1 핀**(cba92d4) — 0.20은
 문서화된 wasm 텍스처 회귀(proto2d 0.19.1 핀과 같은 원인)로 보수적 회피.
+**원근 카메라(2026-10-23, PR #84)**: 정사영→원근(FOV 40°) 전환 — 줌=거리
+  매핑(`cam_dist`)으로 줌 체감·미니맵·줌투커서 공식 불변. 요 0° 맵 변 정렬.
+
 **외형 편집 3D 반영(2026-10-23, PR #78)**: 레거시 lookJson parts(피부·머리색·눈·옷색)가
   3D 주민 재질 틴트로 반영된다 — `world/look_tint.rs`(LPC 팔레트·모델×재질 슬롯표,
   악세서리 미염색) + toonify 색 매칭 역추적(Gltf named_materials) + look 변경 재스폰.
