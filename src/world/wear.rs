@@ -112,11 +112,24 @@ pub struct Wears(pub Vec<String>);
 #[derive(Component)]
 pub struct WearApplied;
 
+/// 봇 기본 수염 해시 풀(wear_asset에 등록된 GLB만).
+const DEFAULT_BEARDS: &[&str] = &[
+    "beards_beard",
+    "beards_medium",
+    "beards_trimmed",
+    "beards_mustache",
+    "beards_chevron",
+];
+/// 봇 기본 안경 해시 풀.
+const DEFAULT_GLASSES: &[&str] = &["facial_glasses", "facial_glasses_nerd", "facial_glasses_round"];
+
 /// lookJson(원문)에서 부착형 착용 item 추출. 현재 서버 정본 의상 슬롯
 /// (top/bottom/feet — 치비 변형이 담당)엔 부착물이 없어 대부분 비고,
 /// wears에 등록된 액세서리 키가 늘어나면 여기 매칭만 확장한다.
-/// 헤어(2026-10-23) — parts.hair 스타일 id를 보유 GLB 2종(long·buns)으로
-/// 결정론 분배. 스타일이 바뀌면 헤어가 달라 붙는다(편집 미리보기 연동).
+/// 사용자 편집(parts)이 항상 우선하고, 봇은 lookJson에 parts가 실리지
+/// 않으므로(서버=오버라이드만 저장) uuid 해시로 결정론 기본 외형을 입힌다
+/// (2026-10-23 '실제 라이브 캐릭터에 적용' — 전 주민 헤어 + 남성 35% 수염
+/// + 전체 25% 안경. 슬라이드 편집은 그 즉시 기본값을 대체).
 pub fn wear_ids_from_look(look: &str) -> Vec<String> {
     let mut out = Vec::new();
     for id in ["sunglasses", "cane", "cane-blind"] {
@@ -124,51 +137,49 @@ pub fn wear_ids_from_look(look: &str) -> Vec<String> {
             out.push(id.to_string());
         }
     }
-    // 헤어 스타일 — parts.hair(사용자 편집) 우선. 봇 주민 대부분은 parts.hair가
-    // 없다(서버가 오버라이드만 저장) → lookJson uuid로 결정론 기본 분배해
-    // 전 주민이 헤어를 쓴다(2026-10-23 '실제 라이브 캐릭터에 적용' 요구).
-    // 수염 — parts.beard(남성 편집 축). 'none'·미지정은 미부착(봇 기본값은
-    // 서버 beard_prob 확률 파생인데 lookJson에 명시되지 않으니 사용자 선택만).
-    if let Some(beard) = serde_json::from_str::<serde_json::Value>(look)
-        .ok()
-        .and_then(|d| {
-            d.pointer("/parts/beard")
-                .and_then(|v| v.as_str().map(str::to_string))
-        })
-        && beard != "none"
-    {
-        out.push(beard);
+    let Some(doc) = serde_json::from_str::<serde_json::Value>(look).ok() else {
+        return out;
+    };
+    let part = |k: &str| {
+        doc.pointer(&format!("/parts/{k}"))
+            .and_then(|v| v.as_str())
+            .map(str::to_string)
+    };
+    let uuid = doc
+        .pointer("/uuid")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let male = doc
+        .pointer("/sex")
+        .and_then(|v| v.as_str())
+        .is_some_and(|s| s.starts_with('m') || s.starts_with('M') || s.starts_with('남'));
+    let h = uuid.bytes().fold(0u64, |a, b| a.wrapping_mul(31) + b as u64);
+
+    // 수염 — 편집값 우선, 없으면 남성 uuid 해시 35%에 기본 풀 분배.
+    let beard = part("beard").filter(|b| b != "none").or_else(|| {
+        (male && h % 100 < 35)
+            .then(|| DEFAULT_BEARDS[(h / 100) as usize % DEFAULT_BEARDS.len()].to_string())
+    });
+    if let Some(b) = beard {
+        out.push(b);
     }
-    // 안경 — parts.glasses. 'none'·미지정은 미부착. 봇 기본값(glasses_prob)은
-    // lookJson에 명시되지 않아 사용자 선택만 반영.
-    if let Some(glasses) = serde_json::from_str::<serde_json::Value>(look)
-        .ok()
-        .and_then(|d| {
-            d.pointer("/parts/glasses")
-                .and_then(|v| v.as_str().map(str::to_string))
-        })
-        && glasses != "none"
-    {
-        out.push(glasses);
+    // 안경 — 편집값 우선, 없으면 uuid 해시 25%(성별 무관, 슬롯은 해시 재파생).
+    let glasses = part("glasses").filter(|g| g != "none").or_else(|| {
+        (h % 100 >= 25 && h % 100 < 50)
+            .then(|| DEFAULT_GLASSES[(h / 7) as usize % DEFAULT_GLASSES.len()].to_string())
+    });
+    if let Some(g) = glasses {
+        out.push(g);
     }
-    let hair_key = serde_json::from_str::<serde_json::Value>(look)
-        .ok()
-        .and_then(|d| {
-            d.pointer("/parts/hair")
-                .and_then(|v| v.as_str().map(str::to_string))
-                .or_else(|| {
-                    d.pointer("/uuid")
-                        .and_then(|v| v.as_str().map(str::to_string))
-                })
-        });
-    if let Some(hair) = hair_key {
-        let h = hair.bytes().fold(0u64, |a, b| a.wrapping_mul(31) + b as u64);
-        out.push(if h % 2 == 0 {
-            "hair-long".to_string()
-        } else {
-            "hair-buns".to_string()
-        });
-    }
+    // 헤어 — 편집 스타일 우선, 없으면 uuid 분배(전 주민).
+    let hair = part("hair").unwrap_or_else(|| uuid.clone());
+    let hh = hair.bytes().fold(0u64, |a, b| a.wrapping_mul(31) + b as u64);
+    out.push(if hh % 2 == 0 {
+        "hair-long".to_string()
+    } else {
+        "hair-buns".to_string()
+    });
     out
 }
 
