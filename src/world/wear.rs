@@ -99,6 +99,10 @@ pub fn wear_asset(item_id: &str) -> Option<(&'static str, WearSlot)> {
         "facial_glasses" => Some(("models/lpc/facial_glasses.glb", WearSlot::Glasses)),
         "facial_glasses_nerd" => Some(("models/lpc/facial_glasses_nerd.glb", WearSlot::Glasses)),
         "facial_glasses_round" => Some(("models/lpc/facial_glasses_round.glb", WearSlot::Glasses)),
+        "facial_glasses_halfmoon" => Some((
+            "models/lpc/facial_glasses_halfmoon.glb",
+            WearSlot::Glasses,
+        )),
         _ => None,
     }
 }
@@ -121,7 +125,12 @@ const DEFAULT_BEARDS: &[&str] = &[
     "beards_chevron",
 ];
 /// 봇 기본 안경 해시 풀.
-const DEFAULT_GLASSES: &[&str] = &["facial_glasses", "facial_glasses_nerd", "facial_glasses_round"];
+const DEFAULT_GLASSES: &[&str] = &[
+    "facial_glasses",
+    "facial_glasses_nerd",
+    "facial_glasses_round",
+    "facial_glasses_halfmoon",
+];
 
 /// lookJson(원문)에서 부착형 착용 item 추출. 현재 서버 정본 의상 슬롯
 /// (top/bottom/feet — 치비 변형이 담당)엔 부착물이 없어 대부분 비고,
