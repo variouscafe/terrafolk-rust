@@ -457,7 +457,7 @@
       tab: 'clothes',
       parts: Object.assign({}, base, m.parts || {}),
       wears: Object.assign({}, m.wears || {}),
-      busy: false,
+      busy: false, saveTimer: 0,
       prettyPart: function (v) {
         var s = (String(v).split('_').pop() || v).replace(/([a-z])([A-Z])/g, '$1 $2');
         return s.charAt(0).toUpperCase() + s.slice(1);
@@ -684,6 +684,10 @@
     var next = options[(i + dir + options.length) % options.length];
     if (next && !next.locked) apply(next.key);
     else schedule();
+    // 슬라이드 즉시 저장(0.5s 디바운스) — 실 프리뷰는 투명 오버레이 너머
+    // 3D 세계(저장→룸 lookJson→재스폰→틴트). 옷 탭이 아니면 옷 파트 보존.
+    clearTimeout(E.saveTimer);
+    E.saveTimer = setTimeout(function () { lookSave(tab === 'clothes'); }, 500);
   }, true);
 
   var modalEscLatch = false;
@@ -848,7 +852,7 @@
     });
   }
 
-  function lookSave() {
+  function lookSave(fromClothes) {
     var E = S.lookEdit;
     if (!E || E.busy) return;
     E.busy = true;
@@ -857,8 +861,15 @@
     // wears는 에디터 선택(E.wears, 미지정 슬롯=auto 초기화)을 그대로 — 하드코딩
     // auto면 사용자 선택·기존 저장값이 전부 지워진다(FE LookEditor 규약)
     var partsOut = Object.assign({}, E.parts);
-    ['top', 'topColor', 'bottom', 'bottomColor', 'feet', 'feetColor'].forEach(function (k) { delete partsOut[k]; });
-    var wearsOut = { top: E.wears.top || 'auto', bottom: E.wears.bottom || 'auto', feet: E.wears.feet || 'auto' };
+    var wearsOut;
+    if (fromClothes !== false) {
+      // 옷 탭 편집 — 옷 파트는 wears가 관장(소지 파생 우선, FE 규약)
+      ['top', 'topColor', 'bottom', 'bottomColor', 'feet', 'feetColor'].forEach(function (k) { delete partsOut[k]; });
+      wearsOut = { top: E.wears.top || 'auto', bottom: E.wears.bottom || 'auto', feet: E.wears.feet || 'auto' };
+    } else {
+      // 헤어·얼굴 편집 — 옷은 건드리지 않는다(기존 wears 그대로 송신)
+      wearsOut = Object.assign({}, E.wears);
+    }
     authFetch('/api/worldsim/agents/' + encodeURIComponent(E.agentId) + '/look', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
