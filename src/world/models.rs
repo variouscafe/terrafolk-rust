@@ -122,8 +122,10 @@ impl PropKind {
                 variants: &[],
             },
             PropKind::Relic => ModelSpec {
-                path: "models/RockLarge.glb",
-                target_h: 2.9,
+                // 임시 룩 — 자연 바위(RockLarge)와 구별되는 상자. 발명 GLB 보유
+                // 시엔 DynProp로 대체된다(net/resources.rs §17.86).
+                path: "models/CubeCrate.glb",
+                target_h: 1.1,
                 variants: &[],
             },
             PropKind::WoodLog => ModelSpec {

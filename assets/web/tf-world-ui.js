@@ -469,7 +469,9 @@
         var w = Number.isInteger(st.w) && st.w >= 1 ? st.w : (st.type === 'LONGHOUSE' ? 3 : st.type === 'WAREHOUSE' ? 3 : st.type === 'WINDBREAK' ? 1 : 2);
         var h = Number.isInteger(st.h) && st.h >= 1 ? st.h : (st.type === 'WAREHOUSE' ? 3 : st.type === 'WINDBREAK' ? 1 : 2);
         if (tx >= r.x && tx < r.x + w && ty >= r.y && ty < r.y + h) { best = r; break; }
-      } else if (r.kind === 'grave' || r.kind === 'relic') {
+      } else if (r.kind === 'grave') {
+        // relic은 여기서 가로치지 않는다(직접 플레이 QA 2026-10-22) — 툴팁이
+        // 유물 카드(pickAt §17.38)를 대신해 카드가 열리지 않았다.
         var d = (r.x + 0.5 - x) * (r.x + 0.5 - x) + (r.y + 0.5 - y) * (r.y + 0.5 - y);
         if (d < bestD) { bestD = d; best = r; }
       }
