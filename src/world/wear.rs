@@ -93,14 +93,20 @@ pub fn wear_ids_from_look(look: &str) -> Vec<String> {
             out.push(id.to_string());
         }
     }
-    if let Some(hair) = serde_json::from_str::<serde_json::Value>(look)
+    // 헤어 스타일 — parts.hair(사용자 편집) 우선. 봇 주민 대부분은 parts.hair가
+    // 없다(서버가 오버라이드만 저장) → lookJson uuid로 결정론 기본 분배해
+    // 전 주민이 헤어를 쓴다(2026-10-23 '실제 라이브 캐릭터에 적용' 요구).
+    let hair_key = serde_json::from_str::<serde_json::Value>(look)
         .ok()
         .and_then(|d| {
             d.pointer("/parts/hair")
-                .and_then(|v| v.as_str())
-                .map(str::to_string)
-        })
-    {
+                .and_then(|v| v.as_str().map(str::to_string))
+                .or_else(|| {
+                    d.pointer("/uuid")
+                        .and_then(|v| v.as_str().map(str::to_string))
+                })
+        });
+    if let Some(hair) = hair_key {
         let h = hair.bytes().fold(0u64, |a, b| a.wrapping_mul(31) + b as u64);
         out.push(if h % 2 == 0 {
             "hair-long".to_string()
