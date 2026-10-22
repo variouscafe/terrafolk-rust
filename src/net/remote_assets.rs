@@ -36,6 +36,7 @@ pub(crate) fn cached_path(url: &str) -> Option<std::path::PathBuf> {
     p.is_file().then_some(p)
 }
 
+#[cfg(target_arch = "wasm32")] // 사용부가 wasm 경로(inventions pump)뿐
 pub(crate) fn file_name_pub(url: &str) -> String {
     file_name(url)
 }

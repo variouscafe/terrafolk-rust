@@ -14,6 +14,10 @@ const HEAD_SCALE: f32 = 2.05;
 const SPINE_SCALE: f32 = 0.70;
 const LEG_SCALE: f32 = 0.58;
 const ARM_SCALE: f32 = 0.78;
+/// 발 — 다리보다 더 축소(2026-10-23 사용자 보고 '발목→발끝 늘어남'). 원본
+/// 리그의 발이 운동화형으로 길쭉해 치비 다리 옆에서 스키처럼 읽힌다.
+/// 0.58(=LEG)로는 부족, 0.45로 뭉툭한 부츠 비율.
+const FOOT_SCALE: f32 = 0.45;
 
 /// 치비화 적용 완료 마커.
 #[derive(Component)]
@@ -34,7 +38,7 @@ pub fn bone_scale(name: &str) -> Option<f32> {
         "Head" => Some(HEAD_SCALE),
         "Abdomen" | "spine_01" => Some(SPINE_SCALE),
         "UpperLeg.L" | "UpperLeg.R" | "thigh_l" | "thigh_r" => Some(LEG_SCALE),
-        "Foot.L" | "Foot.R" => Some(LEG_SCALE),
+        "Foot.L" | "Foot.R" => Some(FOOT_SCALE),
         "UpperArm.L" | "UpperArm.R" | "upperarm_l" | "upperarm_r" => Some(ARM_SCALE),
         _ => None,
     }

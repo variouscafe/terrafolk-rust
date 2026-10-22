@@ -74,10 +74,10 @@ pub fn toonify(
     children: Query<&Children>,
     gltfs: Res<Assets<bevy::gltf::Gltf>>,
     gltf_mats: Res<Assets<bevy::gltf::GltfMaterial>>,
-    mut std_mats: ResMut<Assets<bevy::pbr::StandardMaterial>>,
+    std_mats: Res<Assets<bevy::pbr::StandardMaterial>>,
     mut toon_mats: ResMut<Assets<ToonMaterial>>,
     mut images: ResMut<Assets<Image>>,
-    mut q_mat: Query<
+    q_mat: Query<
         (&MeshMaterial3d<bevy::pbr::StandardMaterial>, Option<&ToonSwapped>),
         Without<super::outline::OutlineHull>,
     >,

@@ -7,7 +7,6 @@
 
 use bevy::gltf::GltfAssetLabel;
 use bevy::prelude::*;
-use bevy::render::mesh::VertexAttributeValues;
 use bevy::world_serialization::WorldAssetRoot;
 use std::collections::HashMap;
 
