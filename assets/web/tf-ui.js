@@ -403,7 +403,12 @@
     return '<div class="tf-overlay tf-lookwrap" data-act="close-look">' +
       '<div class="tf-look tf-scroll" data-scroll="look">' +
         '<div class="tf-look-head">' +
-          '<h3 class="tf-look-title">' + esc(t('look.title')) + ' — ' + esc(E.name) + '</h3>' +
+          '<div class="tf-look-headgroup">' +
+            '<h3 class="tf-look-title">' + esc(t('look.title')) + ' — ' + esc(E.name) + '</h3>' +
+            '<span class="tf-look-status' + (E.busy ? ' busy' : '') + '">' +
+              (E.busy ? esc(tOr('look.saving', '저장 중…')) : '✓ ' + esc(tOr('look.autosaved', '자동 저장'))) +
+            '</span>' +
+          '</div>' +
           '<button class="tf-dialog-close" data-act="close-look">' + svg(ICONS.X, 16) + '</button>' +
         '</div>' +
         '<div class="tf-look-body">' +
@@ -639,11 +644,11 @@
     else if (act === 'join') { join(); }
     else if (act === 'look-edit') {
       var m = S.mineDetail.filter(function (x) { return x.id === el.getAttribute('data-id'); })[0];
-      if (m) { S.lookEdit = makeLookEditor(m); schedule(); }
+      if (m) { S.lookEdit = makeLookEditor(m); lookFocus(true, m.id); schedule(); }
     }
     else if (act === 'look-tab') { if (S.lookEdit) { S.lookEdit.tab = key; schedule(); } }
     else if (act === 'look-save') { lookSave(); }
-    else if (act === 'close-look') { if (ev.target === el) { S.lookEdit = null; schedule(); } }
+    else if (act === 'close-look') { if (ev.target === el) { closeLookEditor(); } }
     else if (act === 'close-relic') { S.selRelic = null; schedule(); }
     else if (act === 'sel-inv') { S.selInv = el.getAttribute('data-name'); schedule(); }
     else if (act === 'close-inv') { if (ev.target === el) { S.selInv = null; schedule(); } }
@@ -684,6 +689,10 @@
     var next = options[(i + dir + options.length) % options.length];
     if (next && !next.locked) apply(next.key);
     else schedule();
+    // 즉시 미리보기 — 선택 순간 로컬 look 오버라이드로 재스폰(서버 왕복 전).
+    // rust(look_edit)가 서버 정본 look에 parts를 머지하고, 저장이 확정되면
+    // (룸 lookJson == 오버라이드) 자동 수렴·해제된다. 그림 미리보기 아님.
+    localLookPush(E);
     // 슬라이드 즉시 저장(0.5s 디바운스) — 실 프리뷰는 투명 오버레이 너머
     // 3D 세계(저장→룸 lookJson→재스폰→틴트). 옷 탭이 아니면 옷 파트 보존.
     clearTimeout(E.saveTimer);
@@ -693,7 +702,7 @@
   var modalEscLatch = false;
   document.addEventListener('keydown', function (ev) {
     if (ev.key === 'Escape') {
-      if (S.lookEdit) { S.lookEdit = null; modalEscLatch = true; schedule(); }
+      if (S.lookEdit) { closeLookEditor(); modalEscLatch = true; }
       else if (S.creditsOpen) { S.creditsOpen = false; modalEscLatch = true; schedule(); }
       else if (S.popup) { S.popup = null; modalEscLatch = true; schedule(); }
       else if (S.menuOpen) { S.menuOpen = false; modalEscLatch = true; schedule(); }
@@ -850,6 +859,27 @@
       notify((e && e.message) || t('err.generic'));
       schedule();
     });
+  }
+
+  // ── 편집 미리보기 브리지(look_edit.rs) ── 카메라 포커스(내 캐릭터 줌 인
+  // 팔로우)와 즉시 로컬 look 오버라이드(저장 왕복 전 재스폰).
+  function lookFocus(on, agentId) {
+    var tf = window.terrafolk || {};
+    if (on && agentId && tf.selectAgent) tf.selectAgent(agentId);
+    if (tf.setLookFocus) tf.setLookFocus(on);
+  }
+  function closeLookEditor() {
+    var E = S.lookEdit;
+    if (!E) return;
+    // 남은 디바운스 즉시 실행 — 마지막 선택이 닫힘으로 유실되지 않게.
+    if (E.saveTimer) { clearTimeout(E.saveTimer); E.saveTimer = 0; lookSave(E.tab === 'clothes'); }
+    lookFocus(false);
+    S.lookEdit = null;
+    schedule();
+  }
+  function localLookPush(E) {
+    var f = window.terrafolk && window.terrafolk.setLocalLook;
+    if (f) f(E.agentId, JSON.stringify(E.fullParts()));
   }
 
   function lookSave(fromClothes) {

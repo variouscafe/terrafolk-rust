@@ -2,7 +2,6 @@
 //! 계약: 서버는 정사각 그리드를 주고 클라이언트가 투영(docs/data-contract.md).
 
 pub mod animal_anim;
-pub mod char_display;
 pub mod chibi;
 pub mod bld;
 pub mod cam_follow;
@@ -19,6 +18,7 @@ pub mod outfit;
 pub mod outline;
 pub mod toon;
 pub mod look_tint;
+pub mod look_edit;
 pub mod overlay;
 pub mod pick;
 pub mod precip;
@@ -60,6 +60,9 @@ impl Plugin for WorldPlugin {
             .insert_resource(pick::GroundTap::default())
             .insert_resource(pick::SelectBridge::default())
             .insert_resource(cam_follow::CamFollow::default())
+            .insert_resource(look_edit::LookEditBridge::default())
+            .insert_resource(look_edit::LocalLooks::default())
+            .insert_resource(look_edit::LookFocus::default())
             .insert_resource(overlay::PanBridge::default())
             .add_systems(
                 Startup,
@@ -69,6 +72,7 @@ impl Plugin for WorldPlugin {
                     sky::spawn_birds,
                     pick::spawn_ring,
                     pick::register_bridge,
+                    look_edit::register_bridge,
                     overlay::register_pan_bridge,
                     #[cfg(not(target_arch = "wasm32"))]
                     precip_fx::spawn_lightning_flash,
@@ -91,14 +95,6 @@ impl Plugin for WorldPlugin {
                 outfit::vary_outfits,
                 outfit::spawn_blob_shadows,
                 outline::attach_outlines,
-            ),
-        );
-        app.add_systems(
-            Update,
-            (
-                char_display::spawn_char_display,
-                char_display::retry_display,
-                char_display::apply_scale_marks,
             ),
         );
         app.add_systems(Update, materials_guard::guard_blend_materials);
@@ -128,6 +124,7 @@ impl Plugin for WorldPlugin {
                 villager::retry_villager_setup,
                 wear::apply_wears,
                 (pick::drain_select, pick::pick_agent, pick::follow_selection).chain(),
+                look_edit::drain_bridge,
                 occlusion::conceal_occluders,
                 cam_follow::follow_camera,
             ),

@@ -25,6 +25,7 @@ pub fn follow_camera(
     touches: Res<Touches>,
     mut rig: ResMut<CameraRig>,
     mut follow: ResMut<CamFollow>,
+    focus: Res<super::look_edit::LookFocus>,
     #[cfg(not(target_arch = "wasm32"))]
     chat: Res<crate::ui::chat::ChatState>,
     sel: Res<Selection>,
@@ -44,6 +45,11 @@ pub fn follow_camera(
     }
     if !follow.active {
         return;
+    }
+    // 외형 편집 포커스(look_edit) — 편집기가 열려 있으면 줌을 고정하고 수동
+    // 팬 해제를 억제한다(미리보기 캐릭터가 화면을 떠나지 않게).
+    if focus.active {
+        rig.zoom_goal = super::look_edit::EDIT_ZOOM;
     }
     // 수동 팬 해제 — 키보드·드래그 시작·터치 시작.
     // 채팅 입력 타이핑(winit keydown=window 스코프)은 해제 아님
@@ -66,6 +72,7 @@ pub fn follow_camera(
     let typing = false;
     if !changed
         && !typing
+        && !focus.active
         && (pan_key
             || mouse.just_pressed(MouseButton::Left)
             || touches.iter_just_pressed().next().is_some())
