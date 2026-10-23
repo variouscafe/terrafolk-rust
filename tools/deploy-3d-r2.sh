@@ -103,12 +103,16 @@ fi
 
 # ④ 버전 지문 — 부팅 버전 meta 주입 + /version.json(tf-update.js 폴링용).
 #    낡은 wasm 캐시로 고장나는 사고(2026-10-22 '하늘색만 보임') 감지·갱신 가이드.
+#    지문은 git 커밋 + **출하 wasm 내용 해시**(2026-10-23 사고 학습 — 코드
+#    불변 재배포[wasm-opt 제거 복구]에서 trunk 입력 해시가 같아 고장 탭이
+#    자동갱신을 못 걸었다. 내용이 다르면 지문도 달라져야 한다).
 GITV=$(git -C "$R" rev-parse --short HEAD)
-python3 - "$W" "$GITV" <<'PY'
+WHASH=$(shasum -a 256 "dist/$W" | cut -c1-8)
+python3 - "$W" "$GITV" "$WHASH" <<'PY'
 import sys, time, json, re
-w, gitv = sys.argv[1], sys.argv[2]
+w, gitv, whash = sys.argv[1], sys.argv[2], sys.argv[3]
 src = open('dist/index.html').read()
-v = gitv + '-' + w.replace('_bg.wasm', '').split('-')[-1]
+v = gitv + '-' + whash
 if 'name="tf-version"' not in src:
     src = src.replace('<head>', '<head>\n    <meta name="tf-version" content="%s">' % v, 1)
 else:
