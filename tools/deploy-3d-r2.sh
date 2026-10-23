@@ -18,12 +18,14 @@ V="$(grep -m1 '^version' Cargo.toml | sed 's/version *= *"\(.*\)"/\1/')"
 trunk build --release
 W=$(basename "$(ls dist/*_bg.wasm | head -1)")
 
-# ⓞ wasm-opt — rustc LTO(s) 위 2차 최적화. --all-features 필수: rustc 1.97
-#    GC/참조형 명령을 이미 내뿜어 기본 feature셋으론 binaryen 검증이 거부된다.
-wasm-opt -Os --strip-debug --all-features "dist/$W" -o "dist/$W.opt"
-mv "dist/$W.opt" "dist/$W"
+# ⓞ wasm-opt **미적용** — 2026-10-23 사고: --all-features로만 binaryen 검증이
+#    통과(rustc 1.97 GC/참조형)되는데, all-features는 **compact-import
+#    인코딩으로 재인코딩**해 현재 Chrome(V8 기본 비활성)이 'Invalid import
+#    kind 127'로 컴파일 거부 — 라이브 다운. gz 루트에서 opt 이득은 전송량
+#    8.6→8.4MiB뿐(무의미)이라 위험만 제거한다. 재도입 시: 최소 feature
+#    플래그 이분 탐색 + 브라우저 부팅 게이트 필수.
 WSIZE=$(stat -f %z "dist/$W")
-echo "wasm: $((WSIZE / 1048576))MiB (wasm-opt -Os 후)"
+echo "wasm: $((WSIZE / 1048576))MiB (rustc LTO 그대로)"
 
 USE_R2="${TF_DEPLOY_R2:-0}"
 GLUE_BAK=""
@@ -120,6 +122,8 @@ PY
 # ⑤ 업로드 트리 정리 + Pages 배포 — 명시적 프로젝트 지정(루트 wrangler.jsonc
 #    name=terrafolk-rust 를 따라가지 않게 CLI로 덮는다). 하위 디렉터리도
 #    업로드 트리에 포함되므로 wasm 원본(dist/wasm 등)은 /tmp 대피.
+# 해시 파일명 wasm(·.gz)은 불변 — Pages 기본(max-age=0 재검증) 대신 1년 캐시.
+printf '/*.wasm\n  Cache-Control: public, max-age=31536000, immutable\n\n/*.wasm.gz\n  Cache-Control: public, max-age=31536000, immutable\n' > dist/_headers
 TMPD=$(mktemp -d)
 [ -d dist/wasm ] && mv dist/wasm "$TMPD/wasm_old"
 if [ "$ROUTE" = "gz" ] || [ "$ROUTE" = "r2" ]; then
