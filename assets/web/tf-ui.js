@@ -390,10 +390,10 @@
       }).join('');
     } else if (tab === 'hair') {
       rows = optRowHtml(t('look.hair'), E.opts.hairs.map(function (v) { return { key: v, ko: E.prettyPart(v) }; }), E.parts.hair || E.opts.hairs[0], E) +
-        optRowHtml(t('look.hairColor'), E.opts.hairColors.map(function (v) { return { key: v, ko: E.prettyPart(v) }; }), E.parts.hairColor || E.opts.hairColors[0], E, 'hairColor');
+        swatchRowHtml(t('look.hairColor'), 'hairColor', E.opts.hairColors, E.parts.hairColor || E.opts.hairColors[0], E);
     } else {
-      rows = optRowHtml(t('look.skin'), E.opts.skins.map(function (v) { return { key: v, ko: E.prettyPart(v) }; }), E.parts.skin || E.opts.skins[0], E, 'skin') +
-        optRowHtml(t('look.eye'), E.opts.eyes.map(function (v) { return { key: v, ko: E.prettyPart(v) }; }), E.parts.eye || E.opts.eyes[0], E, 'eye') +
+      rows = swatchRowHtml(t('look.skin'), 'skin', E.opts.skins, E.parts.skin || E.opts.skins[0], E) +
+        swatchRowHtml(t('look.eye'), 'eye', E.opts.eyes, E.parts.eye || E.opts.eyes[0], E) +
         optRowHtml(t('look.beard'), E.opts.beards.map(function (v) { return { key: v, ko: E.prettyPart(v) }; }), E.parts.beard || 'none', E) +
         optRowHtml(t('look.glasses'), E.opts.glasses.map(function (v) { return { key: v, ko: E.prettyPart(v) }; }), E.parts.glasses || 'none', E);
     }
@@ -426,6 +426,21 @@
           ? '<p class="tf-look-note">' + svg(ICONS.Lock, 12) + ' ' + esc(t('look.auto')) + ' · 🔒 ' + esc(t('look.locked')) + '</p>'
           : '') +
       '</div>' +
+    '</div>';
+  }
+
+  /** 색상 행 — 팔레트 스와치 그리드(2026-10-23 상용 UI): ◀▶ 사이클 대신
+   * 전체 팔레트를 나열해 한 번에 보고 탭으로 선택. hex는 3D 틴트 팔레트와
+   * 동일(TF_LOOK.swatch) — 고른 색이 미리보기에 그대로 반영된다. */
+  function swatchRowHtml(label, kind, options, value, E) {
+    var dots = options.map(function (k) {
+      var hex = window.TF_LOOK.swatch(kind, k);
+      if (!hex) return '';
+      return '<button class="tf-pal-dot' + (k === value ? ' on' : '') + '" data-act="look-pick" data-part="' + esc(kind) + '" data-key="' + esc(k) + '" title="' + esc(E.prettyPart(k)) + '" aria-label="' + esc(E.prettyPart(k)) + '" style="background:' + hex + '"></button>';
+    }).join('');
+    return '<div class="tf-optrow tf-pal">' +
+      '<span class="tf-optrow-label">' + esc(label) + '</span>' +
+      '<div class="tf-pal-grid">' + dots + '</div>' +
     '</div>';
   }
 
@@ -656,6 +671,16 @@
     }
     else if (act === 'look-tab') { if (S.lookEdit) { S.lookEdit.tab = key; schedule(); } }
     else if (act === 'look-save') { lookSave(); }
+    else if (act === 'look-pick') {
+      // 팔레트 스와치 즉시 선택 — 미리보기·자동 저장은 슬라이드와 동일 경로
+      var E0 = S.lookEdit;
+      if (E0) {
+        E0.setPart(el.getAttribute('data-part'), key);
+        localLookPush(E0);
+        clearTimeout(E0.saveTimer);
+        E0.saveTimer = setTimeout(function () { lookSave(false); }, 500);
+      }
+    }
     else if (act === 'close-look') { if (ev.target === el) { closeLookEditor(); } }
     else if (act === 'close-relic') { S.selRelic = null; schedule(); }
     else if (act === 'sel-inv') { S.selInv = el.getAttribute('data-name'); schedule(); }
