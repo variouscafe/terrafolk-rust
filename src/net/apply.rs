@@ -382,24 +382,32 @@ pub fn sync_agents(
 }
 
 /// 라이브 주민 이동 — 서버 목적지로 등속 이동 + 이동 방향 회전.
+/// y는 목적지(지면 클램프)에서 FootLift(치비 부양량)만큼 내린 지점 —
+/// 발바닥 스냅(chibi_settle) 하강을 걷는 내내 유지한다(목적지 y로
+/// 리셋하며 하강이 무효화되던 결함 수정, 2026-10-23 2차 보고).
 pub fn live_move(
     time: Res<Time>,
     mut q: Query<(
         &LiveAgentTag,
         &mut Transform,
         &mut crate::world::villager::Villager,
+        Option<&crate::world::chibi::FootLift>,
     )>,
 ) {
     const SPEED: f32 = 1.2; // 타일/초(서버 배회 속도 근사)
-    for (_, mut tr, mut v) in &mut q {
+    for (_, mut tr, mut v, lift) in &mut q {
         if !v.moving {
             continue;
         }
-        let d = v.to - tr.translation;
+        let lift = lift.map_or(0.0, |l| l.0);
+        let mut d = v.to - tr.translation;
+        d.y = 0.0; // 수직은 이동 성분에서 제외 — 아래에서 직접 지정
         let dist = d.length();
         let step = SPEED * time.delta_secs();
+        tr.translation.y = v.to.y - lift;
         if dist <= step || dist < 1e-4 {
-            tr.translation = v.to;
+            tr.translation.x = v.to.x;
+            tr.translation.z = v.to.z;
             v.moving = false;
         } else {
             tr.translation += d / dist * step;
