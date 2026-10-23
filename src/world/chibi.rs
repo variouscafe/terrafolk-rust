@@ -21,9 +21,14 @@ const FOOT_SCALE: f32 = 0.45;
 #[derive(Component)]
 pub struct ChibiDone;
 
-/// 발바닥 지면 스냅 완료 마커(1회).
+/// 발바닥 스냅 측정 프로브(2프레임 카운트 — 스케일 GlobalTransform 전파 대기).
 #[derive(Component)]
-pub struct SettleDone;
+pub struct SettleProbe(pub u8);
+
+/// 치비 부양량(발바닥이 지면에서 뜬 높이) — 라이브 이동이 y를 이 값만큼
+/// 내린 지점에 둔다(스폰 스냅뿐 아니라 걷는 내내 유지).
+#[derive(Component)]
+pub struct FootLift(pub f32);
 
 /// 루트 하강 지시(마커 지연 적용 — Transform 충돌 회피, ScaleMark 패턴).
 #[derive(Component)]
@@ -43,16 +48,27 @@ pub fn apply_drop_marks(
 /// 발바닥이 원본보다 올라가는데 루트 높이는 그대로라 발이 지면에서 뜬다
 /// (치비화는 오토폿 완료 후라 루트 스케일에 반영되지 않는다 — 기존 PoC
 /// 감수 사항을 상용 수준으로 닫는다). Foot 본 월드 y(≈발바닥)가 루트
-/// y(지면 클램프)보다 높은 만큼 루트를 내려 붙인다. 애님으로 Foot가
-/// 움직여도 스냅은 1회(스폰 시) — 걷기 중 발 들기는 애님 자연 동작.
+/// y(지면 클램프)보다 높은 만큼을 **FootLift로 저장**해 ①스폰 즉시 하강
+/// (DropMark) ②이후 라이브 이동이 y를 이 값만큼 내린 지점에 둔다
+/// (live_move가 목적지 y로 리셋하며 하강이 무효화되던 2차 결함 수정).
+/// 측정은 2프레임 대기(치비 스케일의 GlobalTransform 전파 확정 후).
 pub fn chibi_settle(
     mut commands: Commands,
-    q: Query<(Entity, &Transform), (With<ChibiDone>, Without<SettleDone>)>,
+    mut q: Query<(Entity, &mut SettleProbe)>,
+    roots: Query<&Transform>,
     children_q: Query<&Children>,
     names: Query<&Name>,
     feet: Query<&GlobalTransform>,
 ) {
-    for (root, tr) in &q {
+    for (root, mut probe) in &mut q {
+        probe.0 = probe.0.saturating_sub(1);
+        if probe.0 > 0 {
+            continue; // GT 전파 대기
+        }
+        let Ok(tr) = roots.get(root) else {
+            commands.entity(root).remove::<SettleProbe>();
+            continue;
+        };
         // Foot 본(양쪽) 월드 y 최소 — 발바닥 근사
         let mut foot_y: Option<f32> = None;
         for d in children_q.iter_descendants(root) {
@@ -66,13 +82,14 @@ pub fn chibi_settle(
                 }
             }
         }
-        if let Some(fy) = foot_y {
-            let drop = (fy - tr.translation.y).max(0.0);
-            if drop > 0.005 {
-                commands.entity(root).insert(DropMark(drop));
-            }
+        let drop = foot_y.map_or(0.0, |fy| (fy - tr.translation.y).max(0.0));
+        commands
+            .entity(root)
+            .insert(FootLift(drop))
+            .remove::<SettleProbe>();
+        if drop > 0.005 {
+            commands.entity(root).insert(DropMark(drop));
         }
-        commands.entity(root).insert(SettleDone);
     }
 }
 
@@ -116,6 +133,6 @@ pub fn chibiify(
                 tr.scale *= scale;
             }
         }
-        commands.entity(entity).insert(ChibiDone);
+        commands.entity(entity).insert((ChibiDone, SettleProbe(2)));
     }
 }
