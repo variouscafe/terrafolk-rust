@@ -53,6 +53,9 @@ const AMBER_LIN: LinearRgba = LinearRgba::new(1.0, 0.824, 0.541, 1.0); // #ffd28
 const POST_COLOR: Color = Color::srgb(0.45, 0.34, 0.22);
 const ROPE_COLOR: Color = Color::srgb(0.62, 0.5, 0.34);
 const AMBER: Color = Color::srgb(1.0, 0.824, 0.541); // #ffd28a
+/// 시공 단계 구조 재료 — 골조 목재(밝음)·초벽 어도비(레퍼런스 모래 톤).
+const BEAM_COLOR: Color = Color::srgb(0.58, 0.45, 0.29);
+const ADOBE_COLOR: Color = Color::srgb(0.82, 0.72, 0.55);
 const GLOW_EMISSIVE: LinearRgba = LinearRgba::new(0.55, 0.435, 0.297, 1.0); // #ffc98a × 0.55
 
 /// 공사 발판 스폰 — 말뚝·밧줄·링·진행 바. 서버 앵커(x,y)=좌상단 타일.
@@ -68,6 +71,7 @@ pub fn spawn_site(
     h: u16,
     ground: f32,
     progress: f32,
+    stage: &str,
 ) -> Entity {
     let fw = w as f32;
     let fh = h as f32;
@@ -172,6 +176,108 @@ pub fn spawn_site(
         .id();
     commands.entity(root).add_child(bg);
     commands.entity(root).add_child(fill);
+
+    // ── 시공 단계 구조물(2026-10-24, 레거시 FE 6단계의 3D 요약 패리티).
+    // 단계 전환은 res_sig(stage 포함) 재스폰으로 일어나므로 여기선
+    // 스테이지 문자열에 정합하게 1회 스폰하면 된다.
+    //   SITE_PREPARED        부지(말뚝·밧줄 — 위 현행)
+    //   FOUNDATION_READY     구조 기둥 4(1.9m)
+    //   FRAME_READY          + 기둥 상단 외곽 보
+    //   ENCLOSURE_READY      + 초벽 어도비 벽(외곽 낮은 큐브)
+    //   ROOF_READY           + 마룻대(중앙 빔 — LONGHOUSE 마지막 단계)
+    let ord = |s: &str| match s {
+        "SITE_PREPARED" => 1,
+        "FOUNDATION_READY" => 2,
+        "FRAME_READY" => 3,
+        "ENCLOSURE_READY" => 4,
+        "ROOF_READY" => 5,
+        _ => 0,
+    };
+    let lvl = ord(stage);
+    if lvl >= 2 {
+        // 구조 기둥 — 말뚝보다 굵고 안쪽(벽체 위치)
+        let col = meshes.add(Cylinder::new(0.07, 1.9));
+        let col_mat = mats.add(StandardMaterial {
+            base_color: BEAM_COLOR,
+            ..default()
+        });
+        let ix = fw / 2.0 - 0.22;
+        let iz = fh / 2.0 - 0.22;
+        for (dx, dz) in [(-ix, -iz), (ix, -iz), (-ix, iz), (ix, iz)] {
+            let c = commands
+                .spawn((
+                    Mesh3d(col.clone()),
+                    MeshMaterial3d(col_mat.clone()),
+                    Transform::from_translation(Vec3::new(cx + dx, ground + 0.95, cz + dz)),
+                ))
+                .id();
+            commands.entity(root).add_child(c);
+        }
+    }
+    if lvl >= 3 {
+        // 골조 보 — 기둥 상단(1.85m) 외곽 4변 수평 빔
+        let beam = meshes.add(Cuboid::new(1.0, 0.09, 0.09));
+        let beam_mat = mats.add(StandardMaterial {
+            base_color: BEAM_COLOR,
+            ..default()
+        });
+        let by = ground + 1.85;
+        let ix = fw / 2.0 - 0.22;
+        let iz = fh / 2.0 - 0.22;
+        for (len, px, pz, rot) in [
+            (fw - 0.44, cx, cz - iz, 0.0),
+            (fw - 0.44, cx, cz + iz, 0.0),
+            (fh - 0.44, cx - ix, cz, std::f32::consts::FRAC_PI_2),
+            (fh - 0.44, cx + ix, cz, std::f32::consts::FRAC_PI_2),
+        ] {
+            let mut tr = Transform::from_translation(Vec3::new(px, by, pz));
+            tr.rotation = Quat::from_rotation_y(rot);
+            tr.scale.x = len;
+            let b = commands
+                .spawn((Mesh3d(beam.clone()), MeshMaterial3d(beam_mat.clone()), tr))
+                .id();
+            commands.entity(root).add_child(b);
+        }
+    }
+    if lvl >= 4 {
+        // 초벽 어도비 벽 — 외곽 낮은 벽체(높이 0.75m, 문 없음 요약)
+        let wall_mat = mats.add(StandardMaterial {
+            base_color: ADOBE_COLOR,
+            ..default()
+        });
+        let wy = ground + 0.375;
+        let wx = fw / 2.0 - 0.18;
+        let wz = fh / 2.0 - 0.18;
+        for (len, px, pz, rot, thick) in [
+            (fw - 0.36, cx, cz - wz, 0.0, 0.12),
+            (fw - 0.36, cx, cz + wz, 0.0, 0.12),
+            (fh - 0.36, cx - wx, cz, std::f32::consts::FRAC_PI_2, 0.12),
+            (fh - 0.36, cx + wx, cz, std::f32::consts::FRAC_PI_2, 0.12),
+        ] {
+            let wall = meshes.add(Cuboid::new(1.0, 0.75, thick));
+            let mut tr = Transform::from_translation(Vec3::new(px, wy, pz));
+            tr.rotation = Quat::from_rotation_y(rot);
+            tr.scale.x = len;
+            let w_e = commands
+                .spawn((Mesh3d(wall), MeshMaterial3d(wall_mat.clone()), tr))
+                .id();
+            commands.entity(root).add_child(w_e);
+        }
+    }
+    if lvl >= 5 {
+        // 마룻대 — 장축 중앙 수평 빔(지붕 마감 직전 신호)
+        let ridge = meshes.add(Cuboid::new(1.0, 0.1, 0.12));
+        let ridge_mat = mats.add(StandardMaterial {
+            base_color: BEAM_COLOR,
+            ..default()
+        });
+        let mut tr = Transform::from_translation(Vec3::new(cx, ground + 2.35, cz));
+        tr.scale.x = fw.max(fh) - 0.4;
+        let r_e = commands
+            .spawn((Mesh3d(ridge), MeshMaterial3d(ridge_mat), tr))
+            .id();
+        commands.entity(root).add_child(r_e);
+    }
     root
 }
 

@@ -255,6 +255,7 @@ pub fn sync_resources(
                         h,
                         ground,
                         st.progress.unwrap_or(0.0).clamp(0.0, 1.0),
+                        &stage,
                     )
                 };
                 commands
