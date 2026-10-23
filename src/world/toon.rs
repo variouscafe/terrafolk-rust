@@ -38,6 +38,13 @@ impl Material for ToonMaterial {
 #[derive(Component)]
 pub struct ToonSwapped;
 
+/// 루트(주민) 마커 — 자손에 표준 재질 메시가 한 번이라도 관측됐다(씬
+/// 등장 확정). 표시 게이트가 이 이력을 요구한다: 씬 로드 전 자손 0개
+/// 상태의 pending==0으로 조기 Visible → 자손 등장 프레임이 PBR로 끼는
+/// 우회를 막는다.
+#[derive(Component)]
+pub struct SeenStdMesh;
+
 /// 텍스처 없는 단색 재질용 1×1 흰 텍스처(스왑당 1회 생성).
 fn white_fallback(
     images: &mut Assets<Image>,
@@ -70,7 +77,11 @@ fn white_fallback(
 #[allow(clippy::type_complexity)] // Bevy 시스템 파라미터 — 툰 교체·틴트 전 경로
 pub fn toonify(
     mut commands: Commands,
-    villagers: Query<(Entity, &super::villager::VillagerModel), With<Villager>>,
+    villagers: Query<(
+        Entity,
+        &super::villager::VillagerModel,
+        Option<&SeenStdMesh>,
+    ), With<Villager>>,
     children: Query<&Children>,
     gltfs: Res<Assets<bevy::gltf::Gltf>>,
     gltf_mats: Res<Assets<bevy::gltf::GltfMaterial>>,
@@ -95,7 +106,7 @@ pub fn toonify(
     if villagers.is_empty() {
         return;
     }
-    for (root, model) in &villagers {
+    for (root, model, seen) in &villagers {
         let look = model.1.clone().unwrap_or_default();
         let tints = if look.is_empty() {
             None
@@ -201,9 +212,12 @@ pub fn toonify(
                 .remove::<MeshMaterial3d<bevy::pbr::StandardMaterial>>()
                 .insert((MeshMaterial3d(toon), ToonSwapped, Visibility::Visible));
         }
-        // 표시 게이트 — 미스왑 메시가 없는 프레임(스왑 확정)에 루트 표시.
-        // 씬 로드 전(메시 0개)도 통과하지만 그릴 게 없어 PBR 노출이 없다.
-        if pending == 0 {
+        // 표시 게이트 — 자손 PBR 메시 관측 이후(SeenStdMesh) 미스왑 0프레임에
+        // 루트 표시. 이력이 없으면(씬 로드 전) 조기 표시로 자손 등장 프레임이
+        // PBR로 끼는 우회가 생긴다.
+        if pending > 0 {
+            commands.entity(root).insert(SeenStdMesh);
+        } else if seen.is_some() {
             commands.entity(root).insert(Visibility::Visible);
         }
     }
