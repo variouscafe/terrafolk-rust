@@ -286,9 +286,9 @@ pub fn follow_selection(
             notify_pick(sel.id.as_deref());
         }
     }
-    match sel.entity.filter(|e| q.get(*e).is_ok()) {
-        Some(e) => {
-            let at = q.get(e).expect("just checked").translation;
+    match sel.entity.and_then(|e| q.get(e).ok()) {
+        Some(at_tr) => {
+            let at = at_tr.translation;
             tr.translation = Vec3::new(at.x, at.y + 0.03, at.z);
             let pulse = 1.0 + 0.05 * (time.elapsed_secs() * 3.2).sin();
             // 화면 일정 크기 — 줌아웃(0.6배)에선 고리가 ~5px로 사라지므로

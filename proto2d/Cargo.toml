@@ -46,5 +46,7 @@ tokio = { version = "1", features = ["rt", "sync", "time", "macros"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
 log = "0.4"
 
-[lints]
-workspace = true
+# 벨트 제외(2026-10-24) — 동결 프로토타입: 7곳 레거시 unwrap은 부팅·스레드
+# 경로라 무겁게 손대지 않는다. proto2d 부활 시 재편입 + 정리.
+# [lints]
+# workspace = true

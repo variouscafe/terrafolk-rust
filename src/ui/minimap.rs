@@ -198,8 +198,8 @@ pub fn update_minimap(
             node.width = Val::Px(side);
             node.height = Val::Px(side);
         }
-        if st.image.is_some() {
-            img.image = st.image.clone().unwrap();
+        if let Some(h) = st.image.clone() {
+            img.image = h;
         }
     }
 

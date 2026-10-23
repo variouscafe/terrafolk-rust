@@ -241,8 +241,7 @@ pub fn auto_greet(
     // 첫 라이브 주민(없으면 데모) 선택 — 목록 1행과 동일 순서(이름순 아님 단순 첫)
     let pick = villagers
         .iter()
-        .find(|(_, _, t)| t.is_some())
-        .map(|(e, _, t)| (e, t.unwrap().0.clone()))
+        .find_map(|(e, _, t)| t.map(|t| (e, t.0.clone())))
         .or_else(|| villagers.iter().next().map(|(e, _v, _)| (e, format!("demo:{}", e.index()))));
     let Some((entity, id)) = pick else { return; };
     sel.id = Some(id.clone());
