@@ -55,6 +55,7 @@ fn main() {
 /// notify_prime(apply.rs)와 동일 리플렉션 패턴.
 #[cfg(target_arch = "wasm32")]
 fn announce_version() {
+    use wasm_bindgen::prelude::*;
     let Some(window) = web_sys::window() else {
         return;
     };
