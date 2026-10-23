@@ -70,7 +70,10 @@ https://assetgen.pages.dev)가 이 기준으로 생성한다(2026-10-19 결정 �
 원천은 루트 `Cargo.toml`의 `[package] version`(출시마다 bump + manifest
 `version_code` 증가). 실기 전달은 file-download 스킬(마커
 `CODE_SSH_DOWNLOAD v1`). 실물 검증은 에뮬레이터 adb 루프 — 설치·실행·
-screencap·logcat(RustStdoutStderr 라인)으로 매번 확인한다. 네이티브 앱은
+screencap·logcat(RustStdoutStderr 라인)으로 매번 확인한다. **재설치 검증은
+  force-stop 필수(2026-10-23 확정)** — `adb install -r` 후 `am start`만 하면
+  구 APK 프로세스가 포어그라운드로 살아돌아와 '지형 단색' 오판을 일으킨다
+  (llvmpipe 에뮬 신규 시작은 텍스처 지형 정상). 네이티브 앱은
 데모 월드(레거시 FE와 동일 맵, 시드 20261011)로 동작 — 라이브 접속은 웹
 전용. **네이티브도 라이브 전제(2026-10-23 데모 제거, PR #83)** — 네이티브 데모
   월드(레거시 맵 임베드)는 용량 부담으로 제거됐다. 네이티브 앱의 기능 목표는
@@ -120,8 +123,11 @@ tf-api CORS 허용목록(../terrafolk `backend/src/terrafolk_api/config.py`)
 **외형 편집 3D 반영(2026-10-23, PR #78)**: 레거시 lookJson parts(피부·머리색·눈·옷색)가
   3D 주민 재질 틴트로 반영된다 — `world/look_tint.rs`(LPC 팔레트·모델×재질 슬롯표,
   악세서리 미염색) + toonify 색 매칭 역추적(Gltf named_materials) + look 변경 재스폰.
-  검증 게이트 `?tfdbg=looktest`(주민별 진한 팔레트 순환). 헤어스타일 지오메트리·
-  수염·안경 부착은 미구현(색상 축만).
+  검증 게이트 `?tfdbg=looktest`(주민별 진한 팔레트 순환). **지오메트리 축도
+  1차 완료(2026-10-23)**: 헤어 GLB qubase 2종(#86, 경량화 c2a139d 2048→512
+  텍스처 6.6→1.1MB)·수염 7종(#90)·안경 4종(#91·#93) 부착 + 봇 기본 외형
+  uuid 분배(#92). 남은 것: 헤어 스타일 N종 확장(LPC 카드 각도 문제 유보),
+  handlebar 수염(실루엣 3px 미생성).
 
 **하얀 맵 사고 정정(2026-10-21)**: 단색 지형의 주원인은 bevy 버전이 아니라
 **cc2895d가 지운 `assets/tiles/terrain_atlas.*`·`assets/shaders/` 4종 부재**
