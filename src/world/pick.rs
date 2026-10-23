@@ -258,6 +258,7 @@ pub fn follow_selection(
     q: Query<&Transform, With<Villager>>,
     q_tags: Query<(Entity, &LiveAgentTag), With<Villager>>,
     mut ring: Query<(&mut Transform, &mut Visibility), (With<SelectionRing>, Without<Villager>)>,
+    focus: Res<super::look_edit::LookFocus>,
 ) {
     let Ok((mut tr, mut vis)) = ring.single_mut() else {
         // 진단 — 링 엔티티 수 이상(0·복수)이면 매 프레임 조용히 무시된다
@@ -291,8 +292,14 @@ pub fn follow_selection(
             tr.translation = Vec3::new(at.x, at.y + 0.03, at.z);
             let pulse = 1.0 + 0.05 * (time.elapsed_secs() * 3.2).sin();
             // 화면 일정 크기 — 줌아웃(0.6배)에선 고리가 ~5px로 사라지므로
-            // 줌 배율에 반비례 확대(클램프 0.8~2.5). 원거리 관전에서도 선택이 보인다.
-            let zoom_fit = (1.0 / rig.zoom.max(0.15)).clamp(0.8, 2.5);
+            // 줌 배율에 반비례 확대(클램프 0.8~1.5). ⚠️ 상한 1.5: 원근 카메라
+            // 줌 인(편집 미리보기 0.34)에서 2.5배 링이 치비 키만 해져 발밑에서
+            // 화면 하단까지 늘어져 보였다(2026-10-23 모바일 캡처 보고).
+            let mut zoom_fit = (1.0 / rig.zoom.max(0.15)).clamp(0.8, 1.5);
+            // 편집 포커스 중 — 링이 프리뷰를 방해하지 않게 축소
+            if focus.active {
+                zoom_fit *= 0.55;
+            }
             tr.scale = Vec3::splat(pulse * zoom_fit);
             *vis = Visibility::Visible;
             // 진단 — 링 표시 최초 1회(선택마다): 위치·스케일·줌
