@@ -103,18 +103,21 @@ pub fn spawn(mut commands: Commands, theme: Res<UiTheme>) {
 pub fn open_chat(
     _: On<Pointer<Click>>,
     mut chat: ResMut<ChatState>,
+    mut focus: ResMut<crate::world::cam_follow::ChatFocus>,
     mut window: Single<&mut Window>,
 ) {
     chat.active = true;
+    focus.active = true;
     window.ime_enabled = true; // 소프트키보드
 }
 
 fn on_close(
     _: On<Pointer<Click>>,
     mut chat: ResMut<ChatState>,
+    mut focus: ResMut<crate::world::cam_follow::ChatFocus>,
     mut window: Single<&mut Window>,
 ) {
-    close(&mut chat, &mut window);
+    close(&mut chat, &mut focus, &mut window);
 }
 
 /// 빠른 인사 — 키보드 없이 한 번에 송신(모바일 진입 장벽 완화 + E2E 검증 경로).
@@ -132,16 +135,22 @@ fn on_greet(_: On<Pointer<Click>>, sel: Res<Selection>, mut window: Single<&mut 
 fn on_send(
     _: On<Pointer<Click>>,
     mut chat: ResMut<ChatState>,
+    mut focus: ResMut<crate::world::cam_follow::ChatFocus>,
     sel: Res<Selection>,
     mut window: Single<&mut Window>,
 ) {
     if send(&chat, &sel) {
-        close(&mut chat, &mut window);
+        close(&mut chat, &mut focus, &mut window);
     }
 }
 
-fn close(chat: &mut ChatState, window: &mut Window) {
+fn close(
+    chat: &mut ChatState,
+    focus: &mut crate::world::cam_follow::ChatFocus,
+    window: &mut Window,
+) {
     chat.active = false;
+    focus.active = false;
     chat.buffer.clear();
     chat.preedit.clear();
     window.ime_enabled = false;
@@ -171,6 +180,7 @@ fn send(chat: &ChatState, sel: &Selection) -> bool {
 /// IME·키보드 입력 수집(안드로이드 확정·하드웨어 타이핑·백스페이스·Enter).
 pub fn chat_input(
     mut chat: ResMut<ChatState>,
+    mut focus: ResMut<crate::world::cam_follow::ChatFocus>,
     mut ime: MessageReader<bevy::window::Ime>,
     mut keys: MessageReader<KeyboardInput>,
     sel: Res<Selection>,
@@ -202,10 +212,10 @@ pub fn chat_input(
             }
             KeyCode::Enter | KeyCode::NumpadEnter => {
                 if send(&chat, &sel) {
-                    close(&mut chat, &mut window);
+                    close(&mut chat, &mut focus, &mut window);
                 }
             }
-            KeyCode::Escape => close(&mut chat, &mut window),
+            KeyCode::Escape => close(&mut chat, &mut focus, &mut window),
             _ => {
                 if let Some(t) = ev.text.as_ref()
                     && !t.is_empty()

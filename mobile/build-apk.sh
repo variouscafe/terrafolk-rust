@@ -19,6 +19,7 @@ OUT="$ROOT/terrafolk-$VERSION.apk"
 # 에셋 참조 정합 — src가 참조하는 에셋이 지워졌으면 빌드 전 중단
 # (2026-10-21 하얀 맵 사고: cc2895d 에셋 삭제를 아무 게이트도 못 잡음).
 "$ROOT/tools/check-assets.sh"
+"$ROOT/tools/check-layers.sh"  # 계층 의존 방향(2026-10-24) — character·platform 순수성
 
 echo '[1/4] xbuild (rust+gradle apk) — 추가 플래그: $*'
 x build --platform android --arch arm64 --release --format apk "$@" 

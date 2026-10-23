@@ -15,6 +15,7 @@ R2BASE="https://pub-04c1d3aebd34468d8c97384d2b60a289.r2.dev"
 V="$(grep -m1 '^version' Cargo.toml | sed 's/version *= *"\(.*\)"/\1/')"
 
 "$R/tools/check-assets.sh"   # 하얀 맵 사고(2026-10-21) 재발 방지 — 빌드 전 정합
+"$R/tools/check-layers.sh"    # 계층 의존 방향(2026-10-24) — character·platform 순수성
 trunk build --release
 W=$(basename "$(ls dist/*_bg.wasm | head -1)")
 
