@@ -66,6 +66,8 @@ fn run_blocking(queue: FrameQueue, phase: Arc<AtomicU8>, feeds: FeedQueues) {
 /// 127.0.0.1 거부는 즉시 실패라 실기기 체감 지연 없음.
 pub(crate) fn pick_bases() -> (&'static str, &'static str) {
     use std::net::TcpStream;
+    // 상수 파싱 — 실패가 논리상 불가능한 고정 리터럴(벨트 사유 주석).
+    #[allow(clippy::expect_used)]
     let addr: std::net::SocketAddr = "127.0.0.1:8892".parse().expect("주소");
     let local = TcpStream::connect_timeout(&addr, Duration::from_millis(600)).is_ok();
     if local {

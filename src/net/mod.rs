@@ -187,18 +187,32 @@ fn connect_bridge(queue: Res<FrameQueue>) {
             }
         }
     });
-    let window = web_sys::window().expect("window");
-    let tf = js_sys::Reflect::get(&window, &"terrafolk".into()).expect("terrafolk bridge");
+    // 브리지 부재는 패닉 대신 경고 후 단선(스피너 유지) — never-crash 벨트.
+    let Some(window) = web_sys::window() else {
+        web_sys::console::warn_1(&"[net] window 부재 — 브리지 기동 불가".into());
+        return;
+    };
+    let (Ok(tf), Ok(set), Ok(conn)) = (
+        js_sys::Reflect::get(&window, &"terrafolk".into()),
+        js_sys::Reflect::get(&window, &"terrafolk".into())
+            .and_then(|t| js_sys::Reflect::get(&t, &"setSink".into())),
+        js_sys::Reflect::get(&window, &"terrafolk".into())
+            .and_then(|t| js_sys::Reflect::get(&t, &"connect".into())),
+    ) else {
+        web_sys::console::warn_1(&"[net] terrafolk 브리지 미구성 — 접속 불가".into());
+        return;
+    };
     let _ = js_sys::Reflect::set(&tf, &"dummy".into(), &JsValue::NULL);
-    // setSink(fn)
-    let set = js_sys::Reflect::get(&tf, &"setSink".into()).expect("setSink");
-    let set: js_sys::Function = set.dyn_into().expect("setSink fn");
+    let (Ok(set), Ok(conn)) = (
+        set.dyn_into::<js_sys::Function>(),
+        conn.dyn_into::<js_sys::Function>(),
+    ) else {
+        web_sys::console::warn_1(&"[net] setSink/connect이 함수 아님".into());
+        return;
+    };
     let sink_js = sink.as_js_value().clone();
     let _ = set.call1(&tf, &sink_js);
     sink.forget(); // 앱 수명 유지
-
-    let conn = js_sys::Reflect::get(&tf, &"connect".into()).expect("connect");
-    let conn: js_sys::Function = conn.dyn_into().expect("connect fn");
     let _ = conn.call0(&tf); // 베이스 URL은 JS가 오리진으로 선택
 }
 
