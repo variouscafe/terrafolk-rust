@@ -51,7 +51,12 @@ pub fn tool_sync(
 ) {
     for (root, mut tool) in &mut q {
         for e in tool.spawned.drain(..) {
-            commands.entity(e).despawn();
+            // get_entity — 주민 철거(룩 재스폰 등)로 부속이 이미 계층째
+            // 죽었을 수 있다(2026-10-24 0.8.12 APK 패닉 실측: 스폰 직후
+            // 명령 충돌). 죽은 엔티티 명령은 건너뛴다.
+            if let Ok(mut ec) = commands.get_entity(e) {
+                ec.despawn();
+            }
         }
         if tool.parts.is_empty() {
             continue;
