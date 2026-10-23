@@ -42,4 +42,4 @@ find "$ROOT" -maxdepth 1 -type f \( -name 'terrafolk-*.apk' -o -name 'terrafolk-
   ! -name "terrafolk-$VERSION.apk" -print -delete
 rm -f /tmp/terrafolk_inject.apk /tmp/terrafolk_aligned.apk
 
-echo "완료: $OUT ($(du -h "$OUT" | cut -f1)) — adb: adb install -r $OUT"
+echo "완료: $OUT v$VERSION ($(du -h "$OUT" | cut -f1)) — adb: adb install -r $OUT"

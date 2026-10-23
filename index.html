@@ -40,6 +40,9 @@
         <!-- 배포 버전 감시 — 낡은 wasm 캐시 갱신 가이드(tf-update.js).
              meta[name=tf-version]은 deploy-3d-r2.sh가 wasm 해시로 주입한다. -->
         <script src="assets/web/tf-update.js"></script>
+        <!-- 하단 좌측 버전 배지 — wasm이 env!(CARGO_PKG_VERSION)으로
+             terrafolk.setVersion() 호출(단일 원천 Cargo.toml). -->
+        <script src="assets/web/tf-version.js"></script>
         <div class="game-container">
             <div class="lds-dual-ring"></div>
             <!-- 폴백 텍스트 — tf-ui.js가 DOMContentLoaded에 tOr('boot.loading')로 교체 -->
