@@ -25,32 +25,19 @@ pub struct ChibiDone;
 #[derive(Component)]
 pub struct SettleProbe(pub u8);
 
-/// 치비 부양량(발바닥이 지면에서 뜬 높이) — 라이브 이동이 y를 이 값만큼
-/// 내린 지점에 둔다(스폰 스냅뿐 아니라 걷는 내내 유지).
+/// 치비 부양량(발바닥이 루트 원점에서 뜬 높이) — 루트 y의 단일 소유자
+/// `ground.rs`(매 프레임 surface_height − FootLift)가 소비한다.
 #[derive(Component)]
 pub struct FootLift(pub f32);
 
-/// 루트 하강 지시(마커 지연 적용 — Transform 충돌 회피, ScaleMark 패턴).
-#[derive(Component)]
-pub struct DropMark(pub f32);
-
-pub fn apply_drop_marks(
-    mut commands: Commands,
-    mut q: Query<(Entity, &DropMark, &mut Transform)>,
-) {
-    for (e, mark, mut tr) in &mut q {
-        tr.translation.y -= mark.0;
-        commands.entity(e).remove::<DropMark>();
-    }
-}
-
-/// 발바닥 지면 스냅(2026-10-23 '뒤꿈치 들고 걷기' 보고) — 다리 축소로
-/// 발바닥이 원본보다 올라가는데 루트 높이는 그대로라 발이 지면에서 뜬다
-/// (치비화는 오토폿 완료 후라 루트 스케일에 반영되지 않는다 — 기존 PoC
-/// 감수 사항을 상용 수준으로 닫는다). Foot 본 월드 y(≈발바닥)가 루트
-/// y(지면 클램프)보다 높은 만큼을 **FootLift로 저장**해 ①스폰 즉시 하강
-/// (DropMark) ②이후 라이브 이동이 y를 이 값만큼 내린 지점에 둔다
-/// (live_move가 목적지 y로 리셋하며 하강이 무효화되던 2차 결함 수정).
+/// 발바닥 부양량 측정(2026-10-23 '뒤꿈치 들고 걷기' 보고 → 동일 재보고로
+/// 재설계) — 다리·발 축소로 발바닥이 원본보다 올라가는데 루트 원점은
+/// 원본 발바닥 레벨(지면) 그대로라 발이 지면에서 뜬다(치비화는 오토폿
+/// 완료 후라 루트 스케일에 반영되지 않는다). 발끝 본(PT/Toe, Foot 본보다
+/// 아래)을 포함한 양측 하위 본 월드 y 최소에서 루트 y를 뺀 값을
+/// **FootLift로 저장**한다(루트 y는 상쇄 — 지면 클램프 오차 무관).
+/// 하강 적용은 ground_snap이 다음 프레임부터 담당(스폰 즉시 하강
+/// DropMark 경로는 y 작성 다중화 폐지로 제거).
 /// 측정은 2프레임 대기(치비 스케일의 GlobalTransform 전파 확정 후).
 pub fn chibi_settle(
     mut commands: Commands,
@@ -69,12 +56,16 @@ pub fn chibi_settle(
             commands.entity(root).remove::<SettleProbe>();
             continue;
         };
-        // Foot 본(양쪽) 월드 y 최소 — 발바닥 근사
+        // 발 하위 본(양쪽) 월드 y 최소 — 발목(Foot)보다 아래 발끝(PT/Toe)까지
+        // 잡아 발바닥 근사를 높인다(4차 보고 '뒤꿈치 부유' 잔여 원인).
         let mut foot_y: Option<f32> = None;
         for d in children_q.iter_descendants(root) {
             let Ok(name) = names.get(d) else { continue };
             let n = name.as_str();
-            if n == "Foot.L" || n == "Foot.R" || n == "foot_l" || n == "foot_r" {
+            if matches!(
+                n,
+                "Foot.L" | "Foot.R" | "foot_l" | "foot_r" | "PT.L" | "PT.R" | "toe_l" | "toe_r"
+            ) {
                 if let Ok(gt) = feet.get(d) {
                     foot_y = Some(foot_y.map_or(gt.translation().y, |m: f32| {
                         m.min(gt.translation().y)
@@ -87,9 +78,6 @@ pub fn chibi_settle(
             .entity(root)
             .insert(FootLift(drop))
             .remove::<SettleProbe>();
-        if drop > 0.005 {
-            commands.entity(root).insert(DropMark(drop));
-        }
     }
 }
 
