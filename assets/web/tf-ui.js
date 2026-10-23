@@ -644,7 +644,15 @@
     else if (act === 'join') { join(); }
     else if (act === 'look-edit') {
       var m = S.mineDetail.filter(function (x) { return x.id === el.getAttribute('data-id'); })[0];
-      if (m) { S.lookEdit = makeLookEditor(m); lookFocus(true, m.id); schedule(); }
+      if (m) {
+        S.lookEdit = makeLookEditor(m);
+        // 편집은 풀스크린 전용 화면으로 — 주민 목록 팝업이 뒤에 겹쳐
+        // 난잡해 보이는 문제(2026-10-23 모바일 보고). 카메라 팔로우로
+        // 캐릭터를 화면 상단에 크게 띄운다(밤은 러스트가 정오 조명으로).
+        S.popup = null;
+        lookFocus(true, m.id);
+        schedule();
+      }
     }
     else if (act === 'look-tab') { if (S.lookEdit) { S.lookEdit.tab = key; schedule(); } }
     else if (act === 'look-save') { lookSave(); }
