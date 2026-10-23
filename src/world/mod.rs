@@ -2,14 +2,12 @@
 //! 계약: 서버는 정사각 그리드를 주고 클라이언트가 투영(docs/data-contract.md).
 
 pub mod animal_anim;
-pub mod chibi;
 pub mod bld;
 pub mod cam_follow;
 pub mod camera_input;
 pub mod camera_rig;
 pub mod data;
 pub mod daynight;
-pub mod foot_lock;
 pub mod foot_probe;
 pub mod ground;
 pub mod night_glow;
@@ -91,12 +89,17 @@ impl Plugin for WorldPlugin {
         // 데모 월드 제거(2026-10-23 사용자 결정) — 네이티브도 라이브 전제.
         // 이전: 레거시 맵 임베드 데모가 네이티브에서 구동(바이너리 용량 부담).
         app.add_systems(Update, animal_anim::play_animal_idles);
-        app.add_systems(Update, (chibi::chibiify, chibi::chibi_settle).chain());
-        // 주민 루트 y 단일 소유(재설계 2026-10-23) — 기존 apply_drop_marks
-        // 즉시 하강 경로 폐지, 상세는 ground.rs 모듈 문서.
-        app.add_plugins(ground::plugin);
-        // 발바닥 수평 고정(Walk 외 애니) — 뒤꿈치 부유 근본 수정(2026-10-23).
-        app.add_plugins(foot_lock::plugin);
+        // 캐릭터 프레임워크(치비화·접지·발바닥 수평) — 게임 무관 계층
+        // (2026-10-24 P1, docs/character-module-redesign.md). 표면장=WorldData.
+        app.add_plugins(
+            crate::character::CharacterPlugin::<data::WorldData>::default(),
+        );
+        app.configure_sets(
+            Update,
+            crate::character::GroundSnapSet
+                .after(crate::net::apply::live_move)
+                .after(villager::wander),
+        );
         // 발 앵커 계측(진단) — TF_FOOTDBG=1일 때만 로그, 평소 무음·무비용.
         app.add_systems(Update, (foot_probe::foot_probe, foot_probe::footdbg_camera));
         app.add_systems(

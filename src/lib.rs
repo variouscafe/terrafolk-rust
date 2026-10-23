@@ -2,6 +2,7 @@
 //! 데이터 계약: ../terrafolk/docs/data-contract.md(§17.82). 월드 데이터는 데모
 //! 결정론 생성(시드 순수 함수) — Phase 2에서 Colyseus 어댑터로 교체.
 
+pub mod character;
 pub mod net;
 pub mod platform;
 #[cfg(not(target_arch = "wasm32"))]

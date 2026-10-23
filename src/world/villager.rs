@@ -35,15 +35,8 @@ pub struct Villager {
     pub act: String,
 }
 
-/// 애님 상태 — 그래프 클립 인덱스와 1:1.
-#[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
-pub enum AnimKind {
-    #[default]
-    Idle,
-    Walk,
-    Interact,
-    Wave,
-}
+/// 애님 상태 — character 프레임워크 소유(재사용 계층), 게임은 재수출.
+pub use crate::character::AnimKind;
 
 /// 활동 코드 → 애님 상태. 활동 전반(채집·건설·채광…)은 Interact,
 /// 주고받기(give·trade)는 Wave(손 내밀기), 휴식은 Idle. 알 수 없는
@@ -299,6 +292,13 @@ fn finish_villager_setup(
         player_e,
         current: AnimKind::Idle,
     });
+    // 캐릭터 프레임워크 마커 — 치비화 대상·접지 액터·애님 상태 스냅샷
+    // (P1 모듈화: 게임 무관 시스템이 이 컴포넌트만 본다).
+    commands.entity(entity).insert((
+        crate::character::ChibiTarget,
+        crate::character::GroundActor,
+        crate::character::AnimState(AnimKind::Idle),
+    ));
     true
 }
 
@@ -407,10 +407,14 @@ pub fn wander(
 /// 활동 코드(act 우선·status 폴백)로 Walk/Idle/Interact/Wave를 고른다.
 /// 0.25초 크로스페이드 — 하드 컷은 주민을 기계적으로 보이게 한다(생명감 직결).
 pub fn animate_states(
-    mut q: Query<(&Villager, &mut VillagerAnims)>,
+    mut q: Query<(
+        &Villager,
+        &mut VillagerAnims,
+        &mut crate::character::AnimState,
+    )>,
     mut players: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>,
 ) {
-    for (v, mut anims) in &mut q {
+    for (v, mut anims, mut state) in &mut q {
         let want = if v.moving {
             AnimKind::Walk
         } else {
@@ -420,6 +424,7 @@ pub fn animate_states(
             continue;
         }
         anims.current = want;
+        state.0 = want; // 캐릭터 프레임워크 스냅샷 동기(foot_lock 등 소비)
         let idx = match want {
             AnimKind::Walk => anims.walk,
             AnimKind::Idle => anims.idle_anim,

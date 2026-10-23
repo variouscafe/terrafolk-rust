@@ -90,7 +90,7 @@ pub struct BlobShadow;
 /// (지면과 동일 평면이면 z-fight). FootLift 확정(2프레임) 전엔 건드리지
 /// 않는다 — 묻힌 채로 있다가 settle과 동시에 올라온다.
 pub fn blob_shadow_ground(
-    roots: Query<(Entity, &super::chibi::FootLift), With<Villager>>,
+    roots: Query<(Entity, &crate::character::FootLift), With<Villager>>,
     children_q: Query<&Children>,
     mut shadows: Query<&mut Transform, With<BlobShadow>>,
 ) {
