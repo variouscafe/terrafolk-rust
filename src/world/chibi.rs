@@ -56,15 +56,28 @@ pub fn chibi_settle(
             commands.entity(root).remove::<SettleProbe>();
             continue;
         };
-        // 발 하위 본(양쪽) 월드 y 최소 — 발목(Foot)보다 아래 발끝(PT/Toe)까지
-        // 잡아 발바닥 근사를 높인다(4차 보고 '뒤꿈치 부유' 잔여 원인).
+        // 발 하위 본(양쪽) 월드 y 최소 — 발목(Foot)·발볼(PT)에 **말단 리프 본
+        // (_end, 발끝·뒤꿈치 끝단)** 까지 잡아 밑창 표면을 근사한다(6차 보고
+        // '뒤꿈치 재부유' — 뼈 원점 앵커는 축소 후 밑창까지 남은 두께만큼
+        // 발을 들게 한다. _end는 지오메트리 끝단까지 뻗은 리프라 최저점 근사).
         let mut foot_y: Option<f32> = None;
         for d in children_q.iter_descendants(root) {
             let Ok(name) = names.get(d) else { continue };
             let n = name.as_str();
             if matches!(
                 n,
-                "Foot.L" | "Foot.R" | "foot_l" | "foot_r" | "PT.L" | "PT.R" | "toe_l" | "toe_r"
+                "Foot.L"
+                    | "Foot.R"
+                    | "foot_l"
+                    | "foot_r"
+                    | "PT.L"
+                    | "PT.R"
+                    | "toe_l"
+                    | "toe_r"
+                    | "Foot.L_end"
+                    | "Foot.R_end"
+                    | "PT.L_end"
+                    | "PT.R_end"
             ) {
                 if let Ok(gt) = feet.get(d) {
                     foot_y = Some(foot_y.map_or(gt.translation().y, |m: f32| {
