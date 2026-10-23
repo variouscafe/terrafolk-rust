@@ -104,6 +104,7 @@ impl Plugin for WorldPlugin {
             (
                 outfit::vary_outfits,
                 outfit::spawn_blob_shadows,
+                outfit::blob_shadow_ground,
                 outline::attach_outlines,
             ),
         );

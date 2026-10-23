@@ -83,6 +83,29 @@ pub fn vary_outfits(
 #[derive(Component)]
 pub struct BlobShadow;
 
+/// 블롭 그림자 지면 고정 — 주민 루트는 ground_snap이 `지면 − FootLift`로
+/// 내리므로 루트 직속 자식(로컬 y=0)은 지면 아래 ~2cm에 매몰돼 안 보인다
+/// (2026-10-23 8차 '뒤꿈치 여전히 들림' 보고의 지각 원인 — 접지 큐 소실).
+/// 매 프레임 로컬 y = FootLift + 1.2cm 로 지면 위에 살짝 띄워 고정한다
+/// (지면과 동일 평면이면 z-fight). FootLift 확정(2프레임) 전엔 건드리지
+/// 않는다 — 묻힌 채로 있다가 settle과 동시에 올라온다.
+pub fn blob_shadow_ground(
+    roots: Query<(Entity, &super::chibi::FootLift), With<Villager>>,
+    children_q: Query<&Children>,
+    mut shadows: Query<&mut Transform, With<BlobShadow>>,
+) {
+    for (root, lift) in &roots {
+        let Ok(children) = children_q.get(root) else {
+            continue;
+        };
+        for c in children {
+            if let Ok(mut tr) = shadows.get_mut(*c) {
+                tr.translation.y = lift.0 + 0.012;
+            }
+        }
+    }
+}
+
 /// 블롭 그림자 — 그림자 맵 폐지(2026-10-19 아트 방향)의 대체 연출.
 /// 언릿 반투명 원형 쿼드를 주민 루트 자식으로 — 이동을 따라가고 지면 y는
 /// 루트가 이미 추적한다. 라이트와 무관해 밤에도 일정(타겟 스타일의
