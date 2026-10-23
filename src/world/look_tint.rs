@@ -19,6 +19,8 @@ pub enum Slot {
 }
 
 /// 팔레트 키 → linear RGB(레거시 palettes.ts 추출).
+// 색상 RGB 값이 우연히 1/π 근사(0.318)와 겹친다 — 의도된 팔레트 숫자다.
+#[allow(clippy::approx_constant)]
 fn table(slot: Slot) -> &'static [(&'static str, [f32; 3])] {
     match slot {
         Slot::Skin => &[

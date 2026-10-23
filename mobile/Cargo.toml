@@ -36,3 +36,6 @@ label = "Terrafolk"
 [features]
 no-ui = ["terrafolk_bevy/no-ui"]
 ui-min = ["terrafolk_bevy/ui-min"]
+
+[lints]
+workspace = true

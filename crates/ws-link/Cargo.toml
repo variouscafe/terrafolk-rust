@@ -12,3 +12,6 @@ futures-util = { version = "0.3", default-features = false, features = [
 ] }
 tokio = { version = "1", features = ["rt", "sync", "time", "macros"] }
 tokio-tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"] }
+
+[lints]
+workspace = true
