@@ -33,4 +33,13 @@ if [ "$FAIL" -eq 1 ]; then
   echo "계층 검사 실패 — docs/character-module-redesign.md §6·CLAUDE.md 설계 원칙 참고."
   exit 1
 fi
-echo "✓ 계층 의존 검사 통과 (platform·character ← world ↔ net)"
+
+# never-crash 벨트(#123·#126) — clippy 전용 린트라 cargo build는 못 잡는다.
+# unwrap/expect 발화가 있으면(프로덕션 크레이트) 게이트 실패.
+if cargo clippy --workspace --quiet 2>&1 | grep -qE "unwrap_used|expect_used"; then
+  echo "✗ never-crash 벨트 위반 — unwrap/expect는 Result 전파로:"
+  cargo clippy --workspace --quiet 2>&1 | grep -A3 "unwrap_used\|expect_used" | grep "\-\->" | head -5
+  exit 1
+fi
+
+echo "✓ 계층 의존 검사 통과 (platform·character ← world ↔ net) + never-crash 벨트"
