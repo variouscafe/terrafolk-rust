@@ -245,6 +245,8 @@ pub fn apply_wears(
                     bevy::world_serialization::WorldAssetRoot(scene),
                     Transform::from_translation(slot.offset())
                         .with_scale(Vec3::splat(slot.scale())),
+                    // PBR 선행 프레임 방지 — toonify 스왑 확정 프레임에 표시
+                    Visibility::Hidden,
                 ))
                 .id();
             commands.entity(*bone_e).add_child(wear_e);

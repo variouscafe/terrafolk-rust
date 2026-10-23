@@ -369,6 +369,9 @@ pub fn sync_agents(
                 super::agent_hud::AgentHud::default(),
                 bevy::world_serialization::WorldAssetRoot(scene),
                 Transform::from_translation(Vec3::new(a.x, ground, a.y)),
+                // 스폰 직후 PBR 프레임 노출 방지(2026-10-23 '3D 질감→카툰 덮임'
+                // 보고) — toonify가 자손 툰 스왑을 완료한 프레임에 표시된다.
+                Visibility::Hidden,
             ))
             .observe(crate::world::villager::villager_ready);
         spawned += 1;
