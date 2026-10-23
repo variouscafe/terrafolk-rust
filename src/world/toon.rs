@@ -133,6 +133,9 @@ pub fn toonify(
         });
         // look 지문 — 캐시 키(틴트 조합별 재질 분리)
         let look_hash = look.bytes().fold(0u64, |a, b| a.wrapping_mul(31) + b as u64);
+        // 미스왑(아직 PBR) 메시 잔여 — 0이 되는 프레임에 루트를 표시한다
+        // (스폰 직후 PBR 프레임이 화면에 끼는 것을 막는다).
+        let mut pending = 0usize;
         for d in children.iter_descendants(root) {
             let Ok((mat, swapped)) = q_mat.get(d) else {
                 continue;
@@ -143,9 +146,13 @@ pub fn toonify(
             let Some(src) = std_mats.get(&mat.0) else {
                 continue;
             };
-            // 언릿·비불투명 PBR 재질은 툰 스킵 — 링·연기 등 연출 의도 보존
+            pending += 1;
+            // 언릿·비불투명 PBR 재질은 툰 스킵 — 링·연기 등 연출 의도 보존.
+            // Visible 동봉: wear 부착물(스폰 시 Hidden)도 스왑 확정 프레임에 표시.
             if src.unlit || src.alpha_mode != AlphaMode::Opaque {
-                commands.entity(d).insert(ToonSwapped);
+                commands
+                    .entity(d)
+                    .insert((ToonSwapped, Visibility::Visible));
                 continue;
             }
             // 틴트 — 재질명 역추적(색 매칭) → 슬롯 → 팔레트색. 실패 시 원본색.
@@ -192,7 +199,12 @@ pub fn toonify(
             commands
                 .entity(d)
                 .remove::<MeshMaterial3d<bevy::pbr::StandardMaterial>>()
-                .insert((MeshMaterial3d(toon), ToonSwapped));
+                .insert((MeshMaterial3d(toon), ToonSwapped, Visibility::Visible));
+        }
+        // 표시 게이트 — 미스왑 메시가 없는 프레임(스왑 확정)에 루트 표시.
+        // 씬 로드 전(메시 0개)도 통과하지만 그릴 게 없어 PBR 노출이 없다.
+        if pending == 0 {
+            commands.entity(root).insert(Visibility::Visible);
         }
     }
 }
