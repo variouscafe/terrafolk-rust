@@ -9,6 +9,8 @@ pub mod camera_input;
 pub mod camera_rig;
 pub mod data;
 pub mod daynight;
+pub mod foot_lock;
+pub mod foot_probe;
 pub mod ground;
 pub mod night_glow;
 pub mod materials_guard;
@@ -93,6 +95,10 @@ impl Plugin for WorldPlugin {
         // 주민 루트 y 단일 소유(재설계 2026-10-23) — 기존 apply_drop_marks
         // 즉시 하강 경로 폐지, 상세는 ground.rs 모듈 문서.
         app.add_plugins(ground::plugin);
+        // 발바닥 수평 고정(Walk 외 애니) — 뒤꿈치 부유 근본 수정(2026-10-23).
+        app.add_plugins(foot_lock::plugin);
+        // 발 앵커 계측(진단) — TF_FOOTDBG=1일 때만 로그, 평소 무음·무비용.
+        app.add_systems(Update, (foot_probe::foot_probe, foot_probe::footdbg_camera));
         app.add_systems(
             Update,
             (
