@@ -479,8 +479,26 @@
       wears: Object.assign({}, m.wears || {}),
       busy: false, saveTimer: 0,
       prettyPart: function (v) {
-        var s = (String(v).split('_').pop() || v).replace(/([a-z])([A-Z])/g, '$1 $2');
-        return s.charAt(0).toUpperCase() + s.slice(1);
+        // 스타일명 한글화(2026-10-23 직접 QA — 'Long' 등 영어 원문 노출).
+        // LPC id 마지막 세그먼트를 한국어 라벨로; 미등록은 기존 영문 대문자화.
+        var KO = {
+          long: '롱헤어', bangs: '앞머리', bun: '번 스타일', afro: '아프로', ponytail: '포니테일',
+          bob: '밥컷', buzz: '스포츠', bald: '대머리', balding: '헤어라인', braid: '땋은머리',
+          loose: '웨이브', tied: '묶은머리', short: '숏컷', messy: '헝클어진', spiked: '스파이크',
+          flat: '플랫', curly: '곱슬', straight: '스트레이트', xlong: '슈퍼롱', pixie: '픽시',
+          undercut: '언더컷', mohawk: '모히칸', dreads: '드레드', side: '사이드', top: '탑',
+          back: '뒤로넘김', center: '중앙', parted: '가르마', down: '내려쓴', up: '올림',
+          beard: '턱수염', mustache: '콧수염', chevron: '쉐브론 콧수염', handlebar: '핸들바',
+          lampshade: '램프셰이드', medium: '미디움', trimmed: '다듬은 수염', shadow: '5시 그림자',
+          glasses: '기본 안경', nerd: '너드 안경', round: '동그란 안경', halfmoon: '하프문',
+          female: '여성용', male: '남성용', plain: '심플', basic: '베이직',
+        };
+        var s = String(v).split('_').pop() || v;
+        // 'none'은 옵션 칩에도 쓰인다(tf-look concat) — 빈 라벨 대신 '없음'.
+        if (v === 'none') return '없음';
+        if (KO[s]) return KO[s];
+        var eng = s.replace(/([a-z])([A-Z])/g, '$1 $2');
+        return eng.charAt(0).toUpperCase() + eng.slice(1);
       },
       setPart: function (k, v) { E.parts[k] = v; schedule(); },
       pickWear: function (slot, key) {
