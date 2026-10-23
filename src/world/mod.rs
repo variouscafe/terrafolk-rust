@@ -62,6 +62,7 @@ impl Plugin for WorldPlugin {
             .insert_resource(pick::GroundTap::default())
             .insert_resource(pick::SelectBridge::default())
             .insert_resource(cam_follow::CamFollow::default())
+            .insert_resource(cam_follow::ChatFocus::default())
             .insert_resource(look_edit::LookEditBridge::default())
             .insert_resource(look_edit::LocalLooks::default())
             .insert_resource(look_edit::LookFocus::default())

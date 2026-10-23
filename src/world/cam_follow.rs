@@ -17,6 +17,13 @@ pub struct CamFollow {
     pub active: bool,
 }
 
+/// 채팅 입력 활성 브리지 — UI(ui::chat)가 쓰고 카메라가 읽는다.
+/// world→ui 의존 금지(계층 게이트 2026-10-24)로 소유권을 world에 둔다.
+#[derive(Resource, Default)]
+pub struct ChatFocus {
+    pub active: bool,
+}
+
 #[allow(clippy::too_many_arguments)] // Bevy 시스템 파라미터 — 입력·선택·카메라를 한 프레임 안에서 순서 보정
 pub fn follow_camera(
     time: Res<Time>,
@@ -26,8 +33,7 @@ pub fn follow_camera(
     mut rig: ResMut<CameraRig>,
     mut follow: ResMut<CamFollow>,
     focus: Res<super::look_edit::LookFocus>,
-    #[cfg(not(target_arch = "wasm32"))]
-    chat: Res<crate::ui::chat::ChatState>,
+    chat: Res<ChatFocus>,
     sel: Res<Selection>,
     q: Query<&Transform, With<Villager>>,
     mut last_sel: Local<Option<String>>,
