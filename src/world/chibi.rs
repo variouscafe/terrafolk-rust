@@ -14,8 +14,8 @@ const HEAD_SCALE: f32 = 2.05;
 const SPINE_SCALE: f32 = 0.70;
 const LEG_SCALE: f32 = 0.58;
 const ARM_SCALE: f32 = 0.78;
-/// 발 폭(x) — 높이·전후는 bone_scale Foot 항목(비균등) 참조.
-const FOOT_SCALE: f32 = 0.45;
+/// 발 — 균등 강축소(회전된 본 로컬 축에 비균등은 shear 왜곡 — 4차 보고).
+const FOOT_SCALE: f32 = 0.34;
 
 /// 치비화 적용 완료 마커.
 #[derive(Component)]
@@ -103,15 +103,16 @@ pub fn chibi_settle(
 ///     전파되지 않는다 — 명시 매칭 없이 두면 원본 크기 발이 짧아진 다리에 붙어
 ///     스키처럼 앞으로 뻗는다(2026-10-22 직접 플레이 QA '패들 발'). PT(발가락)는
 ///     Foot 자손이라 함께 축소된다. UE5(foot_l)는 calf_l 자손이라 전파됨.
-///   - 발은 **비균등**(2026-10-23 3차 보고 '앞뒤로 길다'): 원본이 운동화형
-///     대형이라 균등 0.45로도 전후 길이가 남는다 — 폭(x) 0.45·높이(y) 0.38
-///     ·전후(z) 0.30으로 뭉툭한 부츠 비율.
+///   - 발(2026-10-23 4차 보고 '고운 꺾임·테린 한쪽 소실'): ⚠️ **본 스케일은
+///     반드시 균등** — Foot 본은 원본 리그에서 ~104° 회전돼 로컬 축이 세계축과
+///     어긋나, 비균등(0.45/0.38/0.30)을 걸면 발 메시가 shear로 비틀린다
+///     (포즈·각도별 꺾임·소실). 균등 강축소 0.34로 뭉툭한 부츠를 낸다.
 pub fn bone_scale(name: &str) -> Option<Vec3> {
     match name {
         "Head" => Some(Vec3::splat(HEAD_SCALE)),
         "Abdomen" | "spine_01" => Some(Vec3::splat(SPINE_SCALE)),
         "UpperLeg.L" | "UpperLeg.R" | "thigh_l" | "thigh_r" => Some(Vec3::splat(LEG_SCALE)),
-        "Foot.L" | "Foot.R" => Some(Vec3::new(FOOT_SCALE, 0.38, 0.30)),
+        "Foot.L" | "Foot.R" => Some(Vec3::splat(FOOT_SCALE)),
         "UpperArm.L" | "UpperArm.R" | "upperarm_l" | "upperarm_r" => Some(Vec3::splat(ARM_SCALE)),
         _ => None,
     }
