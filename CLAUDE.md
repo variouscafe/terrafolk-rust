@@ -40,7 +40,7 @@ https://assetgen.pages.dev)가 이 기준으로 생성한다(2026-10-19 결정 �
 - **backend·룸·브레인은 `../terrafolk` repo 담당** — API·권위적 월드 틱·LLM 호출은 그쪽에서 구현하며, 데이터 계약도 그쪽 문서(`../terrafolk/docs/data-contract.md`, §17.82) 기준을 따른다.
 - 작업 중 워크스페이스의 repo를 오가면 **현재 repo의 역할에 맞게** 구현할 것.
 
-## 설계 원칙 — 재사용(2026-10-18)
+## 설계 원칙 — 재사용(2026-10-18, 2026-10-24 강화)
 
 다른 게임을 만들 때도 컴포넌트를 그대로 재사용할 수 있게 계층을 나눈다.
 
@@ -48,8 +48,19 @@ https://assetgen.pages.dev)가 이 기준으로 생성한다(2026-10-19 결정 �
   쓴다): 렌더 에러 정책(로그 남기고 생존), 스왑체인 포맷 진단, 부팅 프로브
   (창·카메라·가시 메시 — 파란/검은 화면 3분법), 인앱 스크린샷(안드로이드
   쓰기 가능 경로 자동 해석 + adb pull 회수). `PlatformPlugin` 하나로 구성.
+- **`src/character/` = 게임 무관 캐릭터 프레임워크**(2026-10-24 지정 —
+  `docs/character-module-redesign.md` 참조, 이행 진행 중): 리그 디스크립터·
+  비율(치비)·접지(표면장+FootLift+그림자)·다리 IK·행동→모션 매핑·도구
+  부착·애님 상태머신. 게임 측은 `CharacterTag`·표면장·activity 코드만
+  제공한다. 기존 chibi.rs·ground.rs·foot_lock.rs·wear 앵커는 이 모듈로
+  흡수 중 — **캐릭터 기능 추가는 character/에 게임 무관 형태로 먼저**.
 - **`src/world/` = 이 게임 콘텐츠**(지형·주민·후처리 카메라 등). 플랫폼
   가드가 필요하면 platform으로, 재질 가드처럼 게임 고유면 world에 둔다.
+  캐릭터의 게임 고유 부분(주민 AI·넷 동기·선택)만 world에 둔다.
+- **아키텍처 게이트(chartcraft 벤치마크, 2026-10-24)**: 계층 의존 방향
+  (platform·character ← world만 허용)은 관례가 아니라 점진적으로 빌드
+  게이트로 강제한다(cargo xtask layers 패턴). 채택 관행 8종 전체 목록은
+  `docs/character-module-redesign.md` §6.
 - **UI 이중 구현 금지**: 안드로이드·iOS·PC는 **bevy_ui 단일 구현**으로
   공유한다(플랫폼별 분기 금지 — 해상도·세이프에어리어만 반응형 대응).
   웹만 기존 DOM UI(tf-*.js)를 유지한다. 신규 화면은 native UI 모듈에
