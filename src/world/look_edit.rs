@@ -11,9 +11,9 @@ use bevy::prelude::*;
 
 use super::camera_rig::CameraRig;
 
-/// 편집 줌 — 카메라 시야폭 = VIEW_H×zoom: 값이 작을수록 가깝다(최대 줌인
-/// ≈9m). 치비 신장(1.38m)이 화면 높이 절반쯤 오는 근접 프레이밍.
-pub const EDIT_ZOOM: f32 = 0.48;
+/// 편집 줌 — 카메라 시야폭 = VIEW_H×zoom: 값이 작을수록 가깝다(ZOOM_MIN 0.3).
+/// 치비 신장(1.38m)이 모바일 세로 화면에서도 크게 읽히는 근접 프레이밍.
+pub const EDIT_ZOOM: f32 = 0.34;
 
 /// JS→Rust 편집 브리지 큐 — (agentId, partsJson)과 포커스 토글.
 #[derive(Resource, Default)]
