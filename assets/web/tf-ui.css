@@ -361,7 +361,7 @@
   border: 2px solid rgba(255, 255, 255, .28); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .45), 0 1px 3px rgba(0, 0, 0, .4); }
 @media (max-width: 600px) {
   .tf-lookwrap { place-items: end stretch; padding: .5rem; }
-  .tf-look { max-height: 62dvh; border-radius: 1.25rem 1.25rem .75rem .75rem; }
+  .tf-look { max-height: 52dvh; border-radius: 1.25rem 1.25rem .75rem .75rem; }
 }
 /* 저장 상태 배지 — 자동 저장(슬라이드 0.5s 디바운스) 진행 표시 */
 .tf-look-status { font-size: 10px; font-weight: 600; color: var(--ink-400);

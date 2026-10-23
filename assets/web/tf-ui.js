@@ -415,7 +415,7 @@
           '<div class="tf-look-main">' +
             '<div class="tf-look-tabs">' + tabs + '</div>' +
             '<div class="tf-look-rows">' + rows + '</div>' +
-            '<p class="tf-look-note">' + esc(tOr('look.preview3d', '바꾸면 바로 저장되어 세계의 3D 모습에 반영돼요')) + '</p>' +
+            '<p class="tf-look-note">' + esc(tOr('look.preview3d', '위에 보이는 내 캐릭터에 바로 반영돼요 — 옵션을 바꿔보세요')) + '</p>' +
           '</div>' +
         '</div>' +
         '<div class="tf-look-actions">' +

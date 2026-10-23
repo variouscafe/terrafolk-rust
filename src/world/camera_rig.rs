@@ -90,10 +90,11 @@ fn view_offset(zoom: f32) -> Vec3 {
 
 fn pan_offset(rig: &CameraRig, focus: &super::look_edit::LookFocus) -> Vec3 {
     let mut at = Vec3::new(rig.target.x, 0.0, rig.target.y) + view_offset(rig.zoom);
-    // 편집 미리보기(look_edit) — 캐릭터(타깃)를 화면 위쪽으로 밀어 하단 시트·
+    // 편집 미리보기(look_edit) — 캐릭터(타깃)를 화면 위쪽에 고정해 하단 시트·
     // 우측 패널과 공존. 카메라 앵커를 -z(먼 쪽)로 옮기면 타깃이 위로 올라간다.
+    // 0.24 = 화면 상단 ~30% 지점에 캐릭터 중심(모바일 하단 시트 실측).
     if focus.active {
-        at.z -= VIEW_H * rig.zoom * 0.20;
+        at.z -= VIEW_H * rig.zoom * 0.24;
     }
     at
 }
