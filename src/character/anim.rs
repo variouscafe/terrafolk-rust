@@ -10,6 +10,8 @@ pub enum AnimKind {
     Idle,
     Walk,
     Interact,
+    /// 양팔 내지르기·망치질 계열 원샷성 작업 모션(사냥·건설·채굴).
+    Punch,
     Wave,
 }
 

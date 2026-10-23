@@ -38,12 +38,14 @@ pub struct Villager {
 /// 애님 상태 — character 프레임워크 소유(재사용 계층), 게임은 재수출.
 pub use crate::character::AnimKind;
 
-/// 활동 코드 → 애님 상태. 활동 전반(채집·건설·채광…)은 Interact,
-/// 주고받기(give·trade)는 Wave(손 내밀기), 휴식은 Idle. 알 수 없는
-/// 코드는 Interact(활동형 기본 — 시각적으로 하는 일이 있는 게 생명감).
+/// 활동 코드 → 애님 상태. 타격성 작업(사냥·건설·채굴·벌목·어로)은 Punch
+/// (망치·찌르기 — 실제 동작 유사성, 2026-10-24 P3), 주고받기는 Wave,
+/// 휴식은 Idle. 알 수 없는 코드는 Interact(활동형 기본 — 시각적으로
+/// 하는 일이 있는 게 생명감).
 fn act_kind(code: &str) -> AnimKind {
     match code {
         "moving" => AnimKind::Walk,
+        "hunt" | "build" | "craft" | "chop" | "mine" | "smelt" | "fish" => AnimKind::Punch,
         "give" | "trade" => AnimKind::Wave,
         "idle" | "sleep" | "sleeping" | "thinking" | "" => AnimKind::Idle,
         _ => AnimKind::Interact,
@@ -56,6 +58,8 @@ pub struct VillagerAnims {
     pub idle_anim: AnimationNodeIndex,
     pub interact: AnimationNodeIndex,
     pub wave: AnimationNodeIndex,
+    /// 망치질·내지르기 계열(사냥·건설·채굴) — qchar Punch_Left 폴백 Interact.
+    pub punch: AnimationNodeIndex,
     pub player_e: Entity,
     pub current: AnimKind,
 }
@@ -231,6 +235,9 @@ fn finish_villager_setup(
     let wave_i = find("Wave")
         .map(|h| graph.add_clip(h, 1.0, graph.root))
         .unwrap_or(idle_i);
+    let punch_i = find("Punch_Left")
+        .map(|h| graph.add_clip(h, 1.0, graph.root))
+        .unwrap_or(interact_i);
     let graph_h = graphs.add(graph);
 
     // 하위 AnimationPlayer 탐색(bevy_gltf가 자동 스폰)
@@ -289,6 +296,7 @@ fn finish_villager_setup(
         idle_anim: idle_i,
         interact: interact_i,
         wave: wave_i,
+        punch: punch_i,
         player_e,
         current: AnimKind::Idle,
     });
@@ -429,6 +437,7 @@ pub fn animate_states(
             AnimKind::Walk => anims.walk,
             AnimKind::Idle => anims.idle_anim,
             AnimKind::Interact => anims.interact,
+            AnimKind::Punch => anims.punch,
             AnimKind::Wave => anims.wave,
         };
         if let Ok((mut player, mut transitions)) = players.get_mut(anims.player_e) {
