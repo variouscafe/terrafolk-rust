@@ -33,7 +33,7 @@ pub fn chibiify(
     for entity in &q {
         for descendant in children_q.iter_descendants(entity) {
             if let Ok((name, mut tr)) = bones.get_mut(descendant)
-                && let Some(scale) = bone_scale(&name.to_string())
+                && let Some(scale) = bone_scale(name.as_str())
             {
                 tr.scale *= scale;
             }

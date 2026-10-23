@@ -141,7 +141,7 @@ pub mod mem {
 
     pub fn has(name: &str) -> bool {
         // Dir에 존재 검색 API가 제한적 — 삽입 기록으로 판정.
-        INSERTED.lock().unwrap().iter().any(|n| n == name)
+        INSERTED.lock().unwrap_or_else(|e| e.into_inner()).iter().any(|n| n == name)
     }
 
     use std::sync::Mutex;
@@ -149,7 +149,10 @@ pub mod mem {
     static INSERTED: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
     pub fn mark_inserted(name: &str) {
-        INSERTED.lock().unwrap().push(name.to_string());
+        INSERTED
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(name.to_string());
     }
 }
 
@@ -157,7 +160,10 @@ pub mod mem {
 #[cfg(target_arch = "wasm32")]
 pub fn spawn_fetch(url: String, name: String) {
     wasm_bindgen_futures::spawn_local(async move {
-        let window = web_sys::window().unwrap();
+        let Some(window) = web_sys::window() else {
+            web_sys::console::warn_1(&"[remote] window 부재".into());
+            return;
+        };
         let resp = match js_sys::Promise::from(window.fetch_with_str(&url)) {
             p => match wasm_bindgen_futures::JsFuture::from(p).await {
                 Ok(r) => r,
@@ -167,8 +173,15 @@ pub fn spawn_fetch(url: String, name: String) {
                 }
             },
         };
-        let resp: web_sys::Response = wasm_bindgen::JsCast::dyn_into(resp).unwrap();
-        let buf = match wasm_bindgen_futures::JsFuture::from(resp.array_buffer().unwrap()).await {
+        let Ok(resp) = wasm_bindgen::JsCast::dyn_into::<web_sys::Response>(resp) else {
+            web_sys::console::log_1(&format!("[remote] Response 캐스트 실패 {url}").into());
+            return;
+        };
+        let Ok(ab) = resp.array_buffer() else {
+            web_sys::console::log_1(&format!("[remote] arrayBuffer 실패 {url}").into());
+            return;
+        };
+        let buf = match wasm_bindgen_futures::JsFuture::from(ab).await {
             Ok(b) => b,
             Err(e) => {
                 web_sys::console::log_1(&format!("[remote] 본문 실패 {url}: {e:?}").into());
