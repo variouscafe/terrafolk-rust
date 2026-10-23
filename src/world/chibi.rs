@@ -87,10 +87,14 @@ pub fn chibi_settle(
 ///   - 머리: Head(양쪽 동일) · 몸통: Abdomen(q)/spine_01(u) — 다리는 형제라
 ///     영향 없음 · 다리: UpperLeg.X(q)/thigh_x(u) — 종아리는 자손이라 함께 단축 ·
 ///     팔: UpperArm.X(q)/upperarm_x(u) — 손은 자손이라 함께 단축(2026-10-19).
-///   - 발: qchar 리그는 Foot.X가 **Body 직속**(다리 체인과 형제)이라 다리 축소가
+///   - 발: qchar 리그는 Foot.X가 **Root 직속**(다리 체인과 형제)이라 다리 축소가
 ///     전파되지 않는다 — 명시 매칭 없이 두면 원본 크기 발이 짧아진 다리에 붙어
-///     스키처럼 앞으로 뻗는다(2026-10-22 직접 플레이 QA '패들 발'). PT(발가락)는
-///     Foot 자손이라 함께 축소된다. UE5(foot_l)는 calf_l 자손이라 전파됨.
+///     스키처럼 앞으로 뻗는다(2026-10-22 직접 플레이 QA '패들 발').
+///     **PT.X(발가락)도 Root 직속**(2026-10-23 5차 보고 '발 꺽임·늘어남' 실측
+///     정정 — 예전 주석의 'PT는 Foot 자손'은 ubase 리그 기준 오류): 발 메시가
+///     Foot+PT 양쪽에 스키닝돼 PT를 빼면 앞꿈치만 원본 크기로 남아 메시가
+///     늘어나고(보행) 비틀린다(정지). UE5(foot_l)는 calf_l 자손이라 전파됨 —
+///     toe_l을 여기 넣으면 이중 축소되므로 qchar 이름만 매칭한다.
 ///   - 발(2026-10-23 4차 보고 '고운 꺾임·테린 한쪽 소실'): ⚠️ **본 스케일은
 ///     반드시 균등** — Foot 본은 원본 리그에서 ~104° 회전돼 로컬 축이 세계축과
 ///     어긋나, 비균등(0.45/0.38/0.30)을 걸면 발 메시가 shear로 비틀린다
@@ -100,7 +104,7 @@ pub fn bone_scale(name: &str) -> Option<Vec3> {
         "Head" => Some(Vec3::splat(HEAD_SCALE)),
         "Abdomen" | "spine_01" => Some(Vec3::splat(SPINE_SCALE)),
         "UpperLeg.L" | "UpperLeg.R" | "thigh_l" | "thigh_r" => Some(Vec3::splat(LEG_SCALE)),
-        "Foot.L" | "Foot.R" => Some(Vec3::splat(FOOT_SCALE)),
+        "Foot.L" | "Foot.R" | "PT.L" | "PT.R" => Some(Vec3::splat(FOOT_SCALE)),
         "UpperArm.L" | "UpperArm.R" | "upperarm_l" | "upperarm_r" => Some(Vec3::splat(ARM_SCALE)),
         _ => None,
     }
