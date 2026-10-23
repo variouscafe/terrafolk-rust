@@ -285,7 +285,7 @@ pub fn sync_agents(
             // 착지 클램프 — 물 타일 위에서도 수면(-0.18) 아래로 잠기지 않게
             world
                 .height_at(a.x.floor() as i32, a.y.floor() as i32)
-                .max(-0.14),
+                .max(crate::world::ground::WATER_STAND_Y),
             a.y,
         );
         v.to = target;
@@ -347,7 +347,7 @@ pub fn sync_agents(
         // 수면 아래로 잠기지 않게 발을 수면(-0.18) 위로 못 박는다.
         let ground = world
             .height_at(a.x.floor() as i32, a.y.floor() as i32)
-            .max(-0.14);
+            .max(crate::world::ground::WATER_STAND_Y);
         commands
             .spawn((
                 crate::world::wear::Wears(crate::world::wear::wear_ids_from_look(
@@ -382,29 +382,27 @@ pub fn sync_agents(
 }
 
 /// 라이브 주민 이동 — 서버 목적지로 등속 이동 + 이동 방향 회전.
-/// y는 목적지(지면 클램프)에서 FootLift(치비 부양량)만큼 내린 지점 —
-/// 발바닥 스냅(chibi_settle) 하강을 걷는 내내 유지한다(목적지 y로
-/// 리셋하며 하강이 무효화되던 결함 수정, 2026-10-23 2차 보고).
+/// **y는 쓰지 않는다**(2026-10-23 재설계) — 예전엔 목적지 타일 중심
+/// 고도에 FootLift를 뺀 값으로 고정해 발밑 표면과 단차만큼 발이 뜨거나
+/// 박혔다. 루트 y의 단일 소유자는 world::ground(매 프레임 발밑 위치의
+/// 연속 표면고도 − FootLift)다.
 pub fn live_move(
     time: Res<Time>,
     mut q: Query<(
         &LiveAgentTag,
         &mut Transform,
         &mut crate::world::villager::Villager,
-        Option<&crate::world::chibi::FootLift>,
     )>,
 ) {
     const SPEED: f32 = 1.2; // 타일/초(서버 배회 속도 근사)
-    for (_, mut tr, mut v, lift) in &mut q {
+    for (_, mut tr, mut v) in &mut q {
         if !v.moving {
             continue;
         }
-        let lift = lift.map_or(0.0, |l| l.0);
         let mut d = v.to - tr.translation;
-        d.y = 0.0; // 수직은 이동 성분에서 제외 — 아래에서 직접 지정
+        d.y = 0.0; // 수직은 이동 성분에서 제외 — ground_snap이 소유
         let dist = d.length();
         let step = SPEED * time.delta_secs();
-        tr.translation.y = v.to.y - lift;
         if dist <= step || dist < 1e-4 {
             tr.translation.x = v.to.x;
             tr.translation.z = v.to.z;

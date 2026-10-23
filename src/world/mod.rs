@@ -9,6 +9,7 @@ pub mod camera_input;
 pub mod camera_rig;
 pub mod data;
 pub mod daynight;
+pub mod ground;
 pub mod night_glow;
 pub mod materials_guard;
 pub mod models;
@@ -89,7 +90,9 @@ impl Plugin for WorldPlugin {
         // 이전: 레거시 맵 임베드 데모가 네이티브에서 구동(바이너리 용량 부담).
         app.add_systems(Update, animal_anim::play_animal_idles);
         app.add_systems(Update, (chibi::chibiify, chibi::chibi_settle).chain());
-        app.add_systems(Update, chibi::apply_drop_marks);
+        // 주민 루트 y 단일 소유(재설계 2026-10-23) — 기존 apply_drop_marks
+        // 즉시 하강 경로 폐지, 상세는 ground.rs 모듈 문서.
+        app.add_plugins(ground::plugin);
         app.add_systems(
             Update,
             (
