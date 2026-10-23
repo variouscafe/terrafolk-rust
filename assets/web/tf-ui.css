@@ -374,17 +374,29 @@
 .tf-look-main { min-width: 0; flex: 1 1 0%; }
 .tf-look-tabs { margin-bottom: .375rem; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .25rem;
   border-radius: .5rem; background: var(--ink-800); padding: .125rem; }
-.tf-look-tab { border-radius: .375rem; padding: .25rem .25rem; font-size: 11px; font-weight: 500; color: var(--ink-300); }
+.tf-look-tab { border-radius: .4375rem; padding: .4rem .25rem; font-size: 12px; font-weight: 600; color: var(--ink-300);
+  position: relative; transition: color .15s, background .15s; }
 .tf-look-tab:hover { color: var(--ink-100); }
-.tf-look-tab.on { background: var(--accent); color: var(--ink-950); }
+.tf-look-tab.on { background: rgba(255, 255, 255, .08); color: var(--ink-50); }
+.tf-look-tab.on::after { content: ''; position: absolute; left: 22%; right: 22%; bottom: .14rem; height: 2px;
+  border-radius: 2px; background: var(--accent); }
 .tf-look-rows { display: flex; flex-direction: column; gap: .375rem; }
-.tf-optrow { display: flex; align-items: center; gap: .375rem; padding: .3rem .375rem;
+.tf-optrow { display: flex; align-items: center; gap: .375rem; padding: .375rem .375rem;
   border-radius: .625rem; border: 1px solid transparent; transition: background .15s, border-color .15s; }
 .tf-optrow:hover { background: rgba(255, 255, 255, .04); border-color: rgba(255, 255, 255, .06); }
 .tf-optrow-label { width: 3rem; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--ink-400); }
-.tf-optrow-nav { border-radius: .5rem; padding: .25rem; color: var(--ink-400); transition: background .15s, color .15s, transform .1s; }
+.tf-optrow-nav { border-radius: .625rem; padding: .5rem; color: var(--ink-400); transition: background .15s, color .15s, transform .1s; touch-action: manipulation; }
 .tf-optrow-nav:hover { background: var(--ink-800); color: var(--ink-100); }
 .tf-optrow-nav:active { transform: scale(.92); }
+/* 팔레트 스와치 그리드(색상 행) — 전체 팔레트 즉시 선택, 터치 타깃 34px+ */
+.tf-pal { align-items: flex-start; }
+.tf-pal-grid { display: flex; flex-wrap: wrap; gap: .5rem .45rem; flex: 1 1 0%; padding: .125rem 0; }
+.tf-pal-dot { width: 34px; height: 34px; border-radius: 999px; border: 2px solid rgba(255, 255, 255, .22);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .45), 0 1px 3px rgba(0, 0, 0, .4);
+  transition: transform .12s, border-color .15s, box-shadow .15s; touch-action: manipulation; }
+.tf-pal-dot:hover { transform: scale(1.12); }
+.tf-pal-dot:active { transform: scale(.94); }
+.tf-pal-dot.on { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0, 0, 0, .35), 0 0 0 4px color-mix(in srgb, var(--accent) 55%, transparent); }
 .tf-optrow-main { display: flex; min-width: 0; flex: 1 1 0%; align-items: center; gap: .375rem; }
 .tf-optrow-name { min-width: 0; flex: 1 1 0%; }
 .tf-optrow-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--ink-200); }
