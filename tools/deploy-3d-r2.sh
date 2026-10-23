@@ -90,8 +90,10 @@ wrapper = """<script>
   };
 })();
 </script>"""
-src3 = src2.replace('<body>', '<body>\n' + wrapper, 1)
-assert src3 != src2, '<body> 미발견'
+i = src2.find('<body')
+j = src2.find('>', i) if i >= 0 else -1
+assert i >= 0 and j > i, f'<body> 태그 미발견(i={i},j={j})'
+src3 = src2[: j + 1] + '\n' + wrapper + src2[j + 1 :]
 open('dist/index.html', 'w').write(src3)
 print('gz 래퍼 주입 완료')
 PY
