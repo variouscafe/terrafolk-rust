@@ -88,7 +88,8 @@ impl Plugin for WorldPlugin {
         // 데모 월드 제거(2026-10-23 사용자 결정) — 네이티브도 라이브 전제.
         // 이전: 레거시 맵 임베드 데모가 네이티브에서 구동(바이너리 용량 부담).
         app.add_systems(Update, animal_anim::play_animal_idles);
-        app.add_systems(Update, chibi::chibiify);
+        app.add_systems(Update, (chibi::chibiify, chibi::chibi_settle).chain());
+        app.add_systems(Update, chibi::apply_drop_marks);
         app.add_systems(
             Update,
             (

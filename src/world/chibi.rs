@@ -21,6 +21,61 @@ const FOOT_SCALE: f32 = 0.45;
 #[derive(Component)]
 pub struct ChibiDone;
 
+/// 발바닥 지면 스냅 완료 마커(1회).
+#[derive(Component)]
+pub struct SettleDone;
+
+/// 루트 하강 지시(마커 지연 적용 — Transform 충돌 회피, ScaleMark 패턴).
+#[derive(Component)]
+pub struct DropMark(pub f32);
+
+pub fn apply_drop_marks(
+    mut commands: Commands,
+    mut q: Query<(Entity, &DropMark, &mut Transform)>,
+) {
+    for (e, mark, mut tr) in &mut q {
+        tr.translation.y -= mark.0;
+        commands.entity(e).remove::<DropMark>();
+    }
+}
+
+/// 발바닥 지면 스냅(2026-10-23 '뒤꿈치 들고 걷기' 보고) — 다리 축소로
+/// 발바닥이 원본보다 올라가는데 루트 높이는 그대로라 발이 지면에서 뜬다
+/// (치비화는 오토폿 완료 후라 루트 스케일에 반영되지 않는다 — 기존 PoC
+/// 감수 사항을 상용 수준으로 닫는다). Foot 본 월드 y(≈발바닥)가 루트
+/// y(지면 클램프)보다 높은 만큼 루트를 내려 붙인다. 애님으로 Foot가
+/// 움직여도 스냅은 1회(스폰 시) — 걷기 중 발 들기는 애님 자연 동작.
+pub fn chibi_settle(
+    mut commands: Commands,
+    q: Query<(Entity, &Transform), (With<ChibiDone>, Without<SettleDone>)>,
+    children_q: Query<&Children>,
+    names: Query<&Name>,
+    feet: Query<&GlobalTransform>,
+) {
+    for (root, tr) in &q {
+        // Foot 본(양쪽) 월드 y 최소 — 발바닥 근사
+        let mut foot_y: Option<f32> = None;
+        for d in children_q.iter_descendants(root) {
+            let Ok(name) = names.get(d) else { continue };
+            let n = name.as_str();
+            if n == "Foot.L" || n == "Foot.R" || n == "foot_l" || n == "foot_r" {
+                if let Ok(gt) = feet.get(d) {
+                    foot_y = Some(foot_y.map_or(gt.translation().y, |m: f32| {
+                        m.min(gt.translation().y)
+                    }));
+                }
+            }
+        }
+        if let Some(fy) = foot_y {
+            let drop = (fy - tr.translation.y).max(0.0);
+            if drop > 0.005 {
+                commands.entity(root).insert(DropMark(drop));
+            }
+        }
+        commands.entity(root).insert(SettleDone);
+    }
+}
+
 /// 본 이름별 배율 — 이중 리그(Quaternius CharacterArmature · UE5 마네킹).
 /// ⚠️ 체인 최상단 본만 매칭: 로컬 스케일은 자손 전체에 전파되므로 체인의
 /// 모든 뼈에 곱하면 0.82³처럼 누적 왜곡된다(2026-10-18 실측).

@@ -152,8 +152,18 @@ pub fn apply_sky(
     mut grading_q: Query<&mut ColorGrading, With<Camera3d>>,
     mut ambient: ResMut<GlobalAmbientLight>,
     mut clear: ResMut<ClearColor>,
+    focus: Res<super::look_edit::LookFocus>,
 ) {
-    let h = day.hour;
+    // 편집 미리보기(look_edit) — 밤엔 툰 셰이더 캐릭터가 어둠에 묻혀 프리뷰가
+    // 소멸한다(커스텀 프래그먼트는 태양·앰비언트만 읽음 — 국소 조명 불가).
+    // 포커스 중 시각을 정오로 대체해 프리뷰 구도를 낮으로 유지(매 프레임
+    // 계산이라 종료 즉시 원복, 시각 리소스는 건드리지 않는다).
+    let h = if focus.active {
+        let (sr, ss) = (day.sunrise_min, day.sunset_min);
+        (sr + (ss - sr).max(60.0) * 0.5) / 60.0
+    } else {
+        day.hour
+    };
     // 일출~일몰 정규화(서버 계절 반영 — 겨울 짧은 낮)
     let day_len = (day.sunset_min - day.sunrise_min).max(60.0);
     let day_t = ((h * 60.0 - day.sunrise_min) / day_len).clamp(-0.2, 1.2);
