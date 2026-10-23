@@ -101,9 +101,14 @@ tools/e2e/proto2d_regress.cjs`가 **allPass: true**일 때만 배포한다 —
 패널 전멸)를 놓친다.
 
 **3D 웹 배포(terrafolk-3d.pages.dev, 2026-10-21)**: 루트 3D 클라이언트
-(bevy 0.20.0)의 웹 판 — `./tools/deploy-3d-r2.sh` 원스텝. proto2d R2
-레시피와 동일(wasm 35MB → `terrafolk-wasm` 버킷 gzip, HTML/JS/GLB는
-Pages `terrafolk-3d` 프로젝트). `assets/models` GLB 64종 필수(PR #69로
+(bevy 0.20.0)의 웹 판 — `./tools/deploy-3d-r2.sh` 원스텝. **Pages 직행
+2모드(2026-10-23 개편 — 사용자 지시: R2보다 Pages CDN이 우위)**: wasm-opt
+(`-Os --strip-debug --all-features`, 사용자 허용 2026-10-23 — `-Oz`는 UBO
+손상 전례로 금지, `--all-features` 필수: rustc 1.97 GC 명령) 후 raw ≤25MiB면
+dist 그대로 직행, 초과면 `.wasm.gz` 탑재 + index.html `<body>` 최상단에
+DecompressionStream fetch 래퍼 주입(스트리밍 해제→컴파일, 로컬 raw 폴백).
+구 R2+glue 레시피는 `TF_DEPLOY_R2=1` 비상 폴백으로 잔존(r2.dev는 엣지
+캐시 부재·레이트리밋 — 실측 2026-10-23). `assets/models` GLB 64종 필수(PR #69로
 복구 — `cc2895d^`에서 `git checkout`으로 되돌릴 수 있음).
 DOM UI 패널 모듈(2026-10-22, 500줄 규칙): `tf-civ.js`(문명)·
 `tf-chars.js`(캐릭터)·`tf-reslog.js`(자원·기록)가 **tf-ui.js보다 먼저**
