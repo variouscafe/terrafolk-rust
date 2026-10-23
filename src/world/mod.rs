@@ -31,6 +31,7 @@ pub mod sky;
 pub mod splat;
 pub mod terrain;
 pub mod villager;
+pub mod villager_tools;
 pub mod water;
 pub mod wear;
 #[allow(dead_code)] // 바람 흔들림 효과 제거(2026-10-22 사용자 지시 — 성능) — 모듈은 보존
@@ -133,6 +134,7 @@ impl Plugin for WorldPlugin {
                     sky::sky_update,
                 ),
                 villager::wander,
+                villager_tools::apply_villager_tools,
                 villager::animate_states,
                 villager::throttle_offscreen_anims,
                 villager::retry_villager_setup,

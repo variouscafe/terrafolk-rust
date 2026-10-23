@@ -306,6 +306,7 @@ fn finish_villager_setup(
         crate::character::ChibiTarget,
         crate::character::GroundActor,
         crate::character::AnimState(AnimKind::Idle),
+        crate::character::tool::HeldTool::default(),
     ));
     true
 }
