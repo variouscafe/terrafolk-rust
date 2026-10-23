@@ -23,8 +23,8 @@ pub mod notepack {
             *off += n;
             Ok(match n {
                 1 => buf[0] as f64,
-                2 => u16::from_le_bytes(buf[..2].try_into().unwrap()) as f64,
-                4 => u32::from_le_bytes(buf[..4].try_into().unwrap()) as f64,
+                2 => u16::from_le_bytes(buf[..2].try_into().map_err(|_| "잘림/정렬")?) as f64,
+                4 => u32::from_le_bytes(buf[..4].try_into().map_err(|_| "잘림/정렬")?) as f64,
                 8 => u64::from_le_bytes(buf) as f64,
                 _ => unreachable!(),
             })
@@ -36,7 +36,7 @@ pub mod notepack {
                 if *off + 4 > bytes.len() {
                     return Err("notepack: f32 잘림".into());
                 }
-                let v = f32::from_le_bytes(bytes[*off..*off + 4].try_into().unwrap());
+                let v = f32::from_le_bytes(bytes[*off..*off + 4].try_into().map_err(|_| "잘림/정렬")?);
                 *off += 4;
                 Ok(v as f64)
             }
@@ -44,7 +44,7 @@ pub mod notepack {
                 if *off + 8 > bytes.len() {
                     return Err("notepack: f64 잘림".into());
                 }
-                let v = f64::from_le_bytes(bytes[*off..*off + 8].try_into().unwrap());
+                let v = f64::from_le_bytes(bytes[*off..*off + 8].try_into().map_err(|_| "잘림/정렬")?);
                 *off += 8;
                 Ok(v)
             }
@@ -93,8 +93,8 @@ pub mod notepack {
         buf[..n].copy_from_slice(&bytes[*off..*off + n]);
         *off += n;
         Ok(match n {
-            2 => u16::from_le_bytes(buf[..2].try_into().unwrap()) as usize,
-            _ => u32::from_le_bytes(buf[..4].try_into().unwrap()) as usize,
+            2 => u16::from_le_bytes(buf[..2].try_into().map_err(|_| "잘림/정렬")?) as usize,
+            _ => u32::from_le_bytes(buf[..4].try_into().map_err(|_| "잘림/정렬")?) as usize,
         })
     }
 }
@@ -124,7 +124,7 @@ pub fn read_value(bytes: &[u8], off: &mut usize) -> Result<serde_json::Value, St
             if *off + 4 > bytes.len() {
                 return Err("msgpack: f32 잘림".into());
             }
-            let v = f32::from_be_bytes(bytes[*off..*off + 4].try_into().unwrap());
+            let v = f32::from_be_bytes(bytes[*off..*off + 4].try_into().map_err(|_| "잘림/정렬")?);
             *off += 4;
             V::from(v as f64)
         }
@@ -132,7 +132,7 @@ pub fn read_value(bytes: &[u8], off: &mut usize) -> Result<serde_json::Value, St
             if *off + 8 > bytes.len() {
                 return Err("msgpack: f64 잘림".into());
             }
-            let v = f64::from_be_bytes(bytes[*off..*off + 8].try_into().unwrap());
+            let v = f64::from_be_bytes(bytes[*off..*off + 8].try_into().map_err(|_| "잘림/정렬")?);
             *off += 8;
             serde_json::Number::from_f64(v)
                 .map(V::Number)
@@ -164,7 +164,7 @@ pub fn read_value(bytes: &[u8], off: &mut usize) -> Result<serde_json::Value, St
                             .get(*off..*off + 2)
                             .ok_or("msgpack: bin16 잘림")?
                             .try_into()
-                            .unwrap(),
+                            .map_err(|_| "msgpack: 정렬")?,
                     ) as usize;
                     *off += 2;
                     l
@@ -175,7 +175,7 @@ pub fn read_value(bytes: &[u8], off: &mut usize) -> Result<serde_json::Value, St
                             .get(*off..*off + 4)
                             .ok_or("msgpack: bin32 잘림")?
                             .try_into()
-                            .unwrap(),
+                            .map_err(|_| "msgpack: 정렬")?,
                     ) as usize;
                     *off += 4;
                     l
@@ -193,7 +193,7 @@ pub fn read_value(bytes: &[u8], off: &mut usize) -> Result<serde_json::Value, St
                             .get(*off..*off + 2)
                             .ok_or("msgpack: 배열 길이 잘림")?
                             .try_into()
-                            .unwrap(),
+                            .map_err(|_| "msgpack: 정렬")?,
                     ) as usize;
                     *off += 2;
                     l
@@ -204,7 +204,7 @@ pub fn read_value(bytes: &[u8], off: &mut usize) -> Result<serde_json::Value, St
                             .get(*off..*off + 4)
                             .ok_or("msgpack: 배열 길이 잘림")?
                             .try_into()
-                            .unwrap(),
+                            .map_err(|_| "msgpack: 정렬")?,
                     ) as usize;
                     *off += 4;
                     l
@@ -225,7 +225,7 @@ pub fn read_value(bytes: &[u8], off: &mut usize) -> Result<serde_json::Value, St
                             .get(*off..*off + 2)
                             .ok_or("msgpack: 맵 길이 잘림")?
                             .try_into()
-                            .unwrap(),
+                            .map_err(|_| "msgpack: 정렬")?,
                     ) as usize;
                     *off += 2;
                     l
@@ -236,7 +236,7 @@ pub fn read_value(bytes: &[u8], off: &mut usize) -> Result<serde_json::Value, St
                             .get(*off..*off + 4)
                             .ok_or("msgpack: 맵 길이 잘림")?
                             .try_into()
-                            .unwrap(),
+                            .map_err(|_| "msgpack: 정렬")?,
                     ) as usize;
                     *off += 4;
                     l
@@ -268,7 +268,7 @@ pub fn read_value(bytes: &[u8], off: &mut usize) -> Result<serde_json::Value, St
                             .get(*off..*off + 2)
                             .ok_or("msgpack: ext16 잘림")?
                             .try_into()
-                            .unwrap(),
+                            .map_err(|_| "msgpack: 정렬")?,
                     ) as usize;
                     *off += 2;
                     l
@@ -279,7 +279,7 @@ pub fn read_value(bytes: &[u8], off: &mut usize) -> Result<serde_json::Value, St
                             .get(*off..*off + 4)
                             .ok_or("msgpack: ext32 잘림")?
                             .try_into()
-                            .unwrap(),
+                            .map_err(|_| "msgpack: 정렬")?,
                     ) as usize;
                     *off += 4;
                     l
@@ -307,7 +307,7 @@ pub fn read_string(bytes: &[u8], off: &mut usize) -> Result<String, String> {
             if *off + 2 > bytes.len() {
                 return Err("msgpack: str16 잘림".into());
             }
-            let l = u16::from_be_bytes(bytes[*off..*off + 2].try_into().unwrap()) as usize;
+            let l = u16::from_be_bytes(bytes[*off..*off + 2].try_into().map_err(|_| "잘림/정렬")?) as usize;
             *off += 2;
             l
         }
@@ -315,7 +315,7 @@ pub fn read_string(bytes: &[u8], off: &mut usize) -> Result<String, String> {
             if *off + 4 > bytes.len() {
                 return Err("msgpack: str32 잘림".into());
             }
-            let l = u32::from_be_bytes(bytes[*off..*off + 4].try_into().unwrap()) as usize;
+            let l = u32::from_be_bytes(bytes[*off..*off + 4].try_into().map_err(|_| "잘림/정렬")?) as usize;
             *off += 4;
             l
         }

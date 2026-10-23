@@ -339,8 +339,8 @@ fn read_primitive(p: Primitive, bytes: &[u8], off: &mut usize) -> Result<Value, 
         *off += n;
         Ok(match n {
             1 => buf[0] as f64,
-            2 => u16::from_le_bytes(buf[..2].try_into().unwrap()) as f64,
-            4 => u32::from_le_bytes(buf[..4].try_into().unwrap()) as f64,
+            2 => u16::from_le_bytes(buf[..2].try_into().map_err(|_| "잘림/정렬")?) as f64,
+            4 => u32::from_le_bytes(buf[..4].try_into().map_err(|_| "잘림/정렬")?) as f64,
             _ => u64::from_le_bytes(buf) as f64,
         })
     };
@@ -365,7 +365,7 @@ fn read_primitive(p: Primitive, bytes: &[u8], off: &mut usize) -> Result<Value, 
             if *off + 4 > bytes.len() {
                 return Err("f32 잘림".into());
             }
-            let v = f32::from_le_bytes(bytes[*off..*off + 4].try_into().unwrap());
+            let v = f32::from_le_bytes(bytes[*off..*off + 4].try_into().map_err(|_| "잘림/정렬")?);
             *off += 4;
             Value::Num(v as f64)
         }
@@ -373,7 +373,7 @@ fn read_primitive(p: Primitive, bytes: &[u8], off: &mut usize) -> Result<Value, 
             if *off + 8 > bytes.len() {
                 return Err("f64 잘림".into());
             }
-            let v = f64::from_le_bytes(bytes[*off..*off + 8].try_into().unwrap());
+            let v = f64::from_le_bytes(bytes[*off..*off + 8].try_into().map_err(|_| "잘림/정렬")?);
             *off += 8;
             Value::Num(v)
         }
