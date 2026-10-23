@@ -427,7 +427,9 @@ pub fn refresh_sel_panel(
         }
         return;
     };
-    let (v, hud) = villagers.get(entity).expect("방금 확인함");
+    let Ok((v, hud)) = villagers.get(entity) else {
+        return; // 직전 is_some 확인 경합(같은 프레임 철거) — 벨트 재구성
+    };
     if let Ok(mut p) = q_panel.single_mut() {
         *p = Visibility::Visible;
     }
