@@ -16,6 +16,10 @@ use winit::window::Icon;
 fn main() {
     #[cfg(target_arch = "wasm32")]
     console_error_panic_hook::set_once();
+    // 하단 버전 배지(tf-version.js) — Cargo.toml 단일 원천을 컴파일 타임 상수로
+    // DOM에 전달. 로컬·배포 동일 경로(2026-10-23 사용자 요청).
+    #[cfg(target_arch = "wasm32")]
+    announce_version();
     let mut app = App::new();
     // 원격 에셋 소스 — AssetPlugin 확정 전 등록(발명품 3D 모델 §17.86).
     #[cfg(not(target_arch = "wasm32"))]
@@ -45,6 +49,24 @@ fn main() {
         .add_plugins(GamePlugin)
         .add_systems(Startup, set_window_icon)
         .run();
+}
+
+/// wasm 부팅 버전 통보 — terrafolk.setVersion(env!) → tf-version.js 배지.
+/// notify_prime(apply.rs)와 동일 리플렉션 패턴.
+#[cfg(target_arch = "wasm32")]
+fn announce_version() {
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let Ok(tf) = js_sys::Reflect::get(&window.into(), &"terrafolk".into()) else {
+        return;
+    };
+    let Ok(f) = js_sys::Reflect::get(&tf, &"setVersion".into()) else {
+        return;
+    };
+    if let Ok(f) = f.dyn_into::<js_sys::Function>() {
+        let _ = f.call1(&tf, &env!("CARGO_PKG_VERSION").into());
+    }
 }
 
 // Sets the icon on windows and X11

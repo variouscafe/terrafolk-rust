@@ -7,6 +7,8 @@ set -euo pipefail
 R="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$R"
 R2BASE="https://pub-04c1d3aebd34468d8c97384d2b60a289.r2.dev"
+# 게임 버전(단일 원천 Cargo.toml — 하단 배지와 동일 출처) — 배포 보고용.
+V="$(grep -m1 '^version' Cargo.toml | sed 's/version *= *"\(.*\)"/\1/')"
 
 "$R/tools/check-assets.sh"   # 하얀 맵 사고(2026-10-21) 재발 방지 — 빌드 전 정합
 trunk build --release
@@ -72,4 +74,4 @@ mv "$TMPD/$W" dist/ 2>/dev/null || true
 [ -f "$GLUE_BAK" ] && mv "$GLUE_BAK" dist/index.html
 rm -rf "$TMPD"
 
-echo "배포 완료 → https://terrafolk-3d.pages.dev (wasm: R2/$W)"
+echo "배포 완료 → https://terrafolk-3d.pages.dev — 게임 버전 v$V (wasm: R2/$W)"
