@@ -8,6 +8,13 @@ exclude = ["dist", "build", "assets", "credits"]
 [workspace]
 members = ["mobile", "crates/ws-link", "crates/colyseus-lite", "proto2d"]
 
+# never-crash 린트 벨트(chartcraft 채택 2호, 2026-10-24) — 경고 레벨로
+# 시작해 상위 소속(net=서버 데이터 경로 우선)부터 제거, 0 도달 시 deny로.
+[workspace.lints.clippy]
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+
 [profile.dev.package."*"]
 opt-level = 3
 
@@ -83,3 +90,6 @@ wasm-bindgen-futures = "0.4"
 # 세이프에어리어 JNI 쿼리(platform/safe_area) — bevy 전이 의존과 동일 계열
 ndk-context = "0.1"
 jni = "0.21"
+
+[lints]
+workspace = true
