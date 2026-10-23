@@ -192,6 +192,17 @@ pub struct WorldData {
     pub demo: bool,
 }
 
+/// 캐릭터 프레임워크 접지 인터페이스 구현(2026-10-24 P1) — 이 게임의
+/// 표면장은 WorldData 그 자체. 물 상면 클램프는 ground.rs 상수와 동일값.
+impl crate::character::SurfaceField for WorldData {
+    fn surface_height(&self, x: f32, z: f32) -> f32 {
+        WorldData::surface_height(self, x, z)
+    }
+    fn stand_min_y(&self) -> f32 {
+        super::ground::WATER_STAND_Y
+    }
+}
+
 impl WorldData {
     /// 스트라이드 = 실제 맵 크기(라이브 가변 — 데모 SIZE 상수와 무관)
     pub fn idx(&self, x: usize, y: usize) -> usize {

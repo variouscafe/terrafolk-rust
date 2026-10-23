@@ -10,7 +10,7 @@ use std::sync::OnceLock;
 
 use bevy::prelude::*;
 
-use super::chibi::FootLift;
+use crate::character::FootLift;
 use super::data::WorldData;
 use super::ground::WATER_STAND_Y;
 use super::villager::{Villager, VillagerAnims};
