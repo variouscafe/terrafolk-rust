@@ -18,6 +18,7 @@ pub mod foot_lock;
 pub mod ground;
 pub mod proportion;
 pub mod rig;
+pub mod tool;
 
 pub use anim::{AnimKind, AnimState};
 pub use ground::{GroundActor, SurfaceField};
@@ -50,5 +51,6 @@ impl<F: Resource + SurfaceField> Plugin for CharacterPlugin<F> {
         );
         app.add_systems(Update, ground::ground_snap::<F>.in_set(GroundSnapSet));
         app.add_systems(Update, foot_lock::foot_lock);
+        app.add_systems(Update, tool::tool_sync);
     }
 }
