@@ -192,20 +192,6 @@ pub fn wear_ids_from_look(look: &str) -> Vec<String> {
     out
 }
 
-/// 데모 주민 착용(결정론) — 착용 시스템 실증: 1번 선글라스·4번 지팡이.
-fn demo_wears(idx: usize) -> Vec<String> {
-    match idx {
-        1 => vec!["sunglasses".into()],
-        4 => vec!["cane".into()],
-        _ => Vec::new(),
-    }
-}
-
-/// 데모 스폰 지원 — spawn_legacy_villagers가 주민마다 호출.
-pub fn demo_wears_component(idx: usize) -> Wears {
-    Wears(demo_wears(idx))
-}
-
 /// 착용 적용 — 씬 완결(애님 연결 = 오토폿까지 끝난 상태) 주민의 본을
 /// 찾아 부착물 씬을 자식으로 스폰한다. 오토폿 AABB가 몸통만 측정하게
 /// 하기 위해 VillagerAnims(세팅 완료 신호)를 게이트로 쓴다.

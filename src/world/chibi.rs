@@ -14,9 +14,7 @@ const HEAD_SCALE: f32 = 2.05;
 const SPINE_SCALE: f32 = 0.70;
 const LEG_SCALE: f32 = 0.58;
 const ARM_SCALE: f32 = 0.78;
-/// 발 — 다리보다 더 축소(2026-10-23 사용자 보고 '발목→발끝 늘어남'). 원본
-/// 리그의 발이 운동화형으로 길쭉해 치비 다리 옆에서 스키처럼 읽힌다.
-/// 0.58(=LEG)로는 부족, 0.45로 뭉툭한 부츠 비율.
+/// 발 폭(x) — 높이·전후는 bone_scale Foot 항목(비균등) 참조.
 const FOOT_SCALE: f32 = 0.45;
 
 /// 치비화 적용 완료 마커.
@@ -33,13 +31,16 @@ pub struct ChibiDone;
 ///     전파되지 않는다 — 명시 매칭 없이 두면 원본 크기 발이 짧아진 다리에 붙어
 ///     스키처럼 앞으로 뻗는다(2026-10-22 직접 플레이 QA '패들 발'). PT(발가락)는
 ///     Foot 자손이라 함께 축소된다. UE5(foot_l)는 calf_l 자손이라 전파됨.
-pub fn bone_scale(name: &str) -> Option<f32> {
+///   - 발은 **비균등**(2026-10-23 3차 보고 '앞뒤로 길다'): 원본이 운동화형
+///     대형이라 균등 0.45로도 전후 길이가 남는다 — 폭(x) 0.45·높이(y) 0.38
+///     ·전후(z) 0.30으로 뭉툭한 부츠 비율.
+pub fn bone_scale(name: &str) -> Option<Vec3> {
     match name {
-        "Head" => Some(HEAD_SCALE),
-        "Abdomen" | "spine_01" => Some(SPINE_SCALE),
-        "UpperLeg.L" | "UpperLeg.R" | "thigh_l" | "thigh_r" => Some(LEG_SCALE),
-        "Foot.L" | "Foot.R" => Some(FOOT_SCALE),
-        "UpperArm.L" | "UpperArm.R" | "upperarm_l" | "upperarm_r" => Some(ARM_SCALE),
+        "Head" => Some(Vec3::splat(HEAD_SCALE)),
+        "Abdomen" | "spine_01" => Some(Vec3::splat(SPINE_SCALE)),
+        "UpperLeg.L" | "UpperLeg.R" | "thigh_l" | "thigh_r" => Some(Vec3::splat(LEG_SCALE)),
+        "Foot.L" | "Foot.R" => Some(Vec3::new(FOOT_SCALE, 0.38, 0.30)),
+        "UpperArm.L" | "UpperArm.R" | "upperarm_l" | "upperarm_r" => Some(Vec3::splat(ARM_SCALE)),
         _ => None,
     }
 }
