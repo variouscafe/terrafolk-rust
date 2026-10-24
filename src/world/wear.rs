@@ -89,6 +89,9 @@ pub fn wear_asset(item_id: &str) -> Option<(&'static str, WearSlot)> {
         "hair-buzzed" => Some(("models/qubase/hair-buzzed.glb", WearSlot::Hair)),
         "hair-buzzed-f" => Some(("models/qubase/hair-buzzed-f.glb", WearSlot::Hair)),
         "hair-parted" => Some(("models/qubase/hair-parted.glb", WearSlot::Hair)),
+        // 눈썹 2종(2026-10-25) — 헤어와 동일 Head 본 리깅·부착 경로.
+        "brows-regular" => Some(("models/qubase/brows-regular.glb", WearSlot::Hair)),
+        "brows-female" => Some(("models/qubase/brows-female.glb", WearSlot::Hair)),
         "cane" | "cane-blind" => Some(("models/Kenney_aid-cane-blind.glb", WearSlot::HandRight)),
         // 수염 — LPC 부품 id를 절출 GLB(meshgen, 2026-10-23 행2=정면 프레임 0)
         // 로. handlebar는 실루엣 3px 미만이라 미생성(매칭 실패=자연 스킵).
@@ -203,6 +206,12 @@ pub fn wear_ids_from_look(look: &str) -> Vec<String> {
         let hh = hair.bytes().fold(0u64, |a, b| a.wrapping_mul(31) + b as u64);
         out.push(DEFAULT_HAIRS[(hh % DEFAULT_HAIRS.len() as u64) as usize].to_string());
     }
+    // 눈썹 — 전 주민, 성별 변형(Head 본 부착 — 헤어와 동일 경로).
+    out.push(if male {
+        "brows-regular".to_string()
+    } else {
+        "brows-female".to_string()
+    });
     out
 }
 
