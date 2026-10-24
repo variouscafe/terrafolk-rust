@@ -71,6 +71,8 @@ async function shot(pg, name) {
     { key: 'toss', text: '더덕을 던졌다가 받아봐', shotAt: 0.65, wait: 2.2 },
     { key: 'throw', text: '멀리 던져봐', shotAt: 0.70, wait: 3.6 },
     { key: 'jump', text: '점프해봐', shotAt: 0.68, wait: 2.0 },
+    // 캐치볼: 3패스 ≈ (준비0.3+비행0.85+홀드0.25)×3+α ≈ 5s — 도중 2컷.
+    { key: 'catch', text: '캐치볼 해봐', shotAt: 1.15, wait: 7.5 },
   ];
   const results = {};
   for (const d of directives) {
@@ -86,7 +88,13 @@ async function shot(pg, name) {
     }, d.text);
     await pg.waitForTimeout(d.shotAt * 1000);
     await shot(pg, d.key);
-    await pg.waitForTimeout((d.wait - d.shotAt) * 1000);
+    if (d.key === 'catch') {
+      await pg.waitForTimeout(1600); // 왕복 1회 더 감상
+      await shot(pg, 'catch2');
+      await pg.waitForTimeout((d.wait - d.shotAt - 1.6) * 1000);
+    } else {
+      await pg.waitForTimeout((d.wait - d.shotAt) * 1000);
+    }
     results[d.key] = { sent: ok, logs: logs.slice(n0) };
   }
   await b.close();
@@ -103,6 +111,10 @@ async function shot(pg, name) {
     throw: picked && seq(throwLogs, '발사 ThrowGround') &&
       throwLogs.some((l) => l.includes('반발') || l.includes('지면 정지')),
     jump: picked && seq(jumpLogs, '점프 vy=', '낙하 착지'),
+    catch:
+      picked &&
+      seq(results.catch ? results.catch.logs : [], '캐치볼 시작', '캐치볼 캐치') &&
+      (results.catch ? results.catch.logs : []).filter((l) => l.includes('캐치볼 캐치')).length >= 3,
     noErrors: errors.length === 0,
   };
   const allPass = Object.values(checks).every(Boolean);

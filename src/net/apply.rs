@@ -399,7 +399,7 @@ pub fn live_move(
         &LiveAgentTag,
         &mut Transform,
         &mut crate::world::villager::Villager,
-    )>,
+    ), Without<crate::character::ActionLock>>,
 ) {
     const SPEED: f32 = 1.2; // 타일/초(서버 배회 속도 근사)
     for (_, mut tr, mut v) in &mut q {

@@ -30,6 +30,8 @@ pub enum ActionKind {
     ThrowGround,
     /// 제자리 도약(점프).
     Jump,
+    /// 둘이서 캐치볼 — 근처 주민과 물건 주고받기(놓치면 지면 반발).
+    PlayCatch,
 }
 
 /// 행동 진행 단계.
@@ -65,6 +67,12 @@ pub struct ActiveAction {
     spin: Vec3,
     /// 반발 횟수(ThrowGround).
     bounces: u8,
+    /// 캐치볼 상대(PlayCatch).
+    pub partner: Option<Entity>,
+    /// 현재 물건 잡은 손 주인(PlayCatch Hold — None=시작 전).
+    holder: Option<Entity>,
+    /// 남은 캐치 횟수(PlayCatch — 0 되면 종료).
+    pub passes_left: u8,
 }
 
 impl ActiveAction {
@@ -86,15 +94,28 @@ impl ActiveAction {
             vel: Vec3::ZERO,
             spin: Vec3::ZERO,
             bounces: 0,
+            partner: None,
+            holder: None,
+            passes_left: 0,
         }
     }
 
     /// 애님 요청 — 던지기 준비 동작만 오버라이드, 나머진 원본 복귀.
     pub fn anim(&self) -> AnimKind {
         match (self.kind, self.phase) {
-            (ActionKind::TossCatch | ActionKind::ThrowGround, Phase::Windup) => AnimKind::Punch,
+            (
+                ActionKind::TossCatch | ActionKind::ThrowGround | ActionKind::PlayCatch,
+                Phase::Windup,
+            ) => AnimKind::Punch,
             _ => self.saved_anim,
         }
+    }
+
+    /// 캐치볼 상대·총 패스 수 지정(PlayCatch 전용 빌더).
+    pub fn with_partner(mut self, partner: Entity, passes: u8) -> Self {
+        self.partner = Some(partner);
+        self.passes_left = passes;
+        self
     }
 }
 
@@ -112,6 +133,18 @@ const RESTITUTION: f32 = 0.35;
 const HORIZ_DAMP: f32 = 0.6;
 /// 점프 초기속도(m/s) — 높이 ≈ 0.52m·체공 ≈ 0.65s.
 const JUMP_VY: f32 = 3.2;
+/// 캐치볼 체공·캐치 판정 — 체공은 거리 비례(기준 구속 10m/s, 범위 0.6~1.6s):
+/// 짧은 패스는 부드럽게, 먼 패스는 ½gT² 만큼 높은 포물선(로브). 고정 T는
+/// 28m 패스를 33m/s 레이저로 만들었다(실측 2026-10-24).
+const CATCH_V: f32 = 10.0;
+const CATCH_T_MIN: f32 = 0.6;
+const CATCH_T_MAX: f32 = 1.6;
+const CATCH_R: f32 = 0.55;
+
+/// 거리별 체공 시간(s).
+fn catch_t(from: Vec3, to: Vec3) -> f32 {
+    (from.distance(to) / CATCH_V).clamp(CATCH_T_MIN, CATCH_T_MAX)
+}
 /// 캐치 유지·지면 정지·비행 이상 시한(s).
 const HOLD_T: f32 = 0.25;
 const REST_T: f32 = 1.2;
@@ -160,6 +193,11 @@ pub fn advance_actions<F: Resource + SurfaceField>(
                 if act.t < WINDUP_T {
                     continue;
                 }
+                // 캐치볼 최초 소유 확정(시작 주민이 물건을 쥔다).
+                if act.kind == ActionKind::PlayCatch && act.holder.is_none() {
+                    act.holder = Some(root_e);
+                    info!("[action] 캐치볼 시작 — 패스 {}회", act.passes_left);
+                }
                 match act.kind {
                     ActionKind::Jump => {
                         let Some(mut f) = fall else {
@@ -172,7 +210,9 @@ pub fn advance_actions<F: Resource + SurfaceField>(
                         act.t = 0.0;
                         info!("[action] 점프 vy={JUMP_VY}m/s");
                     }
-                    ActionKind::TossCatch | ActionKind::ThrowGround => {
+                    ActionKind::TossCatch
+                    | ActionKind::ThrowGround
+                    | ActionKind::PlayCatch => {
                         // 발사 — 손 위치·주민 정면 방향에서 투사체 스폰, 도구 은닉.
                         let Some(at) = tool::find_hand(root_e, &children_q, &names)
                             .and_then(|h| gts.get(h).ok())
@@ -181,8 +221,17 @@ pub fn advance_actions<F: Resource + SurfaceField>(
                             finish(&mut commands, root_e, &mut act, &mut tool, None);
                             continue;
                         };
-                        let vel = match act.kind {
-                            ActionKind::ThrowGround => {
+                        // 캐치볼: 상대 손을 향한 탄도 해(체공 T 고정).
+                        let play_target = if act.kind == ActionKind::PlayCatch {
+                            act.partner
+                                .and_then(|p| tool::find_hand(p, &children_q, &names))
+                                .and_then(|h| gts.get(h).ok())
+                                .map(|gt| gt.translation())
+                        } else {
+                            None
+                        };
+                        let vel = match (act.kind, play_target) {
+                            (ActionKind::ThrowGround, _) => {
                                 let mut fwd = root_tr.forward().with_y(0.0);
                                 if fwd.length_squared() < 1e-4 {
                                     fwd = Vec3::Z;
@@ -190,6 +239,9 @@ pub fn advance_actions<F: Resource + SurfaceField>(
                                 fwd = fwd.normalize();
                                 let e = THROW_ELEV_DEG.to_radians();
                                 fwd * (THROW_V0 * e.cos()) + Vec3::Y * (THROW_V0 * e.sin())
+                            }
+                            (ActionKind::PlayCatch, Some(to)) => {
+                                ballistic(at, to, g, catch_t(at, to))
                             }
                             _ => {
                                 Vec3::Y * TOSS_VY
@@ -286,6 +338,56 @@ pub fn advance_actions<F: Resource + SurfaceField>(
                         }
                     }
                     ActionKind::Jump => {}
+                    ActionKind::PlayCatch => {
+                        // 수신자(마지막 소유자의 상대) 손 근처 도달 시 캐치.
+                        // holder=주인 → 상대가 받고, holder=상대 → 주인이 받는다.
+                        let catcher = if act.holder == Some(root_e) {
+                            act.partner
+                        } else {
+                            Some(root_e)
+                        };
+                        let caught = catcher
+                            .and_then(|c| tool::find_hand(c, &children_q, &names))
+                            .and_then(|h| gts.get(h).ok())
+                            .map(|gt| gt.translation())
+                            .filter(|hp| {
+                                act.vel.y < 0.0 && ptr.translation.distance(*hp) <= CATCH_R
+                            });
+                        if let Some(hp) = caught {
+                            act.passes_left = act.passes_left.saturating_sub(1);
+                            act.holder = catcher;
+                            ptr.translation = hp;
+                            act.phase = Phase::Hold;
+                            act.t = 0.0;
+                            info!(
+                                "[action] 캐치볼 캐치 — 남은 패스 {}",
+                                act.passes_left
+                            );
+                        } else if ptr.translation.y
+                            <= world
+                                .surface_height(ptr.translation.x, ptr.translation.z)
+                                .max(world.stand_min_y())
+                                + PROJ_R
+                            && act.vel.y < 0.0
+                        {
+                            // 놓침 — 1회 반발 후 실패(같은 프레임 정지는 어색).
+                            ptr.translation.y = world
+                                .surface_height(ptr.translation.x, ptr.translation.z)
+                                .max(world.stand_min_y())
+                                + PROJ_R;
+                            if act.bounces >= 1 {
+                                info!("[action] 캐치볼 실패 — 놓침");
+                                act.vel = Vec3::ZERO;
+                                act.phase = Phase::Rest;
+                                act.t = 0.0;
+                            } else {
+                                act.vel.y = -act.vel.y * RESTITUTION;
+                                act.vel.x *= HORIZ_DAMP;
+                                act.vel.z *= HORIZ_DAMP;
+                                act.bounces += 1;
+                            }
+                        }
+                    }
                 }
             }
             Phase::Rest => {
@@ -295,13 +397,39 @@ pub fn advance_actions<F: Resource + SurfaceField>(
                 }
             }
             Phase::Hold => {
-                // 캐치 유지 — 물건 손에 붙들기.
+                // 캐치 유지 — 물건을 쥔 손(holder)에 붙들기.
+                let holder = act.holder.unwrap_or(root_e);
                 if let Some(p) = act.proj {
-                    if let (Ok(mut ptr), Some(hp)) = (projs.get_mut(p), hand_hold(root_e, &children_q, &names, &gts)) {
+                    if let (Ok(mut ptr), Some(hp)) =
+                        (projs.get_mut(p), hand_hold(holder, &children_q, &names, &gts))
+                    {
                         ptr.translation = hp;
                     }
                 }
                 if act.t >= HOLD_T {
+                    // 캐치볼 — 남은 패스면 holder가 상대 손으로 되던지기(탄도 해).
+                    if act.kind == ActionKind::PlayCatch && act.passes_left > 0 {
+                        let other = if holder == root_e {
+                            act.partner
+                        } else {
+                            Some(root_e)
+                        };
+                        let from = hand_hold(holder, &children_q, &names, &gts);
+                        let to = other.and_then(|o| hand_hold(o, &children_q, &names, &gts));
+                        if let (Some(p), Some(from), Some(to)) = (act.proj, from, to)
+                            && let Ok(mut ptr) = projs.get_mut(p)
+                        {
+                            ptr.translation = from;
+                            act.vel = ballistic(from, to, g, catch_t(from, to));
+                            act.phase = Phase::Flight;
+                            act.t = 0.0;
+                            info!(
+                                "[action] 캐치볼 되던지기 v=({:.1},{:.1},{:.1})m/s",
+                                act.vel.x, act.vel.y, act.vel.z
+                            );
+                            continue;
+                        }
+                    }
                     let p = act.proj;
                     finish(&mut commands, root_e, &mut act, &mut tool, p);
                 }
@@ -377,6 +505,33 @@ fn spawn_proj(
     root
 }
 
+/// 행동 중 이동 정지 마커 — 게임 이동 시스템(live_move·wander)이 존중.
+/// 행동·상대 이탈에도 잔류하지 않게 시간 만료 자정리(reap_action_locks).
+#[derive(Component, Clone, Copy)]
+pub struct ActionLock {
+    /// 만료 시각(초 — Time::elapsed_secs 기준).
+    pub expire_at: f32,
+}
+
+/// 만료된 이동 정지 정리.
+pub fn reap_action_locks(time: Res<Time>, q: Query<(Entity, &ActionLock)>, mut commands: Commands) {
+    let now = time.elapsed_secs();
+    for (e, l) in &q {
+        if now >= l.expire_at
+            && let Ok(mut ec) = commands.get_entity(e)
+        {
+            ec.remove::<ActionLock>();
+        }
+    }
+}
+
+/// 손→손 탄도 해 — 체공 T 고정: v₀ = Δ/T + ½gT ŷ(수직은 중력 보정).
+/// 지구 중력에서 정확히 T초 뒤 목적지에 도달하는 초기속도.
+pub fn ballistic(from: Vec3, to: Vec3, g: f32, t: f32) -> Vec3 {
+    let d = to - from;
+    Vec3::new(d.x / t, d.y / t + 0.5 * g * t, d.z / t)
+}
+
 /// 고아 투사체 정리 — 소유 액터 철거(룩 재스폰 등) 시 잔류 방지.
 pub fn reap_orphan_projs(mut commands: Commands, q: Query<(Entity, &ActionProj)>) {
     for (e, p) in &q {
@@ -393,4 +548,28 @@ fn rand_jitter(seed: u64) -> f32 {
     let mut s = seed.wrapping_mul(0x9E3779B97F4A7C15);
     s ^= s >> 31;
     (s % 2000) as f32 / 1000.0 - 1.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 탄도 해 — T초 뒤 정확히 목적지(중력 적분과 상쇄). 지구 기준.
+    #[test]
+    fn ballistic_lands_on_target() {
+        let g = 9.81;
+        let (from, to) = (Vec3::ZERO, Vec3::new(2.0, 0.0, 1.0));
+        let t = 0.85_f32;
+        let mut v = ballistic(from, to, g, t);
+        // 세미암시적 오일러(속도 갱신 후 위치) — 게임 루프와 동일 계열 적분.
+        let (mut p, mut dt_sum) = (from, 0.0_f32);
+        let dt = 1.0 / 480.0;
+        while dt_sum < t - 1e-6 {
+            let step = (t - dt_sum).min(dt);
+            v.y -= g * step;
+            p += v * step;
+            dt_sum += step;
+        }
+        assert!(p.distance(to) < 0.02, "p={p:?} to={to:?}");
+    }
 }

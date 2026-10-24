@@ -28,8 +28,15 @@ impl ActionBridge {
 }
 
 /// 지시 파싱표 — 어근 매칭(한국어 활용 포괄). 한도: 오탐 방지를 위해
-/// 수식어(받아/멀리/버려)를 먼저 검사한다. 행동 추가 시 여기에 추가.
+/// 수식어(받아/멀리/버려/같이)를 먼저 검사한다. 행동 추가 시 여기에 추가.
 pub fn parse_directive(text: &str) -> Option<ActionKind> {
+    // 캐치볼 — 같이·서로 놀기 계열은 1인 토스보다 먼저 판정.
+    if text.contains("캐치볼")
+        || ((text.contains("같이") || text.contains("서로") || text.contains("놀아"))
+            && (text.contains("던지") || text.contains("던져") || text.contains("던졌")))
+    {
+        return Some(ActionKind::PlayCatch);
+    }
     // 어간 3형태: 던지(다)·던져(봐)·던졌(다) — 활용형 포괄.
     let throws = text.contains("던지") || text.contains("던져") || text.contains("던졌");
     if throws {
@@ -83,14 +90,24 @@ pub fn register_bridge(bridge: Res<ActionBridge>) {
     let _ = bridge;
 }
 
+/// 캐치볼 총 패스 수(왕복 포함 캐치 성공 횟수).
+const PLAY_PASSES: u8 = 3;
+/// 행동 이동 정지 만료(s) — 최장 행동(캐치볼 ~7s)+여유.
+const LOCK_SECS: f32 = 9.0;
+
 /// 브리지 큐 반영 — 지시 파싱 → 대상 주민(LiveAgentTag)에 ActiveAction 부착.
-/// 수행 중(ActiveAction 보유)이면 무시 — 중복 지시 겹침 방지.
+/// 수행 중(ActiveAction 보유)이면 무시 — 중복 지시 겹침 방지. 캐치볼은
+/// 수행 중이 아닌 **최근접 다른 주민**을 상대로 결정하고 양쪽 이동을 잠근다
+/// (ActionLock — 서버 배회와의 경합 방지, 시간 만료 자정리).
+#[allow(clippy::type_complexity)]
 pub fn drain_bridge(
+    time: Res<Time>,
     mut commands: Commands,
     bridge: ResMut<ActionBridge>,
     mut q: Query<
         (
             Entity,
+            &Transform,
             &LiveAgentTag,
             &crate::character::AnimState,
             &crate::character::tool::HeldTool,
@@ -113,22 +130,64 @@ pub fn drain_bridge(
         let Some(kind) = parse_directive(&text) else {
             continue;
         };
+        // 1) 대상 주민 — 수행 중이면 지시 무시.
+        let Some((owner, anim, parts)) = q
+            .iter()
+            .find(|(_, _, tag, _, _, active, fall)| {
+                tag.0 == agent_id
+                    && active.is_none()
+                    && (kind != ActionKind::Jump || fall.is_some())
+            })
+            .map(|(e, _, _, anim, tool, _, _)| (e, anim.0, tool.parts.clone()))
+        else {
+            continue;
+        };
         info!("[action] 지시 수신 {agent_id}: {text} → {kind:?}");
-        for (e, tag, anim, tool, active, fall) in &mut q {
-            if tag.0 != agent_id || active.is_some() {
-                continue;
+        // 2) 캐치볼 — 최근젝 다른 주민(수행 중 아님). 없으면 혼자 토스로 강등.
+        let partner = if kind == ActionKind::PlayCatch {
+            let origin = q.get(owner).ok().map(|(_, tr, ..)| tr.translation);
+            let pick = origin.and_then(|op| {
+                q.iter()
+                    .filter(|(e, _, tag, _, _, active, _)| {
+                        *e != owner && tag.0 != agent_id && active.is_none()
+                    })
+                    .min_by_key(|(_, tr, ..)| tr.translation.distance_squared(op).to_bits())
+                    .map(|(e, ..)| e)
+            });
+            if pick.is_none() {
+                info!("[action] 캐치볼 상대 없음 — 토스로 대체");
             }
-            // 점프는 Fall(물리낙하 참여)이 있는 액터만.
-            if kind == ActionKind::Jump && fall.is_none() {
-                continue;
-            }
-            commands.entity(e).insert(crate::character::action::ActiveAction::new(
-                kind,
-                anim.0,
-                tool.parts.clone(),
-                deodeok(),
-            ));
+            pick
+        } else {
+            None
+        };
+        let lock = crate::character::ActionLock {
+            expire_at: time.elapsed_secs() + LOCK_SECS,
+        };
+        if let Some(p) = partner {
+            commands.entity(p).insert(lock);
         }
+        commands.entity(owner).insert(lock);
+        let act = match partner {
+            Some(p) => crate::character::action::ActiveAction::new(
+                kind,
+                anim,
+                parts,
+                deodeok(),
+            )
+            .with_partner(p, PLAY_PASSES),
+            None => crate::character::action::ActiveAction::new(
+                if kind == ActionKind::PlayCatch {
+                    ActionKind::TossCatch
+                } else {
+                    kind
+                },
+                anim,
+                parts,
+                deodeok(),
+            ),
+        };
+        commands.entity(owner).insert(act);
     }
 }
 
@@ -148,6 +207,11 @@ mod tests {
         assert_eq!(parse_directive("토스해봐"), Some(ActionKind::TossCatch));
         assert_eq!(parse_directive("점프해봐"), Some(ActionKind::Jump));
         assert_eq!(parse_directive("던져봐"), Some(ActionKind::TossCatch));
+        assert_eq!(parse_directive("캐치볼 해봐"), Some(ActionKind::PlayCatch));
+        assert_eq!(
+            parse_directive("빛나래랑 같이 던져서 놀아"),
+            Some(ActionKind::PlayCatch)
+        );
         assert_eq!(parse_directive("안녕! 오늘 뭐해?"), None);
     }
 }

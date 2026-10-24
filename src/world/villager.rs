@@ -324,7 +324,14 @@ const DEMO_ACTS: [&str; 7] = ["gather", "chop", "forage", "craft", "drink", "giv
 pub fn wander(
     time: Res<Time>,
     world: Res<WorldData>,
-    mut q: Query<(&mut Villager, &mut Transform), Without<crate::net::apply::LiveAgentTag>>,
+    mut q: Query<
+        (&mut Villager, &mut Transform),
+        (
+            Without<crate::net::apply::LiveAgentTag>,
+            // 행동 중(캐치볼 등) 정지 — 서버 배회와 행동 연출의 경합 방지.
+            Without<crate::character::ActionLock>,
+        ),
+    >,
 ) {
     for (mut v, mut tr) in &mut q {
         // 상태 코드 갱신(데모 전용 — 라이브는 sync_agents가 서버 값 반영).
