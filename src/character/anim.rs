@@ -15,6 +15,16 @@ pub enum AnimKind {
     Wave,
 }
 
+impl AnimKind {
+    /// 이 상태의 클립이 Root 직속 발 본(Foot/PT)의 translation을 직접
+    /// 구동하는가 — qchar 실측: Walk·Punch 계열은 저작 채널이 있고
+    /// Idle/Interact/Wave는 없다(발은 bind 위치 고정). foot_lock이 저작값
+    /// 사상 vs bind 복원 중 어느 쪽을 쓸지 정한다.
+    pub fn drives_foot_bones(&self) -> bool {
+        matches!(self, AnimKind::Walk | AnimKind::Punch)
+    }
+}
+
 /// 캐릭터 시스템이 읽는 애님 상태 스냅샷 — 게임 애님 컴포넌트가 갱신 시
 /// 함께 쓴다(클립 핸들은 게임 소유라 여기 없음).
 #[derive(Component)]
