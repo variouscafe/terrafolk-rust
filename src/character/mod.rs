@@ -16,6 +16,7 @@ use bevy::prelude::*;
 pub mod anim;
 pub mod foot_lock;
 pub mod ground;
+pub mod leg_ik;
 pub mod proportion;
 pub mod rig;
 pub mod tool;
@@ -51,6 +52,7 @@ impl<F: Resource + SurfaceField> Plugin for CharacterPlugin<F> {
         );
         app.add_systems(Update, ground::ground_snap::<F>.in_set(GroundSnapSet));
         app.add_systems(Update, foot_lock::foot_lock);
+        app.add_systems(Update, leg_ik::leg_ik);
         app.add_systems(Update, tool::tool_sync);
     }
 }
