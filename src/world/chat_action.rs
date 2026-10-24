@@ -15,6 +15,15 @@ use crate::character::action::ActionKind;
 use crate::character::tool::{ToolPart, ToolPrim};
 use crate::net::apply::LiveAgentTag;
 
+/// 수면 판정 — 서버 활동/상태 코드(act 우선·status 폴백)에 sleep 계열이면
+/// 잠든 것으로 본다(애님·zZz 배지와 동일 어휘).
+fn is_sleeping(v: &crate::world::villager::Villager) -> bool {
+    let codes = [v.act.as_str(), v.status.as_str()];
+    codes
+        .iter()
+        .any(|c| matches!(*c, "sleep" | "sleeping" | "sleepwalking"))
+}
+
 /// JS 브리지 큐 — (agentId, 채팅 원문).
 #[derive(Resource, Default)]
 pub struct ActionBridge {
@@ -109,6 +118,7 @@ pub fn drain_bridge(
             Entity,
             &Transform,
             &LiveAgentTag,
+            &crate::world::villager::Villager,
             &crate::character::AnimState,
             &crate::character::tool::HeldTool,
             Option<&crate::character::action::ActiveAction>,
@@ -133,26 +143,41 @@ pub fn drain_bridge(
         // 수신 로그는 소유자 탐색보다 먼저 — 대상 미발견이 무음이 되면
         // 진단이 불가능하다(2026-10-24 라이브 무음 사건 교훈).
         info!("[action] 지시 수신 {agent_id}: {text} → {kind:?}");
-        // 1) 대상 주민 — 수행 중이면 지시 무시(경고로 차원 구분).
-        let Some((owner, anim, parts)) = q
+        // 1) 대상 주민 — 수면·점프-Fall 결번은 명시 거부(관전자 침묵 혼란 방지).
+        let Some((owner, anim, parts, sleeping, fallless)) = q
             .iter()
-            .find(|(_, _, tag, _, _, active, fall)| {
-                tag.0 == agent_id
-                    && active.is_none()
-                    && (kind != ActionKind::Jump || fall.is_some())
+            .find(|(_, _, tag, _, _, _, active, _)| tag.0 == agent_id && active.is_none())
+            .map(|(e, _, _, v, anim, tool, _, fall)| {
+                (
+                    e,
+                    anim.0,
+                    tool.parts.clone(),
+                    is_sleeping(v),
+                    fall.is_none(),
+                )
             })
-            .map(|(e, _, _, anim, tool, _, _)| (e, anim.0, tool.parts.clone()))
         else {
             warn!("[action] 대상 없음/수행 중 — {agent_id} 스킵");
             continue;
         };
-        // 2) 캐치볼 — 최근젝 다른 주민(수행 중 아님). 없으면 혼자 토스로 강등.
+        if sleeping {
+            warn!("[action] {agent_id} 수면 중 — 지시 거부(자는 주민은 움직이지 않는다)");
+            continue;
+        }
+        if kind == ActionKind::Jump && fallless {
+            warn!("[action] {agent_id} Fall 없음 — 점프 거부");
+            continue;
+        }
+        // 2) 캐치볼 — 최근젝 다른 깨어 있는 주민(수행 중 아님). 없으면 혼자 토스로 강등.
         let partner = if kind == ActionKind::PlayCatch {
             let origin = q.get(owner).ok().map(|(_, tr, ..)| tr.translation);
             let pick = origin.and_then(|op| {
                 q.iter()
-                    .filter(|(e, _, tag, _, _, active, _)| {
-                        *e != owner && tag.0 != agent_id && active.is_none()
+                    .filter(|(e, _, tag, v, _, _, active, _)| {
+                        *e != owner
+                            && tag.0 != agent_id
+                            && active.is_none()
+                            && !is_sleeping(v)
                     })
                     .min_by_key(|(_, tr, ..)| tr.translation.distance_squared(op).to_bits())
                     .map(|(e, ..)| e)

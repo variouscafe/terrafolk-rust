@@ -52,13 +52,20 @@ async function shot(pg, name) {
     Array.from(document.querySelectorAll('.tf-wa')).flatMap((el) => {
       const nm = el.querySelector('.tf-wname');
       if (!nm || !nm.textContent.trim()) return [];
+      const zz = el.querySelector('.tf-wzzz');
       const r = el.getBoundingClientRect();
-      return [{ name: nm.textContent.trim(), x: r.x + r.width / 2, y: r.y + r.height / 2 }];
+      return [{
+        name: nm.textContent.trim(),
+        x: r.x + r.width / 2,
+        y: r.y + r.height / 2,
+        awake: !zz || zz.style.display === 'none',
+      }];
     }),
   );
   if (agentPos.length) {
-    agentPos.sort(
-      (a, b) => Math.hypot(a.x - 640, a.y - 400) - Math.hypot(b.x - 640, b.y - 400));
+    // 깨어 있는 주민 우선(수면 거부 회피), 그다음 화면 중심 근접.
+    agentPos.sort((a, b) => (b.awake - a.awake) ||
+      Math.hypot(a.x - 640, a.y - 400) - Math.hypot(b.x - 640, b.y - 400));
     const firstName = agentPos[0].name;
     const spots = [];
     for (const dy of [9, 18, 35]) for (const dx of [-30, 0, 30]) spots.push([dx, dy]);
