@@ -55,7 +55,10 @@
     '<span class="caret">▴</span>' +
     '</button>' +
     '<div class="tf-inputbar">' +
-    '<input class="tf-input" maxlength="500" autocomplete="off" enterkeyhint="send">' +
+    // 자동채움 억제 스택(2026-10-25): 키보드 자동채움 칩(비밀번호·지갑·주소)이
+    // 채팅창을 폼 필드로 오판해 뜨는 것 방지 — type 명시 + 자동교정/대문자/
+    // 맞춤법 전부 끄고 autocomplete=off. name 속성은 달지 않는다(휴리스틱 유발).
+    '<input class="tf-input" type="text" maxlength="500" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send">' +
     '<button class="send" title="Send">➤</button>' +
     '<button class="close" title="Close">✕</button>' +
     '</div>';
