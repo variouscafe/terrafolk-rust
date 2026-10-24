@@ -31,12 +31,14 @@ pub const FOOT_L_BIND: bevy::math::Quat =
 pub const FOOT_R_BIND: bevy::math::Quat =
     bevy::math::Quat::from_xyzw(0.70403, 0.04097, -0.04079, 0.70781);
 
-/// 치비화 배율 — 레퍼런스 룩(2.5두신 카툰) 근사. 본 이름별 매항표는
-/// proportion::bone_scale.
+/// 치비화 배율 — **완성 스펙 v1(2026-10-24 전신 감사 확정)**: 두신 ≈2.1
+/// · 다리 25%H · 손끝 허벅지 중간 · 어깨≈머리 폭. 캐릭터 모듈을 통째로
+/// 재사용하는 다른 게임에서 동일 룩을 보장하는 단일 스펙이다.
+/// (감사 전 이탈: 팔 무릎까지 0.78·몸통 과장 0.70·발:다리 왜곡 0.34)
 pub const HEAD_SCALE: f32 = 2.05;
-pub const SPINE_SCALE: f32 = 0.70;
+pub const SPINE_SCALE: f32 = 0.64;
 pub const LEG_SCALE: f32 = 0.50;
-pub const ARM_SCALE: f32 = 0.78;
+pub const ARM_SCALE: f32 = 0.62;
 /// 발 — 균등 축소(회전된 본 로컬 축에 비균등은 shear 왜곡 — 4차 보고).
 /// Foot 본은 Root 직속이라 다리 축소가 전파되지 않는다 — **다리와 같은
 /// 배율**로 써야 원본 발:다리 비율이 보존된다(캐릭터 고유 비율 정합,
