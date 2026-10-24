@@ -53,16 +53,27 @@ async function shot(pg, name) {
       const nm = el.querySelector('.tf-wname');
       if (!nm || !nm.textContent.trim()) return [];
       const r = el.getBoundingClientRect();
-      return [{ x: r.x + r.width / 2, y: r.y + r.height / 2 }];
+      return [{ name: nm.textContent.trim(), x: r.x + r.width / 2, y: r.y + r.height / 2 }];
     }),
   );
   if (agentPos.length) {
     agentPos.sort(
       (a, b) => Math.hypot(a.x - 640, a.y - 400) - Math.hypot(b.x - 640, b.y - 400));
-    const t = agentPos[0];
+    const firstName = agentPos[0].name;
     const spots = [];
     for (const dy of [9, 18, 35]) for (const dx of [-30, 0, 30]) spots.push([dx, dy]);
     for (const [dx, dy] of spots) {
+      // 매 시도마다 앵커 현재 위치 재판독 — 걷는 주민은 고정 좌표가 빗나간다.
+      const t = await pg.evaluate((nm) => {
+        const el = Array.from(document.querySelectorAll('.tf-wa')).find((a) => {
+          const n = a.querySelector('.tf-wname');
+          return n && n.textContent.trim() === nm;
+        });
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+      }, firstName);
+      if (!t) break;
       await pg.mouse.click(t.x + dx, t.y + dy);
       await pg.waitForTimeout(650);
       if (await pg.evaluate(() => !!document.querySelector('.tf-wname.sel'))) { picked = true; break; }
