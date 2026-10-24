@@ -39,6 +39,21 @@ const HAND_BONES: [&str; 3] = ["LowerArm.R", "hand_r", "arm-right"];
 /// 손 앵커 오프셋 — 팔끝 아래 소폭 전방(wear 손 슬롯 캘리브레이션 근사).
 const HAND_OFFSET: Vec3 = Vec3::new(0.0, -0.07, 0.05);
 
+/// 손 본 엔티티 탐색 — 액터 하위 트리에서 HAND_BONES 최초 매치
+/// (tool_sync 부착·action 토스 발사/캐치 손 위치 공용).
+pub fn find_hand(
+    root: Entity,
+    children_q: &Query<&Children>,
+    names: &Query<&Name>,
+) -> Option<Entity> {
+    children_q.iter_descendants(root).find(|d| {
+        names
+            .get(*d)
+            .map(|n| HAND_BONES.contains(&n.as_str()))
+            .unwrap_or(false)
+    })
+}
+
 /// HeldTool 변경 시 부속 재구성 — 손 본 자식으로 부착(팔 애님 따라감).
 #[allow(clippy::type_complexity)]
 pub fn tool_sync(
@@ -61,16 +76,9 @@ pub fn tool_sync(
         if tool.parts.is_empty() {
             continue;
         }
-        let mut hand = None;
-        for d in children_q.iter_descendants(root) {
-            if let Ok(name) = names.get(d)
-                && HAND_BONES.contains(&name.as_str())
-            {
-                hand = Some(d);
-                break;
-            }
-        }
-        let Some(hand) = hand else { continue };
+        let Some(hand) = find_hand(root, &children_q, &names) else {
+            continue;
+        };
         let parts = tool.parts.clone();
         for part in &parts {
             let mesh = match part.prim {

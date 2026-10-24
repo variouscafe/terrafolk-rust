@@ -8,11 +8,13 @@
 //!
 //! 하위 시스템: anim(상태 종류)·rig(본 이름표·바인드 상수)·
 //! proportion(치비화·부양량 측정)·ground(루트 y 단일 소유)·
-//! foot_lock(비보행 발바닥 수평)·fall(공간 중력·물리낙하). 근거·이행 계획:
+//! foot_lock(비보행 발바닥 수평)·fall(공간 중력·물리낙하)·
+//! action(지시 행동 상태머신). 근거·이행 계획:
 //! docs/character-module-redesign.md.
 
 use bevy::prelude::*;
 
+pub mod action;
 pub mod anim;
 pub mod fall;
 pub mod foot_lock;
@@ -22,6 +24,7 @@ pub mod proportion;
 pub mod rig;
 pub mod tool;
 
+pub use action::{ActionKind, ActiveAction};
 pub use anim::{AnimKind, AnimState};
 pub use fall::{Fall, SpaceGravity};
 pub use ground::{GroundActor, SurfaceField};
@@ -57,6 +60,12 @@ impl<F: Resource + SurfaceField> Plugin for CharacterPlugin<F> {
             (proportion::chibiify, proportion::chibi_settle).chain(),
         );
         app.add_systems(Update, ground::ground_snap::<F>.in_set(GroundSnapSet));
+        // 지시 행동(점프의 Fall 주입 등)은 접지 적분보다 먼저 — 같은 프레임 반영.
+        app.add_systems(
+            Update,
+            action::advance_actions::<F>.before(GroundSnapSet),
+        );
+        app.add_systems(Update, action::reap_orphan_projs);
         app.add_systems(Update, foot_lock::foot_lock);
         app.add_systems(Update, leg_ik::leg_ik);
         app.add_systems(Update, tool::tool_sync);

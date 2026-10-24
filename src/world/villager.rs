@@ -416,20 +416,27 @@ pub fn wander(
 
 /// 애님 상태 전환(플레이어는 하위 엔티티에 있음) — 이동 우선, 정지 시
 /// 활동 코드(act 우선·status 폴백)로 Walk/Idle/Interact/Wave를 고른다.
-/// 0.25초 크로스페이드 — 하드 컷은 주민을 기계적으로 보이게 한다(생명감 직결).
+/// 지시 행동(ActiveAction) 수행 중엔 프레임워크 요청 애님(던지기 모션 등)을
+/// 우선한다. 0.25초 크로스페이드 — 하드 컷은 주민을 기계적으로 보이게
+/// 한다(생명감 직결).
 pub fn animate_states(
     mut q: Query<(
         &Villager,
         &mut VillagerAnims,
         &mut crate::character::AnimState,
+        Option<&crate::character::ActiveAction>,
     )>,
     mut players: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>,
 ) {
-    for (v, mut anims, mut state) in &mut q {
+    for (v, mut anims, mut state, action) in &mut q {
         let want = if v.moving {
             AnimKind::Walk
         } else {
             act_kind(if v.act.is_empty() { &v.status } else { &v.act })
+        };
+        let want = match action {
+            Some(a) => a.anim(), // 행동 중 오버라이드(준비 모션·복원)
+            None => want,
         };
         if want == anims.current {
             continue;

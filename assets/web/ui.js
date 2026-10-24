@@ -269,6 +269,11 @@
       return;
     }
     tf.ui.sendChat(sel, text, locale());
+    // 즉발 연출 지시(던져봐·점프 등) — 클라이언트 물리로 수행(wasm 브리지).
+    try {
+      var tfb = window.terrafolk;
+      if (tfb && tfb.chatAction) tfb.chatAction(sel, text);
+    } catch (e) { /* 미지원 환경 무시 */ }
     var row = { agent_id: sel, speaker: 'me', text: text, lang: locale(),
       mine: true, pending: true, ts: new Date().toISOString() };
     rows.push(row);

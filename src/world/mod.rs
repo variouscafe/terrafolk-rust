@@ -3,6 +3,7 @@
 
 pub mod animal_anim;
 pub mod bld;
+pub mod chat_action;
 pub mod cam_follow;
 pub mod camera_input;
 pub mod camera_rig;
@@ -54,6 +55,7 @@ impl Plugin for WorldPlugin {
         app.add_systems(Update, water::water_night_dim);
         app.insert_resource(ClearColor(Color::srgb(0.30, 0.48, 0.68)))
             .init_resource::<prop_fit::MeshAabbCache>()
+            .insert_resource(chat_action::ActionBridge::new())
             .insert_resource(data::WorldData::generate(20261015))
             // 공간 중력 — 맵은 지구(주민 물리낙하, character/fall.rs).
             .insert_resource(crate::character::SpaceGravity::EARTH)
@@ -79,6 +81,7 @@ impl Plugin for WorldPlugin {
                     pick::spawn_ring,
                     pick::register_bridge,
                     look_edit::register_bridge,
+                    chat_action::register_bridge,
                     overlay::register_pan_bridge,
                     #[cfg(not(target_arch = "wasm32"))]
                     precip_fx::spawn_lightning_flash,
@@ -110,6 +113,8 @@ impl Plugin for WorldPlugin {
             Update,
             grav_probe::drop_probe.before(crate::character::GroundSnapSet),
         );
+        // 채팅 지시 브리지 소비 — 파싱·부착(character/action.rs가 수행).
+        app.add_systems(Update, chat_action::drain_bridge);
         // 발 앵커 계측(진단) — TF_FOOTDBG=1일 때만 로그, 평소 무음·무비용.
         app.add_systems(Update, (foot_probe::foot_probe, foot_probe::footdbg_camera));
         app.add_systems(
