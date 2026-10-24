@@ -194,6 +194,10 @@
       root = document.createElement('div');
       root.id = 'tf-ui';
       document.body.appendChild(root);
+      // 채팅 도크(ui.js가 먼저 로드돼 body에 붙은 경우)를 팔레트 스코프로
+      // 이양 — #tf-ui 밖에선 --ink-* var이 미해결이라 입력 글자가 검정 실종.
+      var dock = document.querySelector('.tf-chatdock');
+      if (dock && dock.parentElement === document.body) root.appendChild(dock);
     }
     return root;
   }

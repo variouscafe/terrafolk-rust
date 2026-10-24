@@ -35,12 +35,11 @@
   var st = document.createElement('style');
   st.textContent =
     '.tf-chatdock{position:fixed;z-index:30;left:50%;transform:translateX(-50%);' +
-    'bottom:calc(.75rem + var(--tf-kb,0px) + env(safe-area-inset-bottom,0px));' +
+    'bottom:calc(var(--tf-kb,0px) + env(safe-area-inset-bottom,0px));' +
     'width:min(42.5rem,calc(100% - 1rem));max-height:86dvh;display:none;' +
     'flex-direction:column;gap:.25rem;pointer-events:none;}' +
     '.tf-chatdock.on{display:flex;}' +
     '.tf-chatdock>*{pointer-events:auto;}' +
-    'body.tf-chat-on #tf-hud{bottom:calc(6.5rem + env(safe-area-inset-bottom,0px));}' +
     '@media (max-width:600px){.tf-chatdock{width:calc(100% - .75rem);}}';
   document.head.appendChild(st);
 
@@ -60,7 +59,10 @@
     '<button class="send" title="Send">➤</button>' +
     '<button class="close" title="Close">✕</button>' +
     '</div>';
-  document.body.appendChild(dock);
+  // #tf-ui(팔레트 var 스코프) 안에 — tf-ui.js가 아직 없으면 body 임시
+  // 부착(ensureRoot가 나중에 이양). var 미해결=검정 글자 실종 방지.
+  var uiRoot = document.getElementById('tf-ui');
+  (uiRoot || document.body).appendChild(dock);
 
   var c = {
     dock: dock,

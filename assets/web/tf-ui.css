@@ -145,6 +145,7 @@
 .tf-input {
   width: 100%; border-radius: .25rem; border: 1px solid var(--ink-700);
   background: var(--ink-900); padding: .375rem .5rem; font-size: 16px;
+  color: var(--ink-50); /* 다크 배경 + 브라우저 기본 검정 = 실종(2026-10-25) */
   outline: none;
 }
 .tf-input:focus { border-color: var(--accent); }
@@ -419,7 +420,8 @@
 /* ── 채팅 독(하단) — FE ChatBar(§17.76) 룩. Rust 픽킹 선택 시에만 노출 ── */
 .tf-chatdock {
   position: fixed; z-index: 30; left: 50%; transform: translateX(-50%);
-  bottom: calc(.75rem + var(--tf-kb, 0px) + env(safe-area-inset-bottom, 0px));
+  /* 하단 플러스 도킹(2026-10-25) — 키보드·세이프에어리어 오프셋만 유지 */
+  bottom: calc(var(--tf-kb, 0px) + env(safe-area-inset-bottom, 0px));
   width: min(42.5rem, calc(100% - 1rem)); max-height: 86dvh;
   display: none; flex-direction: column; gap: .25rem; pointer-events: none;
 }
@@ -450,14 +452,14 @@
 .tf-chatlog-panel:not(.on) { display: none; }
 .tf-chatlog-panel .tf-chatlog { padding: .5rem .625rem; }
 .tf-inputbar {
-  display: flex; gap: .375rem; border-radius: .75rem; border: 1px solid var(--ink-700);
-  background: rgba(11, 14, 20, .85); padding: .375rem;
+  display: flex; gap: .375rem; border-radius: .75rem .75rem 0 0; border: 1px solid var(--ink-700);
+  background: rgba(11, 14, 20, .85); padding: .25rem;
   box-shadow: 0 4px 16px rgba(0, 0, 0, .4);
   -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
 }
-.tf-inputbar .tf-input { height: 2.25rem; min-width: 0; flex: 1 1 0%; font-size: 16px; }
+.tf-inputbar .tf-input { height: 1.6rem; min-width: 0; flex: 1 1 0%; font-size: 16px; }
 .tf-inputbar .send, .tf-inputbar .close {
-  flex-shrink: 0; display: grid; width: 2.25rem; height: 2.25rem;
+  flex-shrink: 0; display: grid; width: 1.6rem; height: 1.6rem;
   place-items: center; border-radius: .5rem;
 }
 .tf-inputbar .send { background: var(--accent); color: var(--ink-950); }

@@ -60,6 +60,10 @@ pub const SAFE_TOP_OFFSET: f32 = 34.0;
 /// 웹 DOM 상단 바 아래 슬롯 — 구 tf-minimap.js top:46과 동일 자리.
 const WEB_TOP_OFFSET: f32 = 46.0;
 const UPDATE_SECS: f32 = 0.5;
+/// 라이브 칩 색 — 접속=초록, 끊김(연결·재접속)=빨강(2026-10-25 사용자 지시.
+/// 하단 DOM 배지는 폐지하고 이 칩이 접속 상태의 단일 표시지점).
+const LIVE_GREEN: Color = Color::srgb(0.33, 0.85, 0.47);
+const LIVE_RED: Color = Color::srgb(1.0, 0.42, 0.42);
 
 /// 루트 top — 네이티브=인셋+HUD, 웹=DOM 상단 바 아래 고정 슬롯.
 fn top_offset(safe: &crate::platform::safe_area::SafeArea) -> f32 {
@@ -79,7 +83,6 @@ pub struct MinimapState {
     last_chip: String,
     /// 자원 stateJson 파싱 캐시(id → (원문, 파싱)) — 500ms마다 전수 재파싱 방지.
     res_cache: HashMap<u32, (String, ResState)>,
-    inv_count: Option<(String, usize)>,
 }
 
 #[derive(Clone)]
@@ -98,7 +101,6 @@ impl Default for MinimapState {
             acc: UPDATE_SECS,
             last_chip: String::new(),
             res_cache: HashMap::new(),
-            inv_count: None,
         }
     }
 }
@@ -135,7 +137,9 @@ pub fn spawn_minimap(
                 BorderColor::from(Color::srgba(0.02, 0.03, 0.04, 0.9)),
             ))
             .observe(on_map_tap);
-            p.spawn((MinimapChip, Text::new("데모 마을"), theme.label(9.0)));
+            // 칩 색은 update_minimap이 첫 500ms 주기에 기록(label이
+            // (TextFont, TextColor) 튜플이라 스폰에서 TextColor 중복 금지).
+            p.spawn((MinimapChip, Text::new("…연결 중"), theme.label(9.0)));
         });
 }
 
@@ -171,7 +175,7 @@ pub fn update_minimap(
     villagers: Query<(Entity, &Transform, Option<&LiveAgentTag>), With<Villager>>,
     window: Single<&Window>,
     mut q_map: Query<(&mut Node, &mut ImageNode), With<MinimapMap>>,
-    mut q_chip: Query<&mut Text, With<MinimapChip>>,
+    mut q_chip: Query<(&mut Text, &mut TextColor), With<MinimapChip>>,
     mut st: ResMut<MinimapState>,
     mut images: ResMut<Assets<Image>>,
 ) {
@@ -295,12 +299,13 @@ pub fn update_minimap(
         img.data = Some(buf);
     }
 
-    // 상태 칩 — LIVE면 발명 수(문명 진척), 그 외 링크 단계.
-    let chip = chip_label(&net, &mut st.inv_count);
+    // 상태 칩 — 라이브=초록 '라이브', 끊김·재접속=빨강(라벨과 색은 상태 1:1).
+    let (chip, color) = chip_label(&net);
     if chip != st.last_chip {
         st.last_chip = chip.clone();
-        if let Ok(mut t) = q_chip.single_mut() {
+        if let Ok((mut t, mut c)) = q_chip.single_mut() {
             **t = chip;
+            *c = TextColor(color);
         }
     }
 }
@@ -334,32 +339,12 @@ fn hover_gate(
         .is_ok_and(|i| matches!(i, Interaction::Hovered | Interaction::Pressed));
 }
 
-fn chip_label(net: &NetState, inv: &mut Option<(String, usize)>) -> String {
+/// 상태 칩 라벨+색 — 접속=초록 '라이브', 그 외 링크 상태는 빨강(Idle=중립).
+fn chip_label(net: &NetState) -> (String, Color) {
     match net.status {
-        NetStatus::Connected => {
-            let count = net
-                .frame
-                .as_ref()
-                .and_then(|f| f.inventions.as_deref())
-                .map(|raw| {
-                    if inv.as_ref().map(|(r, _)| r == raw).unwrap_or(false) {
-                        inv.as_ref().map(|(_, n)| *n).unwrap_or(0)
-                    } else {
-                        let n = serde_json::from_str::<serde_json::Value>(raw)
-                            .ok()
-                            .and_then(|v| v.as_array().map(|a| a.len()))
-                            .unwrap_or(0);
-                        *inv = Some((raw.to_owned(), n));
-                        n
-                    }
-                });
-            match count {
-                Some(n) => format!("● LIVE · 발명 {n}"),
-                None => "● LIVE".to_owned(),
-            }
-        }
-        NetStatus::Connecting => "…연결 중".to_owned(),
-        NetStatus::Reconnecting => "↻ 재접속 중".to_owned(),
-        NetStatus::Idle => "데모 마을".to_owned(),
+        NetStatus::Connected => ("● 라이브".to_owned(), LIVE_GREEN),
+        NetStatus::Connecting => ("…연결 중".to_owned(), LIVE_RED),
+        NetStatus::Reconnecting => ("↻ 재접속 중".to_owned(), LIVE_RED),
+        NetStatus::Idle => ("데모 마을".to_owned(), super::theme::INK400),
     }
 }

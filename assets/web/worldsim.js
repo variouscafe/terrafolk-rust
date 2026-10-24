@@ -111,38 +111,9 @@
     } catch (e) { /* 클라이언트 세션은 정리 완료 */ }
   }
 
-  // ── HUD — 접속 상태 배지(관전 채팅·이벤트의 화면 표현은 말풍선·토스트가 담당)
-  let hud = null;
-  let badge = null;
-
-  function ensureHud() {
-    if (hud) return;
-    // 스타일은 <style>로 — 미디어쿼리·safe-area(노치/홈인디케이터) 대응
-    const st = document.createElement('style');
-    st.textContent =
-      '#tf-hud{position:fixed;z-index:50;pointer-events:none;display:flex;' +
-      'flex-direction:column;gap:3px;color:#fff;' +
-      'left:calc(12px + env(safe-area-inset-left,0px));' +
-      'bottom:calc(14px + env(safe-area-inset-bottom,0px));' +
-      'max-width:min(46ch,72vw);font:12px/1.45 ui-sans-serif,system-ui,sans-serif;}' +
-      '#tf-hud .tf-badge{align-self:flex-start;padding:2px 9px;border-radius:999px;' +
-      'margin-bottom:4px;background:rgba(20,24,32,.62);font-weight:600;' +
-      'letter-spacing:.02em;box-shadow:0 1px 6px rgba(0,0,0,.35);transition:background .4s;}' +
-      '@media (max-width:600px){#tf-hud{font-size:13.5px;max-width:84vw;}}';
-    document.head.appendChild(st);
-    hud = document.createElement('div');
-    hud.id = 'tf-hud';
-    document.body.appendChild(hud);
-    badge = document.createElement('div');
-    badge.className = 'tf-badge';
-    hud.appendChild(badge);
-    setStatus(false);
-  }
-
+  // ── 접속 상태 — 하단 배지는 폐지(2026-10-25, 미니맵 칩이 초록/빨강으로
+  // 담당). 상단바 넷 표시(TF_UI.setNet)만 갱신.
   function setStatus(live) {
-    ensureHud();
-    badge.textContent = live ? '● LIVE · terrafolk' : '○ DEMO — 서버 재접속';
-    badge.style.background = live ? 'rgba(22,101,52,.78)' : 'rgba(120,72,20,.72)';
     if (window.TF_UI) window.TF_UI.setNet(live);
   }
 
