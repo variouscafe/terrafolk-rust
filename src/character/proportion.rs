@@ -22,6 +22,14 @@ pub struct SettleProbe(pub u8);
 #[derive(Component)]
 pub struct FootLift(pub f32);
 
+/// 발 앵커 엔티티 목록 + 바인드 FootLift — ground::ground_snap의 동적
+/// 추적(발 기준 중력 v2)이 소비. settle 시 1회 캡처.
+#[derive(Component)]
+pub struct FootAnchors {
+    pub entities: Vec<Entity>,
+    pub bind_lift: f32,
+}
+
 /// 치비화 1회 적용 — ChibiTarget 보유 액터의 자손 본 스케일 조정 후
 /// 2프레임 측정 프로브 예약.
 pub fn chibiify(
@@ -65,11 +73,13 @@ pub fn chibi_settle(
             continue;
         };
         let mut foot_y: Option<f32> = None;
+        let mut anchor_entities = Vec::new();
         for d in children_q.iter_descendants(root) {
             let Ok(name) = names.get(d) else { continue };
             if FOOT_ANCHORS.contains(&name.as_str())
                 && let Ok(gt) = feet.get(d)
             {
+                anchor_entities.push(d);
                 foot_y = Some(foot_y.map_or(gt.translation().y, |m: f32| {
                     m.min(gt.translation().y)
                 }));
@@ -95,6 +105,10 @@ pub fn chibi_settle(
         }
         let mut cmd = commands.entity(root);
         cmd.insert(FootLift(drop + SOLE_CLEAR)).remove::<SettleProbe>();
+        cmd.insert(FootAnchors {
+            entities: anchor_entities,
+            bind_lift: drop + SOLE_CLEAR,
+        });
         if let [Some(a), Some(b)] = sides {
             cmd.insert(super::leg_ik::LegIkBind { sides: [a, b] });
         }
