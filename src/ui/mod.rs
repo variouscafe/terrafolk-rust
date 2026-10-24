@@ -14,6 +14,9 @@ pub mod i18n;
 pub mod i18n_data;
 pub mod i18n_view;
 pub mod log;
+pub mod look;
+pub mod look_data;
+pub mod look_view;
 pub mod menu;
 pub mod minimap;
 pub mod rail;
@@ -36,6 +39,8 @@ pub enum Popup {
     Log,
     Settings,
     Account,
+    /// 외형 편집(소유 주민 — 선택 패널 진입 전용)
+    Look,
 }
 
 /// UI 상태(메뉴·팝업) — 한 번에 열리는 팝업은 1개(레거시와 동일).
@@ -69,9 +74,10 @@ impl Plugin for UiPlugin {
                     (
                         hud::spawn_hud,
                         menu::spawn_menu,
-                    menu::spawn_account_popup,
+                        menu::spawn_account_popup,
                         chars::spawn,
-                    chat::spawn,
+                        look::spawn,
+                        chat::spawn,
                         civ::spawn,
                         res::spawn,
                         log::spawn,
@@ -88,13 +94,20 @@ impl Plugin for UiPlugin {
             app.add_systems(
                 Update,
                 (
-                    (update_pointer_over_ui, back_close, chat::auto_greet, chat::chat_input, chat::quick_greet_key, chat::refresh_chat_bar).chain(),
+                    (
+                        update_pointer_over_ui,
+                        back_close,
+                        chat::auto_greet,
+                        chat::chat_input,
+                        chat::quick_greet_key,
+                        chat::refresh_chat_bar,
+                    )
+                        .chain(),
                     hud::update_hud,
                     hud::update_notice,
                     daydial::update_daydial,
                     (menu::interact, menu::refresh_account_popup).chain(),
-                    chars::refresh_list,
-                    chars::refresh_sel_panel,
+                    (chars::refresh_list, chars::refresh_sel_panel, look::refresh).chain(),
                     res::refresh_res,
                     civ::refresh_civ,
                     log::update_log,
@@ -178,9 +191,7 @@ fn back_close(
 ) {
     // 안드로이드 뒤로 가기는 논리 키(Key::Named) 메시지로만 오므로 물리
     // just_pressed와 메시지 양쪽을 판정(platform 헬퍼).
-    if !crate::platform::back_pressed(&keys)
-        && !crate::platform::back_in_messages(&mut key_msgs)
-    {
+    if !crate::platform::back_pressed(&keys) && !crate::platform::back_in_messages(&mut key_msgs) {
         return;
     }
     if rail.open.take().is_some() {

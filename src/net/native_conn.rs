@@ -8,8 +8,8 @@
 //! 대비 — 데모 관전은 유지된다).
 
 use crate::net::{
-    FrameQueue, LiveAgent, LiveFrame, LiveResource, PHASE_CONNECTING, PHASE_RECONNECTING,
-    feed, feed::FeedQueues,
+    FrameQueue, LiveAgent, LiveFrame, LiveResource, PHASE_CONNECTING, PHASE_RECONNECTING, feed,
+    feed::FeedQueues,
 };
 use colyseus_lite::{MatchmakeResp, Room, RoomEvent, SchemaState, Value as ColyValue};
 
@@ -104,13 +104,14 @@ async fn run(queue: FrameQueue, phase: Arc<AtomicU8>, feeds: FeedQueues) {
 /// 수동 시딩이 개발·검증 경로. android는 외부 files 디렉터리(adb 직접 회수
 /// 가능·지속), 그 외 플랫폼은 작업 디렉터리.
 #[derive(serde::Deserialize, serde::Serialize, Default, Clone)]
-struct AuthFile {
-    access: Option<String>,
+pub(crate) struct AuthFile {
+    pub(crate) access: Option<String>,
     #[allow(dead_code)] // 갱신 흐름(F2 3단계)에서 사용
     refresh: Option<String>,
 }
 
-fn load_auth() -> AuthFile {
+/// 계정 토큰 로드 — look_sync(편집기 /me·PATCH)도 공유 소비.
+pub(crate) fn load_auth() -> AuthFile {
     // 딥링크 수신(OAuth 콜백 terrafolk://auth#at=..&rt=..) — 있으면 저장 후 진행.
     if let Some(uri) = crate::platform::deep_link::launch_uri()
         && let Some((access, refresh)) = crate::platform::deep_link::parse_auth_fragment(&uri)
@@ -157,7 +158,10 @@ fn save_auth(auth: &AuthFile) {
     match serde_json::to_string(auth) {
         Ok(s) => {
             if std::fs::write(&path, s).is_err() {
-                info!("[net] 토큰 저장 실패(쓰기 권한?) — {:?}, 재접속 시 재시도", path);
+                info!(
+                    "[net] 토큰 저장 실패(쓰기 권한?) — {:?}, 재접속 시 재시도",
+                    path
+                );
             }
         }
         Err(_) => {}
@@ -334,7 +338,9 @@ fn build_frame(state: &SchemaState, with_map: bool) -> Option<LiveFrame> {
                 act_progress: av("actProgress")
                     .and_then(ColyValue::as_f64)
                     .map(|v| v as f32),
-                goal_text: av("goalText").and_then(ColyValue::as_str).map(str::to_owned),
+                goal_text: av("goalText")
+                    .and_then(ColyValue::as_str)
+                    .map(str::to_owned),
                 goal_key: av("goalKey").and_then(ColyValue::as_str).map(str::to_owned),
                 hunger: av("hunger").and_then(ColyValue::as_f64).map(|v| v as f32),
                 thirst: av("thirst").and_then(ColyValue::as_f64).map(|v| v as f32),

@@ -144,38 +144,63 @@ pub fn spawn(
                     info.spawn((SelName, Text::new(""), theme.title(12.0)));
                     info.spawn((SelStatus, Text::new(""), theme.label(10.0)));
                     // 욕구 바 4종(라이브) — 배고픔/갈증/피로/추위, 70 초과 빨강(FE 패리티)
-                    info.spawn((SelNeeds, Node {
-                        flex_direction: FlexDirection::Column,
-                        row_gap: Val::Px(3.0),
-                        ..default()
-                    }, Visibility::Hidden))
-                        .with_children(|needs| {
-                            for i in 0..4 {
-                                needs.spawn(Node {
+                    info.spawn((
+                        SelNeeds,
+                        Node {
+                            flex_direction: FlexDirection::Column,
+                            row_gap: Val::Px(3.0),
+                            ..default()
+                        },
+                        Visibility::Hidden,
+                    ))
+                    .with_children(|needs| {
+                        for i in 0..4 {
+                            needs
+                                .spawn(Node {
                                     flex_direction: FlexDirection::Row,
                                     align_items: AlignItems::Center,
                                     column_gap: Val::Px(6.0),
                                     ..default()
                                 })
                                 .with_children(|r| {
-                                    r.spawn((Text::new(i18n::need_label(i)), theme.text(8.0, theme::INK400)));
-                                    r.spawn((SelNeedTrack, Node {
-                                        flex_grow: 1.0,
-                                        height: Val::Px(4.0),
-                                        ..default()
-                                    }, BackgroundColor(theme::INK800)))
-                                        .with_children(|t| {
-                                            t.spawn((SelNeedFill(i), Node {
+                                    r.spawn((
+                                        Text::new(i18n::need_label(i)),
+                                        theme.text(8.0, theme::INK400),
+                                    ));
+                                    r.spawn((
+                                        SelNeedTrack,
+                                        Node {
+                                            flex_grow: 1.0,
+                                            height: Val::Px(4.0),
+                                            ..default()
+                                        },
+                                        BackgroundColor(theme::INK800),
+                                    ))
+                                    .with_children(|t| {
+                                        t.spawn((
+                                            SelNeedFill(i),
+                                            Node {
                                                 width: Val::Percent(0.0),
                                                 height: Val::Percent(100.0),
                                                 ..default()
-                                            }, BackgroundColor(theme::ACCENT)));
-                                        });
-                                    r.spawn((SelNeedVal(i), Text::new("—"), theme.text(8.0, theme::INK200)));
+                                            },
+                                            BackgroundColor(theme::ACCENT),
+                                        ));
+                                    });
+                                    r.spawn((
+                                        SelNeedVal(i),
+                                        Text::new("—"),
+                                        theme.text(8.0, theme::INK200),
+                                    ));
                                 });
-                            }
-                        });
-                    info.spawn((SelLiveHint, Text::new("라이브 접속 시 욕구·목표가 표시된다"), theme.text(8.0, theme::INK400), Visibility::Hidden));
+                        }
+                    });
+                    info.spawn((
+                        SelLiveHint,
+                        Text::new("라이브 접속 시 욕구·목표가 표시된다"),
+                        theme.text(8.0, theme::INK400),
+                        Visibility::Hidden,
+                    ));
                     info.spawn((SelGoal, Text::new(""), theme.text(9.0, theme::INK400)));
                 });
             p.spawn((
@@ -191,6 +216,21 @@ pub fn spawn(
             .observe(super::chat::open_chat)
             .with_children(|b| {
                 b.spawn((Text::new("말걸기"), theme.label(10.0)));
+            });
+            // 외형 편집 — 소유 주민 선택 시에만 보인다(look::refresh_sel gating)
+            p.spawn((
+                super::look::SelLookButton,
+                Button,
+                Interaction::default(),
+                Node {
+                    padding: UiRect::axes(Val::Px(9.0), Val::Px(5.0)),
+                    ..default()
+                },
+                BackgroundColor(theme::INK700),
+            ))
+            .observe(super::look::on_sel_look_click)
+            .with_children(|b| {
+                b.spawn((Text::new("외형"), theme.label(10.0)));
             });
             p.spawn((
                 SelFollowChip,
@@ -254,10 +294,11 @@ pub fn refresh_list(
             let id = tag
                 .map(|t| t.0.clone())
                 .unwrap_or_else(|| format!("demo:{}", e.index()));
-            let act = i18n::act_label(&hud
-                .map(|h| h.act_type.as_str())
-                .filter(|a| !a.is_empty())
-                .unwrap_or(&v.status));
+            let act = i18n::act_label(
+                &hud.map(|h| h.act_type.as_str())
+                    .filter(|a| !a.is_empty())
+                    .unwrap_or(&v.status),
+            );
             let goal = hud
                 .map(|h| i18n::goal_text(&h.goal_key, &h.goal_text))
                 .unwrap_or_default();
@@ -353,6 +394,7 @@ fn on_clear_click(_: On<Pointer<Click>>, mut sel: ResMut<Selection>) {
 pub fn refresh_sel_panel(
     sel: Res<Selection>,
     follow: Res<CamFollow>,
+    mine: Res<crate::net::look_sync::LookStore>,
     villagers: Query<(&Villager, Option<&AgentHud>)>,
     mut q_panel: Query<
         &mut Visibility,
@@ -418,6 +460,16 @@ pub fn refresh_sel_panel(
             Without<SelNeeds>,
         ),
     >,
+    mut q_look: Query<
+        &mut Visibility,
+        (
+            With<super::look::SelLookButton>,
+            Without<SelPanel>,
+            Without<SelFollowChip>,
+            Without<SelNeeds>,
+            Without<SelLiveHint>,
+        ),
+    >,
     mut q_fills: Query<(&SelNeedFill, &mut Node, &mut BackgroundColor), Without<SelNeedVal>>,
     mut q_vals: Query<(&SelNeedVal, &mut Text), Without<SelNeedFill>>,
 ) {
@@ -439,10 +491,11 @@ pub fn refresh_sel_panel(
         **t = v.name.clone();
     }
     if let Ok(mut t) = q_status.single_mut() {
-        let label = i18n::act_label(&hud
-            .map(|h| h.act_type.as_str())
-            .filter(|a| !a.is_empty())
-            .unwrap_or(&v.status));
+        let label = i18n::act_label(
+            &hud.map(|h| h.act_type.as_str())
+                .filter(|a| !a.is_empty())
+                .unwrap_or(&v.status),
+        );
         if **t != label {
             **t = label;
         }
@@ -450,10 +503,18 @@ pub fn refresh_sel_panel(
     // 욕구 바·목표 — 라이브(AgentHud)만. 데모는 안내 문구(정직 표시).
     let live = hud.is_some();
     if let Ok(mut n) = q_needs.single_mut() {
-        *n = if live { Visibility::Visible } else { Visibility::Hidden };
+        *n = if live {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
     }
     if let Ok(mut h) = q_hint.single_mut() {
-        *h = if live { Visibility::Hidden } else { Visibility::Visible };
+        *h = if live {
+            Visibility::Hidden
+        } else {
+            Visibility::Visible
+        };
     }
     if let Some(hud) = hud {
         for (mark, mut node, mut bg) in &mut q_fills {
@@ -485,6 +546,15 @@ pub fn refresh_sel_panel(
     }
     if let Ok(mut c) = q_chip.single_mut() {
         *c = if follow.active {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+    }
+    // 외형 편집 진입 — 선택 주민이 소유(/me)일 때만.
+    if let Ok(mut b) = q_look.single_mut() {
+        let mine_now = sel.id.as_deref().is_some_and(|id| mine.contains(id));
+        *b = if mine_now {
             Visibility::Visible
         } else {
             Visibility::Hidden

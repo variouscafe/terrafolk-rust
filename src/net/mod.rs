@@ -149,6 +149,7 @@ impl Plugin for NetPlugin {
             .init_resource::<feed::ChatLog>()
             .init_resource::<feed::EventLog>()
             .init_resource::<feed::ToastQ>()
+            .init_resource::<look_sync::LookStore>()
             .add_systems(Startup, (connect_bridge, apply::prime_live_world).chain())
             .add_plugins(inventions::plugin)
             .add_systems(
@@ -225,6 +226,7 @@ fn connect_bridge(
     phase: Res<NetLinkPhase>,
     feeds: Res<feed::FeedQueues>,
     store: Res<feed::PollStore>,
+    look: Res<look_sync::LookStore>,
 ) {
     if std::env::var("TF_NO_NET").is_ok() {
         info!("[net] TF_NO_NET — 접속 스킵(데모 진단)");
@@ -232,6 +234,7 @@ fn connect_bridge(
     }
     native_conn::spawn(queue.clone(), Arc::clone(&phase.0), feeds.clone());
     http_poll::spawn(feeds.clone(), store.clone(), Arc::clone(&phase.0));
+    look_sync::spawn(look.clone(), Arc::clone(&phase.0));
 }
 
 /// 링크 단계(원자값) → NetState.status. drain_frames가 성공 시 CONNECTED를
@@ -274,20 +277,23 @@ pub fn drain_frames(queue: Res<FrameQueue>, phase: Res<NetLinkPhase>, mut net: R
     }
 }
 
+pub mod agent_hud;
 /// 라이브 적용 로직(지형 프라임·시간·주민)
 pub mod apply;
-pub mod agent_hud;
 pub mod dbg_gate;
-pub mod inventions;
-pub mod remote_assets;
 /// 관전 피드(채팅·이벤트·관계·생활기록) 버퍼와 드레인
 pub mod feed;
 /// HTTP 관전 폴러(백로그·관계·생활기록) — 네이티브 전용
 #[cfg(not(target_arch = "wasm32"))]
 pub mod http_poll;
+pub mod inventions;
+/// 외형 편집 동기화(/me 폴·look 저장) — 네이티브 전용
+#[cfg(not(target_arch = "wasm32"))]
+pub mod look_sync;
 /// 네이티브 라이브 접속(colyseus-lite) — wasm은 JS sink 경로
 #[cfg(not(target_arch = "wasm32"))]
 pub mod native_conn;
+pub mod remote_assets;
 /// 라이브 자원 동기(자원·발판·동물 배위) — apply에서 기능별 분리
 pub mod resources;
 pub mod visual_map;

@@ -22,6 +22,22 @@ pub struct LookEditBridge {
     focus_q: std::sync::Arc<std::sync::Mutex<Vec<bool>>>,
 }
 
+impl LookEditBridge {
+    /// 낙관적 look 오버라이드 적재 — wasm JS 브리지와 네이티브 편집기
+    /// (ui/look.rs) 양쪽이 같은 경로로 넣는다(drain_bridge가 단일 소비).
+    pub fn push_look(&self, agent_id: &str, parts_json: &str) {
+        if let Ok(mut q) = self.look_q.lock() {
+            q.push((agent_id.to_owned(), parts_json.to_owned()));
+        }
+    }
+    /// 편집 카메라 포커스 토글 적재.
+    pub fn push_focus(&self, on: bool) {
+        if let Ok(mut q) = self.focus_q.lock() {
+            q.push(on);
+        }
+    }
+}
+
 /// 낙관적 look 오버라이드 — agent_id → parts JSON(문서 전체가 아니라
 /// parts만: 서버 정본 look의 나머지 필드(uuid·sex·age·art)는 보존).
 #[derive(Resource, Default)]
