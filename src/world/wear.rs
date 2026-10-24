@@ -84,6 +84,11 @@ pub fn wear_asset(item_id: &str) -> Option<(&'static str, WearSlot)> {
         "sunglasses" => Some(("models/Kenney_aid-sunglasses.glb", WearSlot::Eyes)),
         "hair-long" => Some(("models/qubase/hair-long.glb", WearSlot::Hair)),
         "hair-buns" => Some(("models/qubase/hair-buns.glb", WearSlot::Hair)),
+        // 헤어 3종 확장(2026-10-24) — ubase 풀 Head 본 리깅 변형 그대로
+        // 파생(텍스처 512 다이어트 임베드, 스타일당 ~0.7MB).
+        "hair-buzzed" => Some(("models/qubase/hair-buzzed.glb", WearSlot::Hair)),
+        "hair-buzzed-f" => Some(("models/qubase/hair-buzzed-f.glb", WearSlot::Hair)),
+        "hair-parted" => Some(("models/qubase/hair-parted.glb", WearSlot::Hair)),
         "cane" | "cane-blind" => Some(("models/Kenney_aid-cane-blind.glb", WearSlot::HandRight)),
         // 수염 — LPC 부품 id를 절출 GLB(meshgen, 2026-10-23 행2=정면 프레임 0)
         // 로. handlebar는 실루엣 3px 미만이라 미생성(매칭 실패=자연 스킵).
@@ -130,6 +135,14 @@ const DEFAULT_GLASSES: &[&str] = &[
     "facial_glasses_nerd",
     "facial_glasses_round",
     "facial_glasses_halfmoon",
+];
+/// 봇 기본 헤어 해시 풀 — qubase GLB 5종(Head 본 리깅 동일 리그).
+const DEFAULT_HAIRS: &[&str] = &[
+    "hair-long",
+    "hair-buns",
+    "hair-buzzed",
+    "hair-buzzed-f",
+    "hair-parted",
 ];
 
 /// lookJson(원문)에서 부착형 착용 item 추출. 현재 서버 정본 의상 슬롯
@@ -181,14 +194,15 @@ pub fn wear_ids_from_look(look: &str) -> Vec<String> {
     if let Some(g) = glasses {
         out.push(g);
     }
-    // 헤어 — 편집 스타일 우선, 없으면 uuid 분배(전 주민).
+    // 헤어 — 편집 슬롯이 qubase id 그대로면 존중, 아니면 스타일 문자열
+    // 해시로 5종 분배(전 주민 — 스타일명·uuid 어느 쪽이어도 결정론).
     let hair = part("hair").unwrap_or_else(|| uuid.clone());
-    let hh = hair.bytes().fold(0u64, |a, b| a.wrapping_mul(31) + b as u64);
-    out.push(if hh % 2 == 0 {
-        "hair-long".to_string()
+    if hair.starts_with("hair-") {
+        out.push(hair);
     } else {
-        "hair-buns".to_string()
-    });
+        let hh = hair.bytes().fold(0u64, |a, b| a.wrapping_mul(31) + b as u64);
+        out.push(DEFAULT_HAIRS[(hh % DEFAULT_HAIRS.len() as u64) as usize].to_string());
+    }
     out
 }
 
