@@ -67,6 +67,8 @@ pub struct ActiveAction {
     spin: Vec3,
     /// 반발 횟수(ThrowGround).
     bounces: u8,
+    /// 시작 후 누적 시간(s) — 단계별 t와 무관한 총시한 근거.
+    total: f32,
     /// 캐치볼 상대(PlayCatch).
     pub partner: Option<Entity>,
     /// 현재 물건 잡은 손 주인(PlayCatch Hold — None=시작 전).
@@ -94,6 +96,7 @@ impl ActiveAction {
             vel: Vec3::ZERO,
             spin: Vec3::ZERO,
             bounces: 0,
+            total: 0.0,
             partner: None,
             holder: None,
             passes_left: 0,
@@ -149,6 +152,8 @@ fn catch_t(from: Vec3, to: Vec3) -> f32 {
 const HOLD_T: f32 = 0.25;
 const REST_T: f32 = 1.2;
 const FLIGHT_MAX: f32 = 3.0;
+/// 행동 총시한(s) — 단계 루프 이상 시 강제 종료.
+const ACTION_TOTAL_MAX: f32 = 12.0;
 /// 투사체 반지름 근사(m) — 지면·손 접촉 판정 여유.
 const PROJ_R: f32 = 0.08;
 
@@ -188,6 +193,15 @@ pub fn advance_actions<F: Resource + SurfaceField>(
     let g = gravity.0;
     for (root_e, root_tr, mut act, mut tool, fall) in &mut q {
         act.t += dt;
+        // 총시한 — 단계 전환이 어떤 경로로든 막혀도 영구 스택 방지(진단
+        // 로그와 함께). 캐치볼 3패스(~5s)·LOCK 9s보다 여유.
+        act.total += dt;
+        if act.total > ACTION_TOTAL_MAX {
+            warn!("[action] 총시한 초과 종료 {:?} ({:.1}s)", act.kind, act.total);
+            let p = act.proj;
+            finish(&mut commands, root_e, &mut act, &mut tool, p);
+            continue;
+        }
         match act.phase {
             Phase::Windup => {
                 if act.t < WINDUP_T {

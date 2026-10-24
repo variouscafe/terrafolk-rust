@@ -130,7 +130,10 @@ pub fn drain_bridge(
         let Some(kind) = parse_directive(&text) else {
             continue;
         };
-        // 1) 대상 주민 — 수행 중이면 지시 무시.
+        // 수신 로그는 소유자 탐색보다 먼저 — 대상 미발견이 무음이 되면
+        // 진단이 불가능하다(2026-10-24 라이브 무음 사건 교훈).
+        info!("[action] 지시 수신 {agent_id}: {text} → {kind:?}");
+        // 1) 대상 주민 — 수행 중이면 지시 무시(경고로 차원 구분).
         let Some((owner, anim, parts)) = q
             .iter()
             .find(|(_, _, tag, _, _, active, fall)| {
@@ -140,9 +143,9 @@ pub fn drain_bridge(
             })
             .map(|(e, _, _, anim, tool, _, _)| (e, anim.0, tool.parts.clone()))
         else {
+            warn!("[action] 대상 없음/수행 중 — {agent_id} 스킵");
             continue;
         };
-        info!("[action] 지시 수신 {agent_id}: {text} → {kind:?}");
         // 2) 캐치볼 — 최근젝 다른 주민(수행 중 아님). 없으면 혼자 토스로 강등.
         let partner = if kind == ActionKind::PlayCatch {
             let origin = q.get(owner).ok().map(|(_, tr, ..)| tr.translation);

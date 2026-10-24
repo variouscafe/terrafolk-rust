@@ -42,21 +42,29 @@ async function shot(pg, name) {
   }
   await pg.waitForTimeout(2500);
 
-  // ── 주민 픽(중앙 최인접 .tf-wa 앵커 + 브래킷 오프셋 — root3d_play 계약)
+  // ── 주민 픽 — 이름 있는 앵커 우선(이름 없는 앵커는 경고 배지 등).
+  // 세계가 심야(수면)면 몸이 누워 있어 세로 오프셋이 빗나간다 — 가로 그리드
+  // 스윕까지 시도한다(2026-10-24 라이브 무음 사건: 수면 몸 픽 실패).
+  const sleepWorld = await pg.evaluate(() =>
+    Array.from(document.querySelectorAll('.tf-zz')).filter((z) => z.style.display !== 'none').length > 0);
   let picked = false;
   const agentPos = await pg.evaluate(() =>
-    Array.from(document.querySelectorAll('.tf-wa')).map((el) => {
+    Array.from(document.querySelectorAll('.tf-wa')).flatMap((el) => {
+      const nm = el.querySelector('.tf-wname');
+      if (!nm || !nm.textContent.trim()) return [];
       const r = el.getBoundingClientRect();
-      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+      return [{ x: r.x + r.width / 2, y: r.y + r.height / 2 }];
     }),
   );
   if (agentPos.length) {
     agentPos.sort(
       (a, b) => Math.hypot(a.x - 640, a.y - 400) - Math.hypot(b.x - 640, b.y - 400));
     const t = agentPos[0];
-    for (const off of [9, 18, 40]) {
-      await pg.mouse.click(t.x, t.y + off);
-      await pg.waitForTimeout(800);
+    const spots = [];
+    for (const dy of [9, 18, 35]) for (const dx of [-30, 0, 30]) spots.push([dx, dy]);
+    for (const [dx, dy] of spots) {
+      await pg.mouse.click(t.x + dx, t.y + dy);
+      await pg.waitForTimeout(650);
       if (await pg.evaluate(() => !!document.querySelector('.tf-wname.sel'))) { picked = true; break; }
     }
   }
@@ -119,7 +127,7 @@ async function shot(pg, name) {
   };
   const allPass = Object.values(checks).every(Boolean);
   console.log(
-    JSON.stringify({ url, allPass, checks, errors: errors.slice(0, 4), logs, shots }, null, 2),
+    JSON.stringify({ url, allPass, checks, sleepWorld, errors: errors.slice(0, 4), logs, shots }, null, 2),
   );
   process.exit(allPass ? 0 : 1);
 })();
