@@ -420,8 +420,10 @@
 /* ── 채팅 독(하단) — FE ChatBar(§17.76) 룩. Rust 픽킹 선택 시에만 노출 ── */
 .tf-chatdock {
   position: fixed; z-index: 30; left: 50%; transform: translateX(-50%);
-  /* 하단 플러스 도킹(2026-10-25) — 키보드·세이프에어리어 오프셋만 유지 */
-  bottom: calc(var(--tf-kb, 0px) + env(safe-area-inset-bottom, 0px));
+  /* 하단 플러스 도킹(2026-10-25) — 키보드 열림 땐 --tf-kb(키보드 높이 전체)
+   * 가 이미 정확하므로 세이프에어리어를 더하지 않는다(max — 이중 합산이
+   * 키보드 위 여백의 원인). 닫힘 땐 홈 인디케이터 여백. */
+  bottom: max(var(--tf-kb, 0px), env(safe-area-inset-bottom, 0px));
   width: min(42.5rem, calc(100% - 1rem)); max-height: 86dvh;
   display: none; flex-direction: column; gap: .25rem; pointer-events: none;
 }
