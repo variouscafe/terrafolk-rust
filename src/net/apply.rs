@@ -190,6 +190,13 @@ pub fn sync_daynight(
     if let Some(w) = f.weather.as_deref() {
         weather.kind = w.to_string();
     }
+    // 검증 스위치 — TF_FORCE_WEATHER=rain|snow|storm|clear가 있으면 서버
+    // 날씨를 덮어쓴다(강수 중력 실측용. 운영 무해 — 플래그 없으면 미동작).
+    if let Ok(w) = std::env::var("TF_FORCE_WEATHER") {
+        if matches!(w.as_str(), "clear" | "rain" | "storm" | "snow" | "overcast" | "fog") {
+            weather.kind = w;
+        }
+    }
 }
 
 /// 주민 동기화 — 신규 스폰 / 목적지·이동상태 갱신 / 사라진 것 제거.
