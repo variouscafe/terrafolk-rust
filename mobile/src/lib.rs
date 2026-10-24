@@ -24,11 +24,15 @@ fn main() {
         }
     }
 
-    App::new()
-        // 연속 렌더링 — mobile() 기본(React: 입력 시에만 프레임)은 살아있는
-        // 세계 관전에 부적합(2026-10-17 실측: 무입력 시 정지 프레임, CPU 0%).
-        // game 프리셋 = 포커스 중 Continuous + 백그라운드 60Hz 폴.
-        .insert_resource(WinitSettings::game())
+    let mut app = App::new();
+    // 원격 에셋 소스 — AssetPlugin 확정 전 등록(루트 main.rs와 동일).
+    // 이것이 없으면 발명품 GLB 로드가 전부 실패한다("remote" 소스 부재 —
+    // 모바일 엔트리 누락으로 2026-10-24까지 APK에서 발명품 실물이 안 나옴).
+    terrafolk_bevy::net::remote_assets::register_source(&mut app);
+    // 연속 렌더링 — mobile() 기본(React: 입력 시에만 프레임)은 살아있는
+    // 세계 관전에 부적합(2026-10-17 실측: 무입력 시 정지 프레임, CPU 0%).
+    // game 프리셋 = 포커스 중 Continuous + 백그라운드 60Hz 폴.
+    app.insert_resource(WinitSettings::game())
         // 0.20 — 그룹 빌더와 플러그인 혼합 튜플 add_plugins 불가, 분리 등록.
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
