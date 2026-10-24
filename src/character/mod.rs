@@ -8,12 +8,13 @@
 //!
 //! 하위 시스템: anim(상태 종류)·rig(본 이름표·바인드 상수)·
 //! proportion(치비화·부양량 측정)·ground(루트 y 단일 소유)·
-//! foot_lock(비보행 발바닥 수평). 근거·이행 계획:
+//! foot_lock(비보행 발바닥 수평)·fall(공간 중력·물리낙하). 근거·이행 계획:
 //! docs/character-module-redesign.md.
 
 use bevy::prelude::*;
 
 pub mod anim;
+pub mod fall;
 pub mod foot_lock;
 pub mod ground;
 pub mod leg_ik;
@@ -22,6 +23,7 @@ pub mod rig;
 pub mod tool;
 
 pub use anim::{AnimKind, AnimState};
+pub use fall::{Fall, SpaceGravity};
 pub use ground::{GroundActor, SurfaceField};
 pub use proportion::{ChibiDone, ChibiTarget, FootLift, SettleProbe};
 
@@ -46,6 +48,10 @@ impl<F: Resource + SurfaceField> Default for CharacterPlugin<F> {
 
 impl<F: Resource + SurfaceField> Plugin for CharacterPlugin<F> {
     fn build(&self, app: &mut App) {
+        // 공간 중력 기본값 — 게임이 이미 선언했으면 존중(이 게임: 지구 9.81).
+        if !app.world().contains_resource::<SpaceGravity>() {
+            app.insert_resource(SpaceGravity::EARTH);
+        }
         app.add_systems(
             Update,
             (proportion::chibiify, proportion::chibi_settle).chain(),

@@ -302,11 +302,13 @@ fn finish_villager_setup(
     });
     // 캐릭터 프레임워크 마커 — 치비화 대상·접지 액터·애님 상태 스냅샷
     // (P1 모듈화: 게임 무관 시스템이 이 컴포넌트만 본다).
+    // Fall: 절벽 단차에서 지구 중력 물리낙하 참여(fall.rs).
     commands.entity(entity).insert((
         crate::character::ChibiTarget,
         crate::character::GroundActor,
         crate::character::AnimState(AnimKind::Idle),
         crate::character::tool::HeldTool::default(),
+        crate::character::Fall::default(),
     ));
     true
 }

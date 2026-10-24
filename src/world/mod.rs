@@ -9,6 +9,7 @@ pub mod camera_rig;
 pub mod data;
 pub mod daynight;
 pub mod foot_probe;
+pub mod grav_probe;
 pub mod ground;
 pub mod night_glow;
 pub mod materials_guard;
@@ -54,6 +55,8 @@ impl Plugin for WorldPlugin {
         app.insert_resource(ClearColor(Color::srgb(0.30, 0.48, 0.68)))
             .init_resource::<prop_fit::MeshAabbCache>()
             .insert_resource(data::WorldData::generate(20261015))
+            // 공간 중력 — 맵은 지구(주민 물리낙하, character/fall.rs).
+            .insert_resource(crate::character::SpaceGravity::EARTH)
             .insert_resource(daynight::daytime_override_or_default())
             .insert_resource(precip::WeatherState::default())
             .insert_resource(camera_rig::CameraRig::default())
@@ -101,6 +104,11 @@ impl Plugin for WorldPlugin {
             crate::character::GroundSnapSet
                 .after(crate::net::apply::live_move)
                 .after(villager::wander),
+        );
+        // 중력 낙하 프로브(?tfdbg=drop) — 리프트가 스냅 전에 반영돼야 한다.
+        app.add_systems(
+            Update,
+            grav_probe::drop_probe.before(crate::character::GroundSnapSet),
         );
         // 발 앵커 계측(진단) — TF_FOOTDBG=1일 때만 로그, 평소 무음·무비용.
         app.add_systems(Update, (foot_probe::foot_probe, foot_probe::footdbg_camera));
