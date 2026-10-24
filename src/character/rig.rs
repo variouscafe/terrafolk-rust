@@ -35,7 +35,7 @@ pub const FOOT_R_BIND: bevy::math::Quat =
 /// proportion::bone_scale.
 pub const HEAD_SCALE: f32 = 2.05;
 pub const SPINE_SCALE: f32 = 0.70;
-pub const LEG_SCALE: f32 = 0.58;
+pub const LEG_SCALE: f32 = 0.50;
 pub const ARM_SCALE: f32 = 0.78;
 /// 발 — 균등 축소(회전된 본 로컬 축에 비균등은 shear 왜곡 — 4차 보고).
 /// Foot 본은 Root 직속이라 다리 축소가 전파되지 않는다 — **다리와 같은
