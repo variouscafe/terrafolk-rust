@@ -148,9 +148,11 @@ impl Plugin for NetPlugin {
             .init_resource::<feed::PollStore>()
             .init_resource::<feed::ChatLog>()
             .init_resource::<feed::EventLog>()
-            .init_resource::<feed::ToastQ>()
-            .init_resource::<look_sync::LookStore>()
-            .add_systems(Startup, (connect_bridge, apply::prime_live_world).chain())
+            .init_resource::<feed::ToastQ>();
+        // 외형 편집 동기화 자원 — 네이티브 전용 모듈(wasm은 DOM 편집기).
+        #[cfg(not(target_arch = "wasm32"))]
+        app.init_resource::<look_sync::LookStore>();
+        app.add_systems(Startup, (connect_bridge, apply::prime_live_world).chain())
             .add_plugins(inventions::plugin)
             .add_systems(
                 Update,
