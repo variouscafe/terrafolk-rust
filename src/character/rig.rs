@@ -18,6 +18,12 @@ pub const FOOT_ANCHORS: [&str; 8] = [
     "PT.R_end",
 ];
 
+/// 다리 체인 본(leg_ik 2본 솔브) — 고관절(상퇴)·무릎(하퇴)·발목(Foot 원점,
+/// 바인드에서 LowerLeg_end와 일치 — 2026-10-24 GLB 실측). 좌[0]·우[1].
+pub const HIP_BONES: [&str; 2] = ["UpperLeg.L", "UpperLeg.R"];
+pub const KNEE_BONES: [&str; 2] = ["LowerLeg.L", "LowerLeg.R"];
+pub const ANKLE_BONES: [&str; 2] = ["Foot.L", "Foot.R"];
+
 /// Foot 본 바인드 월드 회전(qchar 6종 공통 — 발바닥이 수평인 자세,
 /// 2026-10-23 오프라인 검증). foot_lock이 소비한다.
 pub const FOOT_L_BIND: bevy::math::Quat =

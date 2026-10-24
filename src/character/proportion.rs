@@ -76,9 +76,27 @@ pub fn chibi_settle(
             }
         }
         let drop = foot_y.map_or(0.0, |fy| (fy - tr.translation.y).max(0.0));
-        commands
-            .entity(root)
-            .insert(FootLift(drop + SOLE_CLEAR))
-            .remove::<SettleProbe>();
+        // 다리 IK 바인드 캡처 — 같은 프로브 시점(GT 전파 확정)에 체인 길이·
+        // 회전·방향을 저장(leg_ik의 Δ 기준 포즈). 양쪽 체인이 온전해야 부착.
+        let refs = super::leg_ik::leg_entities(root, &children_q, &names);
+        let mut sides: [Option<super::leg_ik::Side>; 2] = [None, None];
+        for (i, ((upper, lower), foot)) in refs
+            .upper
+            .iter()
+            .zip(&refs.lower)
+            .zip(&refs.foot)
+            .enumerate()
+        {
+            if let (Some(hip), Some(knee), Some(ankle)) = (upper, lower, foot)
+                && let Some(side) = super::leg_ik::capture_side(*hip, *knee, *ankle, &feet)
+            {
+                sides[i] = Some(side);
+            }
+        }
+        let mut cmd = commands.entity(root);
+        cmd.insert(FootLift(drop + SOLE_CLEAR)).remove::<SettleProbe>();
+        if let [Some(a), Some(b)] = sides {
+            cmd.insert(super::leg_ik::LegIkBind { sides: [a, b] });
+        }
     }
 }
