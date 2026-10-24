@@ -5,7 +5,7 @@ android:
   icon: "ios-src/Assets.xcassets/AppIcon.appiconset/icon_1024x1024.png"
   manifest:
     package: "com.terrafolk.rust"
-    version_code: 33 # Todo you should start at 1
+    version_code: 34 # Todo you should start at 1
     # 라이브 접속(net/native_conn.rs — 2026-10-18부터) — TCP/WS 소켓에 필수.
     # 누락 시 소켓 생성 자체가 EACCES로 실패(데모 관전만 가능했던 시절 불필요).
     uses_permission:
