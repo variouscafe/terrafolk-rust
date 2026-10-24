@@ -18,3 +18,4 @@ tools/quaternius-pool/
 proto2d/dist/
 tools/ubase-pool/*.zip
 proto2d/assets/lpc/*.painted.json
+tools/ubase-pool/ubase/
