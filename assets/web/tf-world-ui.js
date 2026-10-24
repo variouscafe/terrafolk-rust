@@ -324,7 +324,18 @@
       who.textContent = h.who + ' — ';
       body.appendChild(who);
     }
-    body.appendChild(document.createTextNode(h.text || ''));
+    var txtNode = document.createTextNode(h.text || '');
+    body.appendChild(txtNode);
+    // 자유문 토스트 MT 패치(레거시 useWorldConnection 동일) — 템플릿문은
+    // 이미 로케일 렌더라 번역이 제자리로 돌아온다.
+    (function () {
+      var i = window.TF_I18N;
+      var loc = i && i.getLocale();
+      if (!i || loc === 'en' || !h.text) return;
+      i.translateText(loc, h.text).then(function (tr) {
+        if (tr && tr !== h.text) txtNode.textContent = tr;
+      }).catch(function () {});
+    })();
     el.appendChild(ic);
     el.appendChild(body);
     toastHost.appendChild(el);

@@ -102,7 +102,12 @@
     var side = mmSide();
     mmHost = document.createElement('div');
     mmHost.id = 'tf-minimap';
-    mmHost.title = 'Minimap';
+    function setMmTitle() {
+      var i = window.TF_I18N;
+      mmHost.title = i ? i.tOr('minimap.title', 'Minimap') : 'Minimap';
+    }
+    setMmTitle();
+    if (window.TF_I18N) window.TF_I18N.onLocale(setMmTitle);
     mmCvs = document.createElement('canvas');
     mmCvs.width = side;
     mmCvs.height = side;

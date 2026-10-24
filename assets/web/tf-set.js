@@ -11,6 +11,8 @@
       body = '<button class="tf-logout" data-act="logout">' + svg(ICONS.LogOut, 14) + ' ' + esc(t('menu.logout')) + '</button>';
     } else {
       body =
+        '<p style="margin:0 0 .5rem;font-size:.8rem;color:var(--ink-300)">' +
+          esc(t('login.desc')) + '</p>' +
         '<div style="display:flex;flex-direction:column;gap:.25rem">' +
           '<a class="tf-oauth-google" href="/auth/google?next=%2F">' +
             '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">' +
@@ -20,7 +22,9 @@
               '<path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15A11 11 0 0 0 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52Z"/>' +
             '</svg>' + esc(t('menu.google')) + '</a>' +
           '<a class="tf-oauth-kakao" href="/auth/kakao?next=%2F">' + esc(t('menu.kakao')) + '</a>' +
-        '</div>';
+        '</div>' +
+        '<p style="margin:.5rem 0 0;font-size:.75rem;color:var(--ink-300)">' +
+          esc(t('login.spectate')) + '</p>';
     }
     return '<div class="tf-res-body tf-scroll"><section class="tf-card">' +
       '<h3>' + esc(t('set.account')) + '</h3>' +

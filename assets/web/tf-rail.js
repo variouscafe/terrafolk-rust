@@ -25,6 +25,20 @@
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
     });
   }
+  // 자유문 MT(목표·기억) — tf-ui mt와 동일 계약, 레일은 500ms 폴이므로
+  // 도착한 번역은 다음 폴에서 자동 반영된다(별도 리페인트 불필요).
+  var mtMap = {};
+  function mt(text) {
+    var i = I();
+    var loc = locale();
+    if (!i || loc === 'en' || !text) return text;
+    var key = loc + '|' + text;
+    if (mtMap[key] !== undefined) return mtMap[key];
+    i.translateText(loc, text).then(function (tr) {
+      if (tr !== text && mtMap[key] === undefined) mtMap[key] = tr;
+    }).catch(function () {});
+    return text;
+  }
   var dock = document.querySelector('.tf-chatdock');
 
   // 상태🫀·소지품🎒·기억🕰️(로그인 전용)·생활기록📜·관계💞 5종 pill 버튼이 화면
@@ -218,7 +232,7 @@
       });
       if (d.goalText !== (a.goalText || '')) {
         d.goalText = a.goalText || '';
-        d.goal.textContent = d.goalText ? '🎯 ' + d.goalText : '';
+        d.goal.textContent = d.goalText ? '🎯 ' + mt(d.goalText) : '';
         d.goal.title = d.goalText || '';
       }
       var hint = a.mine ? t('chat.hint.own', null, '') : t('chat.hint.spectator', null, '');
@@ -258,7 +272,7 @@
             return '<div class="tf-memrow"><span class="k" style="' +
               (MEM_KIND_STYLE[m.kind] || MEM_KIND_STYLE.action) + '">' +
               esc(tOr('mem.' + m.kind, m.kind)) + '</span>' +
-              '<span class="tx">' + esc(m.text || '') + '</span></div>';
+              '<span class="tx">' + esc(mt(m.text || '')) + '</span></div>';
           }).join('')
         : '<span class="tf-sempty">' + esc(t('panel.memories.empty', null, '—')) + '</span>';
     } else if (d.key === 'history') {

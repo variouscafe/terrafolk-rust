@@ -189,8 +189,14 @@
     if (i18n) c.nm.style.color = i18n.agentColor(sel);
     var act = info.actType || info.status || '';
     c.act.textContent = i18n && act ? i18n.tOr('act.' + act, act) : act;
-    c.input.placeholder = t('chat.placeholder.talk', { name: info.name || sel },
-      'Talk to ' + (info.name || sel) + '…');
+    // 내 캐릭이면 지시 어투 플레이스홀더로 변형(레거시 ChatBar 패리티).
+    var mine = false;
+    try {
+      var st = window.TF_UI && window.TF_UI.state;
+      mine = !!(st && st.mineDetail && st.mineDetail.some(function (m) { return m.id === sel; }));
+    } catch (e) { /* 상태 미구독 환경 폴백 */ }
+    c.input.placeholder = t(mine ? 'chat.placeholder.own' : 'chat.placeholder.talk',
+      { name: info.name || sel }, 'Talk to ' + (info.name || sel) + '…');
   }
 
   function select(id) { if (tf.selectAgent) tf.selectAgent(id || ''); }
@@ -291,14 +297,21 @@
       }
     }, 15000);
     c.input.value = '';
+    c.send.disabled = true; // 빈 입력 비활성(레거시 ChatBar 패리티)
     setLogOpen(true);
     renderLog();
   }
 
   c.send.addEventListener('click', send);
+  // 빈 입력 전송 버튼 비활성 — 상시 활성이면 무반응 클릭으로 오탐된다.
+  c.send.disabled = true;
+  c.input.addEventListener('input', function () {
+    c.send.disabled = !c.input.value.trim();
+  });
   c.input.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') { e.preventDefault(); send(); }
-    if (e.key === 'Escape') c.input.blur();   // 선택 해제는 캔버스 Escape(Rust)
+    // 입력 Esc = 선택 해제(레거시 ChatBar 동일 경로 — Rust deselect 브리지).
+    if (e.key === 'Escape') { c.input.blur(); select(null); }
   });
 
   // ── 타이핑 플래그 — winit keydown은 window에 붙어 DOM 입력 키도 Bevy에 온다.
