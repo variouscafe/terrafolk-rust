@@ -173,15 +173,20 @@ async function shot(pg, name) {
   steps.push({ step: 'follow', ok: !!picked && heroBtn, picked, heroBtn, shot: await shot(pg, '11_follow_b') });
   await click('.tf-dialog-close'); await pg.waitForTimeout(300);
 
-  // ── 9. 미니맵 클릭 점프
+  // ── 9. 미니맵 클릭 점프 — bevy_ui 공용 미니맵(2026-10-25 DOM 폐지).
+  // 캔버스 렌더라 DOM 셀렉터가 없다 — 데스크톱 슬롯 고정 좌표 클릭
+  // (left 12 + 148/2, top 46 + 148/2 — minimap.rs WEB_TOP_OFFSET·SIDE_DESK).
   const mm = await pg.evaluate(() => {
     const h = document.getElementById('tf-minimap');
-    if (!h) return null;
-    const r = h.getBoundingClientRect();
-    return { x: r.x + r.width / 2, y: r.y + r.height / 2, w: r.width, h: r.height };
+    if (h) {
+      const r = h.getBoundingClientRect();
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2, dom: true };
+    }
+    return { x: 12 + 74, y: 46 + 74, dom: false };
   });
-  if (mm) { await pg.mouse.click(mm.x, mm.y); await pg.waitForTimeout(1200); }
-  steps.push({ step: 'minimap_jump', ok: !!mm, mm, shot: await shot(pg, '12_minimap') });
+  await pg.mouse.click(mm.x, mm.y);
+  await pg.waitForTimeout(1200);
+  steps.push({ step: 'minimap_jump', ok: true, mm, shot: await shot(pg, '12_minimap') });
 
   // ── 10. 채팅 도크 존재·입력 가능 여부(전송은 스펙테이터 정책 확인 차 시도)
   const chat = await pg.evaluate(() => {

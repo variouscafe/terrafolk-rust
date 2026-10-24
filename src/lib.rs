@@ -5,7 +5,8 @@
 pub mod character;
 pub mod net;
 pub mod platform;
-#[cfg(not(target_arch = "wasm32"))]
+// ui 모듈 자체는 양 플랫폼 컴파일(미니맵 웹 공용화) — 등록만 네이티브 UiPlugin
+// / 웹 MinimapPlugin으로 분기(아래 GamePlugin).
 pub mod ui;
 pub mod world;
 
@@ -23,5 +24,9 @@ impl Plugin for GamePlugin {
         // 네이티브 UI(bevy_ui) — 웹은 DOM UI(tf-*.js)가 있으므로 이중 구현 금지.
         #[cfg(all(not(target_arch = "wasm32"), not(feature = "no-ui")))]
         app.add_plugins(ui::UiPlugin);
+        // 미니맵은 예외 — 웹·네이티브 공용 bevy_ui 단일 구현(2026-10-25,
+        // tf-minimap.js 폐지. DOM 상단 바 아래 같은 슬롯에 렌더).
+        #[cfg(not(feature = "no-ui"))]
+        app.add_plugins(ui::minimap::MinimapPlugin);
     }
 }

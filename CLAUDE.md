@@ -76,6 +76,12 @@ https://assetgen.pages.dev)가 이 기준으로 생성한다(2026-10-19 결정 �
   feature 단위 파일로 추가. 현재 `src/ui/`: theme(토큰)·hud(상단 바)·
   menu(☰·설정)·chars(주민 목록·선택 패널). 버튼은 Pointer<Click> 옵저버로
   (Interaction 폴링은 빠른 탭 유실 — 상세 native-ui-bevyui-recipe 메모).
+  **예외 — 웹 DOM→bevy_ui 단계 통일(2026-10-25 개시, 사용자 지시)**:
+  **미니맵**은 `MinimapPlugin`(minimap.rs·minimap_draw.rs)이 웹(wasm)과
+  네이티브 양측에 등록되는 단일 구현이다(tf-minimap.js 폐지 — 웹은 문명
+  레이어도 얻음). wasm은 `ui` 모듈의 공용 서브셋(minimap·minimap_draw·
+  theme)만 컴파일하고 나머지 네이티브 모듈은 cfg 게이트. 이후 컴포넌트
+  이식 때마다 게이트 한 줄씩 해제하는 방식으로 확장.
 - **⚠️ GPU 전처리 클램프 금지**: `GpuPreprocessingSupport.max_supported_mode`를
   매 프레임 Prepare에서 None으로 뒤집으면 배칭이 깨져 텍스처드 메시가 통째로
   안 그려진다(2026-10-18 실측 — '파란 화면만 보임'의 원인, a23804b에서

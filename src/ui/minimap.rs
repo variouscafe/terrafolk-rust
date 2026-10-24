@@ -1,4 +1,5 @@
-//! 미니맵 — 웹 tf-minimap.js의 bevy_ui 포트 + 문명 레이어.
+//! 미니맵 — 단일 구현(웹 wasm + 네이티브 공용, 2026-10-25 웹 DOM→bevy_ui
+//! 통일 첫 이식 — 나머지 웹 UI는 DOM 유지, CLAUDE.md UI 원칙의 명시 예외).
 //! 지형은 WorldData(GID 그리드)를 1px/타일로 베이크하고, 500ms 주기로
 //! 문명 레이어(건축물·시설)·자원 점·주민 점·뷰포트 박스를 덧그린다.
 //! 탭 → PanBridge 큐 → apply_pan_to(추적 해제·관성 정리는 그 규약).
@@ -11,14 +12,36 @@ use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::ui::RelativeCursorPosition;
 use std::collections::HashMap;
 
+use super::minimap_draw::{
+    ResState, SELECTED, TERRAIN, VILLAGER, VIEW_DARK, VIEW_GOLD, draw_demo_props, draw_live,
+    rect_fill, rect_stroke, terrain_sig,
+};
 use super::theme::UiTheme;
 use crate::net::apply::LiveAgentTag;
 use crate::net::{NetState, NetStatus};
 use crate::world::camera_rig::CameraRig;
-use crate::world::data::{PropKind, WorldData};
+use crate::world::data::WorldData;
 use crate::world::overlay::{PanBridge, view_box};
 use crate::world::pick::Selection;
 use crate::world::villager::Villager;
+
+/// 미니맵 플러그인 — 웹(wasm)·네이티브 양측에서 등록(lib.rs). UiPlugin과
+/// 별개로 자체 테마 확보(ensure_theme)하므로 플러그인 추가 순서와 무관하게
+/// 스폰이 안전하다(Res<UiTheme> 부재 패닉 회피).
+pub struct MinimapPlugin;
+
+impl Plugin for MinimapPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<MinimapState>()
+            .add_systems(Startup, (super::ensure_theme, spawn_minimap).chain())
+            .add_systems(Update, (update_minimap, apply_safe_top).chain());
+        // 웹은 DOM UI라 UiPlugin의 전체 Interaction 스캔이 없다 — 미니맵 위
+        // 포인터 → 월드 팬 양보(UiHover)를 여기서 직접 갱신. 탭 픽킹은
+        // pick.rs가 실시간 Interaction 스캔으로 자동 제외.
+        #[cfg(target_arch = "wasm32")]
+        app.add_systems(Update, hover_gate);
+    }
+}
 
 /// 루트 마커 — 세이프에어리어 패치 대상(top = 인셋 + HUD 아래).
 #[derive(Component)]
@@ -32,38 +55,20 @@ pub struct MinimapChip;
 
 const SIDE_DESK: f32 = 148.0;
 const SIDE_MOB: f32 = 112.0;
-/// HUD 높이 30px + 여백 — MinimapRoot.top 오프셋(apply_safe_area와 커플).
+/// HUD 높이 30px + 여백 — MinimapRoot.top 오프셋(네이티브).
 pub const SAFE_TOP_OFFSET: f32 = 34.0;
+/// 웹 DOM 상단 바 아래 슬롯 — 구 tf-minimap.js top:46과 동일 자리.
+const WEB_TOP_OFFSET: f32 = 46.0;
 const UPDATE_SECS: f32 = 0.5;
 
-type Rgba = [u8; 4];
-const fn rgb(hex: [u8; 3]) -> Rgba {
-    [hex[0], hex[1], hex[2], 255]
+/// 루트 top — 네이티브=인셋+HUD, 웹=DOM 상단 바 아래 고정 슬롯.
+fn top_offset(safe: &crate::platform::safe_area::SafeArea) -> f32 {
+    if cfg!(target_arch = "wasm32") {
+        WEB_TOP_OFFSET
+    } else {
+        safe.top + SAFE_TOP_OFFSET
+    }
 }
-/// GID 1..6 → 지형색(웹 TERRAIN_COLORS와 동일 팔레트).
-const TERRAIN: [Rgba; 6] = [
-    rgb([0x63, 0xc5, 0xcf]), // water
-    rgb([0xea, 0xa5, 0x6c]), // sand
-    rgb([0x8d, 0xc4, 0x35]), // grass
-    rgb([0x4f, 0x94, 0x48]), // forest
-    rgb([0x9a, 0x94, 0x8a]), // rock
-    rgb([0xc8, 0xa0, 0x6a]), // dirt
-];
-const TREE: Rgba = rgb([0x2f, 0x5d, 0x2a]);
-const TREE_DEAD: Rgba = rgb([0x6b, 0x5a, 0x48]);
-const GOLD: Rgba = rgb([0xf0, 0xc0, 0x2e]);
-const PLANT: Rgba = rgb([0xb8, 0xe9, 0x86]);
-const HUT_DONE: Rgba = rgb([0xb5, 0x71, 0x3f]);
-const HUT_WIP: Rgba = rgb([0xff, 0xd2, 0x8a]);
-const CAMP_LIT: Rgba = rgb([0xff, 0x9f, 0x43]);
-const CAMP_OUT: Rgba = rgb([0x6b, 0x5a, 0x48]);
-const GRAVE: Rgba = rgb([0xe8, 0xe4, 0xda]);
-const RELIC: Rgba = rgb([0xb4, 0x8e, 0xe0]);
-const STASH: Rgba = rgb([0xc9, 0xa3, 0x6a]);
-const VILLAGER: Rgba = rgb([0xff, 0x6b, 0x6b]);
-const SELECTED: Rgba = rgb([0xff, 0xff, 0xff]);
-const VIEW_DARK: Rgba = [20, 24, 16, 165];
-const VIEW_GOLD: Rgba = [255, 224, 138, 250];
 
 #[derive(Resource)]
 pub struct MinimapState {
@@ -82,14 +87,6 @@ struct Bake {
     sig: u64,
     size: usize,
     pixels: Vec<u8>,
-}
-
-#[derive(Default, Clone, Copy)]
-struct ResState {
-    w: u16,
-    h: u16,
-    done: bool,
-    lit: bool,
 }
 
 impl Default for MinimapState {
@@ -116,7 +113,7 @@ pub fn spawn_minimap(
             MinimapRoot,
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Px(safe.top + SAFE_TOP_OFFSET),
+                top: Val::Px(top_offset(&safe)),
                 left: Val::Px(12.0),
                 flex_direction: FlexDirection::Column,
                 row_gap: Val::Px(4.0),
@@ -308,6 +305,35 @@ pub fn update_minimap(
     }
 }
 
+/// 루트 top 패치 — 안드로이드 인셋 늦은 확정(0.5s 리프레시) 대응.
+/// UiPlugin::apply_safe_area에서 이관(미니맵이 플러그인 분리와 함께 소유).
+fn apply_safe_top(
+    safe: Res<crate::platform::safe_area::SafeArea>,
+    mut q: Query<&mut Node, With<MinimapRoot>>,
+    mut applied: Local<f32>,
+) {
+    let top = top_offset(&safe);
+    if (top - *applied).abs() < 0.5 {
+        return;
+    }
+    *applied = top;
+    if let Ok(mut n) = q.single_mut() {
+        n.top = Val::Px(top);
+    }
+}
+
+/// 웹 전용 — 미니맵 위 포인터를 월드 팬 입력 양보로 알림. 네이티브은
+/// UiPlugin의 전체 Interaction 스캔이 같은 역할을 한다(이 시스템 없음).
+#[cfg(target_arch = "wasm32")]
+fn hover_gate(
+    q: Query<&Interaction, With<MinimapMap>>,
+    mut hover: ResMut<crate::platform::UiHover>,
+) {
+    hover.0 = q
+        .single()
+        .is_ok_and(|i| matches!(i, Interaction::Hovered | Interaction::Pressed));
+}
+
 fn chip_label(net: &NetState, inv: &mut Option<(String, usize)>) -> String {
     match net.status {
         NetStatus::Connected => {
@@ -335,165 +361,5 @@ fn chip_label(net: &NetState, inv: &mut Option<(String, usize)>) -> String {
         NetStatus::Connecting => "…연결 중".to_owned(),
         NetStatus::Reconnecting => "↻ 재접속 중".to_owned(),
         NetStatus::Idle => "데모 마을".to_owned(),
-    }
-}
-
-/// 라이브 자원·구조물 — resMap과 동일 팔레트 + 문명 레이어(건축 발판은
-/// 서버 앵커=좌상단 타일, state.w/h — §17.75).
-fn draw_live(
-    buf: &mut [u8],
-    size: usize,
-    frame: &crate::net::LiveFrame,
-    cache: &mut HashMap<u32, (String, ResState)>,
-) {
-    use crate::net::LiveResource;
-    let parse = |r: &LiveResource, cache: &mut HashMap<u32, (String, ResState)>| {
-        let raw = r.state.as_deref().unwrap_or("");
-        if let Some((prev, parsed)) = cache.get(&r.id)
-            && prev == raw
-        {
-            return *parsed;
-        }
-        let v: serde_json::Value = serde_json::from_str(raw).unwrap_or_default();
-        let g = |k: &str| v.get(k);
-        let ty = g("type").and_then(|t| t.as_str()).unwrap_or("");
-        let w = g("w")
-            .and_then(|w| w.as_u64())
-            .filter(|w| *w >= 1)
-            .map(|w| w as u16)
-            .unwrap_or(match ty {
-                "LONGHOUSE" | "WAREHOUSE" => 3,
-                "WINDBREAK" => 1,
-                _ => 2,
-            });
-        let h = g("h")
-            .and_then(|h| h.as_u64())
-            .filter(|h| *h >= 1)
-            .map(|h| h as u16)
-            .unwrap_or(match ty {
-                "WAREHOUSE" => 3,
-                "WINDBREAK" => 1,
-                _ => 2,
-            });
-        let parsed = ResState {
-            w,
-            h,
-            done: g("stage")
-                .and_then(|s| s.as_str())
-                .map(|s| s == "COMPLETED")
-                .unwrap_or(true),
-            lit: g("lit").and_then(|l| l.as_bool()).unwrap_or(false),
-        };
-        cache.insert(r.id, (raw.to_owned(), parsed));
-        parsed
-    };
-    for r in &frame.resources {
-        match r.kind.as_str() {
-            "tree" => px(buf, size, r.x as usize, r.y as usize, TREE),
-            "plant" => px(buf, size, r.x as usize, r.y as usize, PLANT),
-            "gold_vein" => px(buf, size, r.x as usize, r.y as usize, GOLD),
-            "hut" => {
-                let st = parse(r, cache);
-                let c = if st.done { HUT_DONE } else { HUT_WIP };
-                rect_fill(
-                    buf,
-                    size,
-                    r.x as usize,
-                    r.y as usize,
-                    st.w as usize,
-                    st.h as usize,
-                    c,
-                );
-            }
-            "campfire" => {
-                let st = parse(r, cache);
-                rect_fill(
-                    buf,
-                    size,
-                    r.x as usize,
-                    r.y as usize,
-                    2,
-                    2,
-                    if st.lit { CAMP_LIT } else { CAMP_OUT },
-                );
-            }
-            "grave" => px(buf, size, r.x as usize, r.y as usize, GRAVE),
-            "relic" => px(buf, size, r.x as usize, r.y as usize, RELIC),
-            "stash" => px(buf, size, r.x as usize, r.y as usize, STASH),
-            _ => {} // animal 등 — 주민 점과 혼동돼 스킵(웹과 동일)
-        }
-    }
-}
-
-/// 데모 프롭 — WorldData.props(결정론 배치)를 같은 문명 팔레트로.
-fn draw_demo_props(buf: &mut [u8], size: usize, world: &WorldData) {
-    for p in &world.props {
-        let (x, y) = (p.x, p.y);
-        match p.kind {
-            PropKind::TreeBroadleaf
-            | PropKind::TreePine
-            | PropKind::TreePalm
-            | PropKind::TreeSapling => px(buf, size, x, y, TREE),
-            PropKind::TreeDead => px(buf, size, x, y, TREE_DEAD),
-            PropKind::GoldVein => px(buf, size, x, y, GOLD),
-            PropKind::BerryBush => px(buf, size, x, y, PLANT),
-            PropKind::Boulder => px(buf, size, x, y, TERRAIN[4]),
-            PropKind::Hut | PropKind::Tent => rect_fill(buf, size, x, y, 2, 2, HUT_DONE),
-            PropKind::StorageHut => rect_fill(buf, size, x, y, 3, 3, HUT_DONE),
-            PropKind::Windbreak => px(buf, size, x, y, HUT_WIP),
-            PropKind::Campfire => rect_fill(buf, size, x, y, 2, 2, CAMP_LIT),
-            PropKind::Grave => px(buf, size, x, y, GRAVE),
-            PropKind::Stash => px(buf, size, x, y, STASH),
-            PropKind::Relic => px(buf, size, x, y, RELIC),
-            PropKind::FlowerClump
-            | PropKind::GrassClump
-            | PropKind::WoodLog
-            | PropKind::ClayPot
-            | PropKind::AnimalBoar
-            | PropKind::AnimalDeer
-            | PropKind::AnimalWaterDeer
-            | PropKind::AnimalSquirrel
-            | PropKind::AnimalPheasant => {}
-        }
-    }
-}
-
-/// 지형 시그니처(FNV-1a) — 맵 교체(데모→라이브 프라임) 감지.
-fn terrain_sig(terrain: &[u8]) -> u64 {
-    let mut hash: u64 = 0xcbf29ce484222325;
-    for &b in terrain {
-        hash ^= b as u64;
-        hash = hash.wrapping_mul(0x100000001b3);
-    }
-    hash
-}
-
-fn px(buf: &mut [u8], size: usize, x: usize, y: usize, c: Rgba) {
-    if x < size && y < size {
-        let o = (y * size + x) * 4;
-        buf[o..o + 4].copy_from_slice(&c);
-    }
-}
-
-fn rect_fill(buf: &mut [u8], size: usize, x: usize, y: usize, w: usize, h: usize, c: Rgba) {
-    for dy in 0..h {
-        for dx in 0..w {
-            px(buf, size, x + dx, y + dy, c);
-        }
-    }
-}
-
-/// 픽셀 외곽선(양 끝 포함) — 뷰포트 박스.
-fn rect_stroke(buf: &mut [u8], size: usize, x0: usize, y0: usize, x1: usize, y1: usize, c: Rgba) {
-    if x1 < x0 || y1 < y0 || x1 >= size || y1 >= size {
-        return;
-    }
-    for x in x0..=x1 {
-        px(buf, size, x, y0, c);
-        px(buf, size, x, y1, c);
-    }
-    for y in y0..=y1 {
-        px(buf, size, x0, y, c);
-        px(buf, size, x1, y, c);
     }
 }

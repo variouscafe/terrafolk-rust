@@ -1,32 +1,57 @@
 //! 네이티브 UI — 레거시 FE 기능 패리티(bevy_ui, 안드로이드·iOS·PC 공용).
 //! 웹(wasm)은 DOM UI(tf-*.js)를 쓰므로 이 모듈은 네이티브에서만 등록한다
-//! (UI 이중 구현 금지 원칙 — CLAUDE.md 설계 원칙).
+//! (UI 이중 구현 금지 원칙 — CLAUDE.md 설계 원칙). **예외: 미니맵**은
+//! MinimapPlugin(minimap.rs)이 웹·네이티브 양측에 등록된다(2026-10-25
+//! 웹 DOM→bevy_ui 단계 통일 첫 이식).
 //!
 //! 구성(기능별 파일, 500줄 규칙): theme(디자인 토큰) · hud(상단 바) ·
 //! menu(☰ 드롭다운·팝업 셸·설정) · chars(주민 목록·선택 패널).
 
+// 네이티브 전용 모듈 — DOM UI(웹)와 이중 구현 금지. wasm은 아래 공용
+// 3종(minimap·minimap_draw·theme)만 컴파일한다.
+#[cfg(not(target_arch = "wasm32"))]
 pub mod chars;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod chat;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod civ;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod daydial;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod hud;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod i18n;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod i18n_data;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod i18n_view;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod log;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod look;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod look_data;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod look_view;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod menu;
 pub mod minimap;
+pub mod minimap_draw;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod rail;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod res;
 pub mod theme;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod toasts;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod tooltip;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod world_overlay;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod world_overlay_badges;
 
+#[cfg(not(target_arch = "wasm32"))]
 use bevy::input::keyboard::KeyboardInput;
 use bevy::prelude::*;
 
@@ -58,13 +83,15 @@ pub struct PointerOverUi(pub bool);
 #[derive(Component)]
 pub struct CloseButton;
 
+/// 네이티브 UI 플러그인 — 웹은 미니맵만(MinimapPlugin) 등록.
+#[cfg(not(target_arch = "wasm32"))]
 pub struct UiPlugin;
 
+#[cfg(not(target_arch = "wasm32"))]
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<UiState>()
             .init_resource::<PointerOverUi>()
-            .init_resource::<minimap::MinimapState>()
             .init_resource::<daydial::DayDialState>()
             .add_systems(
                 Startup,
@@ -85,7 +112,6 @@ impl Plugin for UiPlugin {
                         rail::spawn,
                         toasts::spawn_toasts,
                         tooltip::spawn_tooltip,
-                        minimap::spawn_minimap,
                     ),
                 )
                     .chain(),
@@ -119,7 +145,6 @@ impl Plugin for UiPlugin {
                     rail::refresh_rail,
                     toasts::update_toasts,
                     tooltip::update_tooltip,
-                    minimap::update_minimap,
                     apply_safe_area,
                 )
                     .chain(),
@@ -130,6 +155,8 @@ impl Plugin for UiPlugin {
 
 /// 인셋이 늦게 확정되면(0.5초 리프레시) 이미 스폰된 노드 위치를 패치.
 /// HUD 상단·드롭다운 상단·선택 패널 하단을 SafeArea로 다시 쓴다.
+/// (미니맵 top 패치는 MinimapPlugin::apply_safe_top — 웹 공용 이관.)
+#[cfg(not(target_arch = "wasm32"))]
 #[allow(clippy::type_complexity)]
 fn apply_safe_area(
     safe: Res<crate::platform::safe_area::SafeArea>,
@@ -141,15 +168,6 @@ fn apply_safe_area(
             With<chars::SelPanel>,
             Without<hud::HudRoot>,
             Without<menu::MenuDropdown>,
-        ),
-    >,
-    mut q_mini: Query<
-        &mut Node,
-        (
-            With<minimap::MinimapRoot>,
-            Without<hud::HudRoot>,
-            Without<menu::MenuDropdown>,
-            Without<chars::SelPanel>,
         ),
     >,
     mut applied: Local<crate::platform::safe_area::SafeArea>,
@@ -167,9 +185,7 @@ fn apply_safe_area(
     if let Ok(mut n) = q_panel.single_mut() {
         n.bottom = Val::Px(safe.bottom + 8.0);
     }
-    if let Ok(mut n) = q_mini.single_mut() {
-        n.top = Val::Px(safe.top + minimap::SAFE_TOP_OFFSET);
-    }
+    // 미니맵 top 패치는 MinimapPlugin::apply_safe_top이 담당(플러그인 이관).
 }
 
 /// 팝업 백드롭 탭 → 팝업 닫기(모바일 표준 UX). 각 팝업 루트에 observe로 부착.
@@ -181,6 +197,7 @@ pub fn close_on_backdrop(_: On<Pointer<Click>>, mut state: ResMut<UiState>) {
 /// 레일 패널 → 팝업 → ☰ 메뉴 → 주민 선택 해제 → 앱 종료(안드로이드 표준).
 /// 키가 Bevy에 전달되면 액티비티 종결은 막히므로, 마지막 단계는 직접
 /// AppExit를 쓴다(데스크톱·웹은 뒤로 가기로 앱을 끊는 관행이 없어 제외).
+#[cfg(not(target_arch = "wasm32"))]
 fn back_close(
     keys: Res<ButtonInput<KeyCode>>,
     mut key_msgs: MessageReader<KeyboardInput>,
@@ -221,13 +238,30 @@ fn back_close(
 
 /// 폰트 로드 → 테마 리소스. HUD·팝업 스폰이 이 뒤에 오므로 스폰 시점에
 /// 핸들이 존재한다(에셋 로드는 비동기하지만 핸들 자체는 즉시 생성).
+#[cfg(not(target_arch = "wasm32"))]
 fn load_theme(mut commands: Commands, assets: Res<AssetServer>) {
     commands.insert_resource(theme::UiTheme {
         font: assets.load("fonts/NotoSansKR-Regular.otf"),
     });
 }
 
+/// 테마 확보 — MinimapPlugin(웹·네이티브 공용)이 UiPlugin과 무관한 순서로
+/// 스폰할 때 쓴다. 이미 있으면 건드리지 않는다(멱등 — 폰트 핸들은
+/// AssetServer 경로 캐시라 중복 로드도 동일 핸들).
+pub(crate) fn ensure_theme(
+    mut commands: Commands,
+    assets: Res<AssetServer>,
+    existing: Option<Res<theme::UiTheme>>,
+) {
+    if existing.is_none() {
+        commands.insert_resource(theme::UiTheme {
+            font: assets.load("fonts/NotoSansKR-Regular.otf"),
+        });
+    }
+}
+
 /// 호버된 버튼이 하나라도 있으면 포인터는 UI 위 — 월드 입력 차단 근거.
+#[cfg(not(target_arch = "wasm32"))]
 fn update_pointer_over_ui(
     interactions: Query<&Interaction>,
     state: Res<UiState>,

@@ -73,11 +73,7 @@
     '.tf-toast .ic{font-size:16px;line-height:1.1;}' +
     '.tf-toast .who{font-weight:600;color:var(--ink-50,#f8f5ef);}' +
     '@keyframes tf-toast-in{from{opacity:0;transform:translateY(6px);}}' +
-    // 미니맵 — 좌측 상단, 탑바 바로 아래(FE와 동일 위치)
-    '#tf-minimap{position:fixed;left:12px;top:46px;z-index:26;overflow:hidden;' +
-    'border-radius:8px;border:2px solid rgba(6,8,10,.9);' +
-    'box-shadow:0 10px 24px rgba(0,0,0,.4);cursor:crosshair;pointer-events:auto;}' +
-    '#tf-minimap canvas{display:block;width:100%;height:100%;image-rendering:pixelated;}' +
+    // (미니맵 DOM 슬롯 폐지 — bevy_ui 공용 렌더로 이관, 2026-10-25)
     // 자원 호버 툴팁 — 마우스 전용(FE makeTooltip 룩: 검은 배경 12px, 220px wrap)
     '#tf-restip{position:fixed;z-index:27;display:none;max-width:220px;padding:4px 6px;' +
     'border-radius:4px;background:rgba(0,0,0,.85);color:#f5f2e8;font-size:12px;' +
@@ -261,7 +257,6 @@
       var f = JSON.parse(json);
     } catch (e) { return; }
     zoom = Number(f.z) || 1;
-    window.TF_VIEW.rect = f.v || null;   // 미니맵(tf-minimap.js)이 소비
     proj = {};
     seen = {};
     var arr = f.a || [];
