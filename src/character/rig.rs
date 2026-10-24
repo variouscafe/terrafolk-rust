@@ -6,7 +6,7 @@
 //! Foot/PT 채널이 없다. 앵커 스캔은 qchar 이름만 — 헤어 GLB가 ubase
 //! 리그 뼈(foot_l 등, 지면 2.7m 아래 스폰)를 계층에 섞어오기 때문.
 
-/// 발 앵커 측정 목록 — 발목(Foot)·발볼(PT)·말단 리프(_end).
+/// 발 앵커 측정 목록 — 발목(Foot)·폴 타깃 헬퍼(PT, 스킨 가중치 0)·말단 리프.
 pub const FOOT_ANCHORS: [&str; 8] = [
     "Foot.L",
     "Foot.R",
@@ -24,16 +24,34 @@ pub const HIP_BONES: [&str; 2] = ["UpperLeg.L", "UpperLeg.R"];
 pub const KNEE_BONES: [&str; 2] = ["LowerLeg.L", "LowerLeg.R"];
 pub const ANKLE_BONES: [&str; 2] = ["Foot.L", "Foot.R"];
 
-/// 고관절·발 앵커 횡간 수렴 배율 — 뼈 스케일은 본 위치를 못 옮기므로
-/// 치비화가 다리만 줄이면 고관절이 원본 폭으로 남아 허벅지가 벌어진다
-/// (사람처럼 = 다리 굵기 대비 좁은 골반, 2026-10-24 사용자 보고). 로컬
-/// translation.x(횡축)에 곱한다. Walk는 클립이 Foot translation을 매
-/// 프레임 재작성 — foot_lock이 같은 배율로 되좁힌다(중첩 없음).
+/// 고관절 횡간 수렴 배율 — 뼈 스케일은 본 위치를 못 옮기므로 치비화가
+/// 다리만 줄이면 고관절이 원본 폭으로 남아 허벅지가 벌어진다(사람처럼 =
+/// 다리 굵기 대비 좁은 골반, 2026-10-24 사용자 보고). 고관절 translation.x
+/// (chibiify)와 발 본 위치 사상(map_foot_local)의 횡축이 소비한다.
 pub const HIP_NARROW: f32 = 0.6;
 
-/// 횡간 수렴 대상 본 — 고관절(상퇴)·발볼(PT)·발목(Foot).
+/// 횡간 수렴 대상 본 — 고관절(상퇴)만. Foot/PT의 횡간은 map_foot_local이
+/// 고관절 피벗 사상에 통합 관할한다(별도 x-narrow 중복 제거, 2026-10-24).
 pub fn narrow_bone(name: &str) -> bool {
-    HIP_BONES.contains(&name) || ANKLE_BONES.contains(&name) || name.starts_with("PT.")
+    HIP_BONES.contains(&name)
+}
+
+/// 치비 발 위치 사상 — Root 직속 발 본(Foot/PT)의 저작 translation을 치비
+/// 다리에 정합한다: 고관절 피벗 중심 LEG_SCALE 수축 + 횡간 HIP_NARROW 수렴.
+///
+/// 근거(2026-10-24 GLB 실측): 원본 리그는 발목 본 == 다리 체인 끝(바인드
+/// 편차 0)이 성립하지만 Foot/PT는 Root 직속이라 LEG_SCALE 축소가 전파되지
+/// 않는다 — 축소 후 발목 본이 정강이 끝보다 0.46 에셋m 아래에 남는다
+/// (다리가 발목에 못 미치는 채 스윙 = 발 부유·발목 무꺾임·과보폭의 원인,
+/// 0.8.20 캡처 보고). 피벗 사상 하나로 바인드·Walk/Punch 클립 저작값이
+/// 전부 치비 체인과 정합하고, 스킨 밑창이 최저 앵커와 0.07~1.6mm 이내로
+/// 붙는다(6종 LBS 검증).
+pub fn map_foot_local(authored: bevy::math::Vec3, hip_local: bevy::math::Vec3) -> bevy::math::Vec3 {
+    bevy::math::Vec3::new(
+        hip_local.x * HIP_NARROW + LEG_SCALE * (authored.x - hip_local.x),
+        hip_local.y + LEG_SCALE * (authored.y - hip_local.y),
+        hip_local.z + LEG_SCALE * (authored.z - hip_local.z),
+    )
 }
 
 /// Foot 본 바인드 월드 회전(qchar 6종 공통 — 발바닥이 수평인 자세,
@@ -57,10 +75,10 @@ pub const ARM_SCALE: f32 = 0.62;
 /// 2026-10-24 — 0.34는 발을 다리 대비 59%로 왜곡해 이상 보행의 한 축).
 pub const FOOT_SCALE: f32 = LEG_SCALE;
 
-/// 측정 앵커(발목 본 원점)가 메시 밑창보다 위인 오프셋 보정(미터) —
-/// 바인드 δ≈0.023(에셋 단위) × 핏 스케일 ≈0.74 × 발 축소 0.34.
-/// FootLift에 더해 **메시 밑창**(앵커 아님)이 지면에 닿게 한다.
-pub const SOLE_CLEAR: f32 = 0.006;
+/// 측정 앵커(발목 본 원점)와 스킨 밑창의 잔차 보정(미터) — 발 위치 사상
+/// 적용 후 잔차는 6종 실측 0.07~1.6mm(발 본을 치비 체인 끝에 옮기면 LBS가
+/// 밑창을 함께 내린다). 접지 확정감을 위한 소량 클리어런스만 남긴다.
+pub const SOLE_CLEAR: f32 = 0.002;
 
 /// 본 이름별 치비 배율 — 이중 리그. ⚠️ 체인 최상단 본만 매칭(로컬 스케일은
 /// 자손 전파 — 모든 뼈에 곱하면 0.82³ 누적 왜곡, 2026-10-18 실측).
