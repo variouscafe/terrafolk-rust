@@ -49,6 +49,13 @@ pub fn foot_lock<F: Resource + SurfaceField>(
             } else {
                 1.0
             };
+            // Walk 클립은 Foot translation을 매 프레임 재작성(저작 폭 복원)
+            // — 치비 수렴 배율로 되좁힌다. 클립이 원값을 다시 쓰므로 중첩 없음.
+            if state.0 == AnimKind::Walk
+                && let Ok(mut bone) = bones.get_mut(d)
+            {
+                bone.translation.x *= super::rig::HIP_NARROW;
+            }
             if w <= 0.0 {
                 continue;
             }

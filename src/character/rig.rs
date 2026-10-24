@@ -24,6 +24,18 @@ pub const HIP_BONES: [&str; 2] = ["UpperLeg.L", "UpperLeg.R"];
 pub const KNEE_BONES: [&str; 2] = ["LowerLeg.L", "LowerLeg.R"];
 pub const ANKLE_BONES: [&str; 2] = ["Foot.L", "Foot.R"];
 
+/// 고관절·발 앵커 횡간 수렴 배율 — 뼈 스케일은 본 위치를 못 옮기므로
+/// 치비화가 다리만 줄이면 고관절이 원본 폭으로 남아 허벅지가 벌어진다
+/// (사람처럼 = 다리 굵기 대비 좁은 골반, 2026-10-24 사용자 보고). 로컬
+/// translation.x(횡축)에 곱한다. Walk는 클립이 Foot translation을 매
+/// 프레임 재작성 — foot_lock이 같은 배율로 되좁힌다(중첩 없음).
+pub const HIP_NARROW: f32 = 0.6;
+
+/// 횡간 수렴 대상 본 — 고관절(상퇴)·발볼(PT)·발목(Foot).
+pub fn narrow_bone(name: &str) -> bool {
+    HIP_BONES.contains(&name) || ANKLE_BONES.contains(&name) || name.starts_with("PT.")
+}
+
 /// Foot 본 바인드 월드 회전(qchar 6종 공통 — 발바닥이 수평인 자세,
 /// 2026-10-23 오프라인 검증). foot_lock이 소비한다.
 pub const FOOT_L_BIND: bevy::math::Quat =
