@@ -51,12 +51,21 @@ https://assetgen.pages.dev)가 이 기준으로 생성한다(2026-10-19 결정 �
 - **`src/character/` = 게임 무관 캐릭터 프레임워크**(2026-10-24 지정 —
   `docs/character-module-redesign.md` 참조, 이행 진행 중): 리그 디스크립터·
   비율(치비)·접지(표면장+FootLift+그림자)·다리 IK·행동→모션 매핑·도구
-  부착·애님 상태머신. 게임 측은 `CharacterTag`·표면장·activity 코드만
+  부착·애님 상태머신·**공간 중력(fall.rs — SpaceGravity 리소스가 세계
+  단위 소유, 이 게임=지구 9.81·Fall 적분기·절벽 이력현상)**·**지시 행동
+  (action.rs — ActiveAction 상태머신: 토스 캐치·전방 투척 반발·점프·
+  둘이서 캐치볼 탄도 해)**. 게임 측은 `CharacterTag`·표면장·activity 코드만
   제공한다. 기존 chibi.rs·ground.rs·foot_lock.rs·wear 앵커는 이 모듈로
   흡수 중 — **캐릭터 기능 추가는 character/에 게임 무관 형태로 먼저**.
 - **`src/world/` = 이 게임 콘텐츠**(지형·주민·후처리 카메라 등). 플랫폼
   가드가 필요하면 platform으로, 재질 가드처럼 게임 고유면 world에 둔다.
   캐릭터의 게임 고유 부분(주민 AI·넷 동기·선택)만 world에 둔다.
+- **채팅 지시 → 물리 행동(2026-10-24~25)**: 웹 채팅 원문이 ui.js에서
+  `tf.chatAction(agentId, text)` 브리지로 들어와 `world/chat_action.rs`가
+  한국어 어간표로 파싱(던졌다/던져/멀리/점프/캐치볼…) → 대상 주민에
+  `ActiveAction` 부착(수면·수행 중은 명시 거부). **시나리오 추가 = 파서
+  표 1행 + ActionKind 변체**. 게이트 `tools/e2e/action_chat.cjs`
+  (헤디드, 깨어 있는 앵커 우선 픽 — 이동 주민은 앵커 위치 재판독 필수).
 - **아키텍처 게이트(chartcraft 벤치마크, 2026-10-24)**: 계층 의존 방향
   (platform·character ← world만 허용)은 관례가 아니라 점진적으로 빌드
   게이트로 강제한다(cargo xtask layers 패턴). 채택 관행 8종 전체 목록은
