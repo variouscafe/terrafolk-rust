@@ -3,13 +3,20 @@
 //! 피한다. 파티클은 엔티티 풀(공유 메시·unlit 블렌드 재질) — 시야 영역
 //! (rig.target 중심 view_box×1.5) 안에서 떨어지고 지면 도달·이탈 시 재롤.
 //! 안개·흐림 톤은 기존 sky_mix→apply_sky가 담당(구현 완료 상태).
+//!
+//! **중력 낙하(2026-10-24)**: 낙하 속도는 상수가 아니라 종단속도로 수렴하는
+//! 적분(비 g=25·항력 큼, 눈 g=3.8·부유폭 넓음 — 재롤 직후 저속 가속이
+/// 보인다). 지면 접촉은 y=0 근사가 아니라 **표면장(WorldData.surface_height)**
+/// — 언덕에 파묻히거나 수면을 뚫지 않는다. 눈은 착지 후 잠시 체류(퇴적감) 후
+/// 재롤.
 
 use bevy::math::primitives::Rectangle;
 use bevy::picking::Pickable;
 use bevy::prelude::*;
 
 use super::camera_rig::CameraRig;
-use super::data::Rng;
+use super::data::{Rng, WorldData};
+use super::ground::WATER_STAND_Y;
 use super::overlay::view_box;
 use super::precip::WeatherState;
 use super::propsfx::CAM_FACE;
@@ -21,6 +28,13 @@ const COUNT_SNOW: usize = 160;
 /// 재롤 높이 범위(m).
 const TOP_MIN: f32 = 10.0;
 const TOP_MAX: f32 = 13.0;
+/// 중력·항력 (m/s², 1/s) — vy' = g − k·vy → 종단속도 g/k.
+const RAIN_G: f32 = 25.0;
+const RAIN_DRAG: f32 = 2.6; // 종단 ≈ 9.6m/s
+const SNOW_G: f32 = 3.8;
+const SNOW_DRAG: f32 = 2.4; // 종단 ≈ 1.6m/s
+/// 눈 착지 체류(s) — 퇴적감.
+const SNOW_REST: (f32, f32) = (0.6, 1.8);
 
 #[derive(Component)]
 pub struct PrecipDrop {
@@ -28,6 +42,8 @@ pub struct PrecipDrop {
     sway: f32,
     phase: f32,
     snow: bool,
+    /// 착지 눈의 남은 체류(s) — None이면 낙하 중.
+    rest: Option<f32>,
 }
 
 #[derive(Component)]
@@ -45,6 +61,11 @@ pub struct PrecipState {
     flash_alpha: f32,
     /// 파티클 난수(비결정 — 시드는 부팅 시각).
     rng: Rng,
+}
+
+/// 착지 판정 지면 고도 — 표면장(불투명 수면 위 클램프).
+fn ground_at(world: &WorldData, x: f32, z: f32) -> f32 {
+    world.surface_height(x, z).max(WATER_STAND_Y)
 }
 
 /// 플래시 노드 스폰(부팅 1회) + 상태 리소스 — 전면 커버, 픽킹 제외.
@@ -152,17 +173,20 @@ pub fn adjust_pool(
         tr.look_at(tr.translation - CAM_FACE, Vec3::Y); // 카메라를 향한 쿼드
         let drop = if snow {
             PrecipDrop {
-                vy: st.rng.range(1.2, 1.8),
+                // 재롤 직후 저속 — 중력 가속으로 종단속도 수렴(가시 가속감).
+                vy: st.rng.range(0.4, 0.9),
                 sway: st.rng.range(0.4, 0.9),
                 phase: st.rng.range(0.0, std::f32::consts::TAU),
                 snow: true,
+                rest: None,
             }
         } else {
             PrecipDrop {
-                vy: st.rng.range(9.0, 12.0),
+                vy: st.rng.range(4.0, 7.0),
                 sway: 0.0,
                 phase: 0.0,
                 snow: false,
+                rest: None,
             }
         };
         commands.spawn((drop, Mesh3d(mesh.clone()), MeshMaterial3d(mat.clone()), tr));
@@ -177,9 +201,11 @@ fn roll_pos(rng: &mut Rng, cx: f32, cz: f32, vw: f32, vh: f32) -> (f32, f32, f32
     )
 }
 
-/// 낙하·바람·스웨이 — 지면(≈0) 도달 또는 시야 이탈 시 영역 안 재롤.
+/// 중력 낙하·바람·스웨이 — 표면장 지면 도달(눈은 체류) 또는 시야 이탈 시
+/// 영역 안 재롤.
 pub fn update_precip(
     time: Res<Time>,
+    world: Res<WorldData>,
     rig: Res<CameraRig>,
     window: Query<&Window>,
     mut st: ResMut<PrecipState>,
@@ -196,7 +222,26 @@ pub fn update_precip(
     let (vw, vh) = view_box(rig.zoom, aspect);
     let (cx, cz) = (rig.target.x, rig.target.y);
     let t = time.elapsed_secs();
-    for (drop, mut tr) in &mut q {
+    for (mut drop, mut tr) in &mut q {
+        // 착지 눈 — 체류 감쇠 후 재롤(스웨이만 미세 유지).
+        if let Some(r) = drop.rest {
+            drop.rest = Some(r - dt);
+            if r > 0.0 {
+                continue;
+            }
+            let (x, z, y) = roll_pos(&mut st.rng, cx, cz, vw, vh);
+            tr.translation = Vec3::new(x, y, z);
+            drop.vy = st.rng.range(0.4, 0.9);
+            drop.rest = None;
+            continue;
+        }
+        // 중력 적분 — vy' = g − k·vy (종단속도 수렴).
+        let (g, k) = if drop.snow {
+            (SNOW_G, SNOW_DRAG)
+        } else {
+            (RAIN_G, RAIN_DRAG)
+        };
+        drop.vy += (g - k * drop.vy) * dt;
         tr.translation.y -= drop.vy * dt;
         if drop.snow {
             // 눈 — 좌우 스웨이(부유)
@@ -207,12 +252,22 @@ pub fn update_precip(
             tr.translation.x -= 0.35 * drop.vy * dt;
             tr.translation.z -= 0.35 * drop.vy * dt;
         }
-        let out = tr.translation.y < 0.0
-            || (tr.translation.x - cx).abs() > vw
-            || (tr.translation.z - cz).abs() > vh;
+        let gy = ground_at(&world, tr.translation.x, tr.translation.z);
+        let out = tr.translation.y < gy || (tr.translation.x - cx).abs() > vw || (tr.translation.z - cz).abs() > vh;
         if out {
+            if drop.snow && tr.translation.y < gy {
+                // 눈 — 표면에 얹혀 체류(퇴적감) 후 재롤.
+                tr.translation.y = gy;
+                drop.rest = Some(st.rng.range(SNOW_REST.0, SNOW_REST.1));
+                continue;
+            }
             let (x, z, y) = roll_pos(&mut st.rng, cx, cz, vw, vh);
             tr.translation = Vec3::new(x, y, z);
+            drop.vy = if drop.snow {
+                st.rng.range(0.4, 0.9)
+            } else {
+                st.rng.range(4.0, 7.0)
+            };
         }
     }
 }
