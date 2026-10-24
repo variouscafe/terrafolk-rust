@@ -51,7 +51,7 @@ impl<F: Resource + SurfaceField> Plugin for CharacterPlugin<F> {
             (proportion::chibiify, proportion::chibi_settle).chain(),
         );
         app.add_systems(Update, ground::ground_snap::<F>.in_set(GroundSnapSet));
-        app.add_systems(Update, foot_lock::foot_lock::<F>);
+        app.add_systems(Update, foot_lock::foot_lock);
         app.add_systems(Update, leg_ik::leg_ik);
         app.add_systems(Update, tool::tool_sync);
     }
