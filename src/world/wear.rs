@@ -22,6 +22,8 @@ pub enum WearSlot {
     Hair,
     /// 턱·콧수염 — LPC 절출 GLB(meshgen): head 본
     Beard,
+    /// 턱수염 — qubase 입체 GLB(ubase Head 본 리깅, 헤어와 동일 계열): head 본
+    Beard3d,
     /// 안경 — LPC 절출 GLB(meshgen): head 본(눈 위치)
     Glasses,
     /// 오른손 — 지팡이·도구: arm-right 본
@@ -38,6 +40,7 @@ impl WearSlot {
             Self::Eyes => &["Head", "head"],
             Self::Hair => &["Head", "head"],
             Self::Beard => &["Head", "head"],
+            Self::Beard3d => &["Head", "head"],
             Self::Glasses => &["Head", "head"],
             Self::HandRight => &["LowerArm.R", "hand_r", "arm-right"],
             Self::HandLeft => &["LowerArm.L", "hand_l", "arm-left"],
@@ -58,6 +61,9 @@ impl WearSlot {
             // 수염 — meshgen 절출 GLB(원점=발 앵커, 실루엣이 y 0~0.5·폭 ~1.2로
             // 생성됨)을 턱 위치로 끌어내리고 치비 얼굴폭에 축소.
             Self::Beard => Vec3::new(0.0, -0.32, 0.10),
+            // 입체 수염 — 헤어와 동일 ubase 캐릭터 공간(Head 본=목 뿌리,
+            // 수염 밴드 y 1.55~1.69)이라 헤어 캘리브레이션 그대로.
+            Self::Beard3d => Vec3::new(0.0, -0.10, 0.0),
             // 안경 — 같은 절출 계약. 렌즈 중심(실루엣 y≈0.35)을 눈 높이(0.13)로.
             Self::Glasses => Vec3::new(0.0, -0.22, 0.12),
             // 손은 어깨 본에서 아래(침비 팔은 거의 발끝까지) — 몸 옆 살짝 전방
@@ -71,6 +77,7 @@ impl WearSlot {
         match self {
             Self::Hair => 0.85,
             Self::Beard => 0.30,
+            Self::Beard3d => 0.85,
             Self::Glasses => 0.28,
             _ => 1.0,
         }
@@ -102,6 +109,9 @@ pub fn wear_asset(item_id: &str) -> Option<(&'static str, WearSlot)> {
         "beards_medium" => Some(("models/lpc/beards_medium.glb", WearSlot::Beard)),
         "beards_mustache" => Some(("models/lpc/beards_mustache.glb", WearSlot::Beard)),
         "beards_trimmed" => Some(("models/lpc/beards_trimmed.glb", WearSlot::Beard)),
+        // 입체 수염 — ubase 풀 마지막 미사용 변형 Hair_Beard 파생(2026-10-25).
+        // LPC 절출 6종과 달리 입체적 볼륨(헤어와 동일 T_Hair 재질로 색 정합).
+        "beard-full" => Some(("models/qubase/beard-full.glb", WearSlot::Beard3d)),
         // 안경 — LPC 절출 GLB(meshgen, black 스프라이트 행2=정면). halfmoon은
         // 분리 렌즈(멀티폴리곤)라 미생성.
         "facial_glasses" => Some(("models/lpc/facial_glasses.glb", WearSlot::Glasses)),
@@ -131,6 +141,7 @@ const DEFAULT_BEARDS: &[&str] = &[
     "beards_trimmed",
     "beards_mustache",
     "beards_chevron",
+    "beard-full",
 ];
 /// 봇 기본 안경 해시 풀.
 const DEFAULT_GLASSES: &[&str] = &[
@@ -182,7 +193,12 @@ pub fn wear_ids_from_look(look: &str) -> Vec<String> {
     let h = uuid.bytes().fold(0u64, |a, b| a.wrapping_mul(31) + b as u64);
 
     // 수염 — 편집값 우선, 없으면 남성 uuid 해시 35%에 기본 풀 분배.
+    // 진단 게이트 ?tfdbg=wearbeard: 남성 전원 beard-full 강제(입체 수염
+    // 부착 캘리브레이션 컷 판정용 — URL 플래그 없으면 무동작, 운영 무해).
     let beard = part("beard").filter(|b| b != "none").or_else(|| {
+        if male && crate::net::dbg_gate::on("wearbeard") {
+            return Some("beard-full".to_string());
+        }
         (male && h % 100 < 35)
             .then(|| DEFAULT_BEARDS[(h / 100) as usize % DEFAULT_BEARDS.len()].to_string())
     });
