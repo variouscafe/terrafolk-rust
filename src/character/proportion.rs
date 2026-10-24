@@ -40,10 +40,14 @@ pub fn chibiify(
 ) {
     for entity in &q {
         for descendant in children_q.iter_descendants(entity) {
-            if let Ok((name, mut tr)) = bones.get_mut(descendant)
-                && let Some(scale) = bone_scale(name.as_str())
-            {
-                tr.scale *= scale;
+            if let Ok((name, mut tr)) = bones.get_mut(descendant) {
+                if let Some(scale) = bone_scale(name.as_str()) {
+                    tr.scale *= scale;
+                }
+                // 고관절·발 앵커 횡간 수렴 — 스케일이 못 옮기는 본 위치 보정.
+                if super::rig::narrow_bone(name.as_str()) {
+                    tr.translation.x *= super::rig::HIP_NARROW;
+                }
             }
         }
         commands.entity(entity).insert((ChibiDone, SettleProbe(2)));
