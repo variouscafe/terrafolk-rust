@@ -74,7 +74,7 @@ function boxStats(px, [x0, y0, x1, y1]) {
     headless: !headed,
     args: [
       ...(headed ? [] : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader']),
-      ...(headed ? ['--disable-blink-features=AutomationControlled'] : {}),
+      ...(headed ? ['--disable-blink-features=AutomationControlled'] : []),
       // 로컬 trunk 포트(8096 등)는 백엔드 CORS 허용목록(5174 고정) 밖 —
       // 로컬 진단 게이트 전용 우회. 배포(pages.dev) 검증 시엔 무해(이미 허용).
       '--disable-web-security',

@@ -8,7 +8,7 @@ use bevy::asset::RenderAssetUsages;
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
 
-use super::data::{WATER_BED_Y, WorldData};
+use super::data::WorldData;
 use super::splat::TerrainMaterial;
 
 const TILE: f32 = 1.0;
@@ -186,32 +186,10 @@ fn build_terrain(
         }
     }
 
-    // ── 해양 밑판 — 맵 밖 바다의 얕은 바닥(물 평면 3× 확장 대응).
-    //    순수 모래 가중치, 베드보다 살짝 아래(맵 내 지형과 z-fight 없음).
-    {
-        let ext = n as f32; // 맵 크기만큼 사방 확장
-        let y = WATER_BED_Y - 0.08;
-        let corners: [[f32; 3]; 4] = [
-            [-ext, y, -ext],
-            [2.0 * n as f32 + ext, y, -ext],
-            [2.0 * n as f32 + ext, y, 2.0 * n as f32 + ext],
-            [-ext, y, 2.0 * n as f32 + ext],
-        ];
-        let base = m.positions.len() as u32;
-        let w_sand = [0.0f32, 0.0, 1.0, 0.0, 0.0];
-        for (idx, p) in corners.iter().enumerate() {
-            push_vertex(
-                &mut m,
-                *p,
-                [0.0, 1.0, 0.0],
-                [p[0] * UV_SCALE, p[2] * UV_SCALE],
-                w_sand,
-            );
-            let _ = idx;
-        }
-        m.indices
-            .extend_from_slice(&[base, base + 1, base + 2, base + 2, base + 3, base]);
-    }
+    // ── 해양 밑판 제거(2026-10-25) — 수면은 불투명(WaterMaterial Opaque)이라
+    //    밑판 쿼드는 어디서도 안 보이는 잔여 지오메트리였는데, 글로브 전환
+    //    중간(곡률 반경 2배)에 4정점 쿼드의 내부가 직선 코드가 되어 하늘을
+    //    가로지르는 판으로 드러났다("하늘에 가발" 보고). 미세분할 대신 삭제.
 
     #[allow(unused_variables)] // wasm 콘솔 진단 로그 전용
     let verts = m.positions.len();

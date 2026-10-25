@@ -1,6 +1,6 @@
 [package]
 name = "terrafolk_bevy"
-version = "0.8.35"
+version = "0.8.36"
 publish = false
 edition = "2024"
 exclude = ["dist", "build", "assets", "credits"]
@@ -44,6 +44,8 @@ dev = [
     "bevy/dynamic_linking",
 ]
 no-ui = []
+no-minimap = []
+no-hud = []
 ui-min = []
 
 [dependencies]

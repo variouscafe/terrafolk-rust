@@ -93,10 +93,14 @@ pub fn spawn_birds(
 
 /// 새 유영 갱신 — 무리 중심 표류(월드 순환) + 원 궤도 + 날개짓 스케일 펄스.
 /// 밤(night_factor > 0.6)엔 숨김, 겨울엔 무리 절반 휴면(FE 남하 규칙).
+/// 글로브 곡률 구간(factor>0.05)에서도 숨김 — 새는 높이 9~12에서 나는데
+/// 구면 워프가 지형만 표면에 붙이므로 궤도 뷰에서 행성과 분리된 부유 점무리로
+/// 보인다("하늘의 가발" 보고 2026-10-25 — view_box 숨김과 동일 임계).
 pub fn sky_update(
     time: Res<Time>,
     day: Res<DayTime>,
     world: Res<WorldData>,
+    rig: Res<super::camera_rig::CameraRig>,
     mut flocks: Query<(&mut BirdFlock, &mut Visibility, &Children)>,
     mut birds: Query<(&Bird, &mut Transform), Without<BirdFlock>>,
 ) {
@@ -104,6 +108,7 @@ pub fn sky_update(
     let size = world.size as f32;
     let night = day.night_factor;
     let winter = day.season == "winter";
+    let globe = super::globe::factor_for(rig.zoom) > 0.05;
     for (i, (mut flock, mut vis, children)) in flocks.iter_mut().enumerate() {
         // 표류 — 서풍(+x). 월드 밖으로 나가면 반대편에서 재등장(순환 바람)
         let drift = flock.drift * time.delta_secs();
@@ -114,7 +119,7 @@ pub fn sky_update(
         if flock.center.y > size + 12.0 {
             flock.center.y = -12.0;
         }
-        *vis = if night > 0.6 || (winter && i % 2 == 1) {
+        *vis = if night > 0.6 || globe || (winter && i % 2 == 1) {
             Visibility::Hidden
         } else {
             Visibility::Visible
