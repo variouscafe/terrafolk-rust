@@ -202,14 +202,11 @@
     return root;
   }
 
+  // ── 상단바 — 정보(시계·해시계·날씨·인구)는 bevy_ui 공용 HUD로 이관
+  // (2026-10-25 통일 2호). DOM은 ☰ 메뉴·모드 칩(관전/참가 — DOM 인증 전용
+  // 정보)·공지만 담는다 — 배경은 bevy HUD가 제공하므로 투명 라이트.
   function topbarHtml() {
-    var clock = S.clock;
-    var n = Object.keys(S.live).length;
     var isUser = S.scope && S.scope.kind === 'user';
-    var weather = clock.weather
-      ? '<span class="tf-chip">' + (I.WEATHER_ICON[clock.weather] || '') + ' ' +
-        tOr('weather.' + clock.weather, clock.weather) + '</span>'
-      : '';
     var menuItems = [
       ['chars', t('menu.chars'), ICONS.Users],
       ['res', t('menu.resources'), ICONS.TreePine],
@@ -222,25 +219,15 @@
         svg(m[2], 14) + ' ' + esc(m[1]) + '</button>';
     }).join('');
     return (
-      '<div class="tf-topbar">' +
-        '<div class="tf-topbar-row">' +
-          '<span class="tf-topbar-title">' + esc(t('world.title')) + '</span>' +
-          '<span class="tf-clock-wrap">' +
-            I.dayDialSvg(clock.hour, clock.minute, clock.sunrise, clock.sunset) +
-            '<span class="tf-clock">' + esc(I.clockText(clock)) + '</span>' +
-          '</span>' +
-          weather +
-          '<span class="tf-chip">' + esc(t('world.people', { n: n })) + '</span>' +
-          '<span class="tf-chip tf-chip-mode' + (isUser ? ' tf-chip-user' : '') + '">' +
-            esc(isUser ? t('world.joined') : t('world.spectate')) + '</span>' +
-          '<span class="tf-topbar-spacer"></span>' +
-          '<div class="tf-menu-anchor">' +
-            '<button class="tf-menu-btn" data-act="menu" title="' + esc(t('menu.game')) + '">' +
-              svg(ICONS.Menu, 16) + '</button>' +
-            (S.menuOpen
-              ? '<div class="tf-menu">' + menuItems + '</div>'
-              : '') +
-          '</div>' +
+      '<div class="tf-topbar tf-topbar-lite">' +
+        '<span class="tf-chip tf-chip-mode' + (isUser ? ' tf-chip-user' : '') + '">' +
+          esc(isUser ? t('world.joined') : t('world.spectate')) + '</span>' +
+        '<div class="tf-menu-anchor">' +
+          '<button class="tf-menu-btn" data-act="menu" title="' + esc(t('menu.game')) + '">' +
+            svg(ICONS.Menu, 16) + '</button>' +
+          (S.menuOpen
+            ? '<div class="tf-menu">' + menuItems + '</div>'
+            : '') +
         '</div>' +
         (S.notice
           ? '<div class="tf-notice" data-act="clear-notice">' + esc(S.notice) + '</div>'

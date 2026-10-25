@@ -28,5 +28,9 @@ impl Plugin for GamePlugin {
         // tf-minimap.js 폐지. DOM 상단 바 아래 같은 슬롯에 렌더).
         #[cfg(not(feature = "no-ui"))]
         app.add_plugins(ui::minimap::MinimapPlugin);
+        // HUD 정보바도 공용(통일 2호) — 웹 DOM 상단바는 ☰ 메뉴만 남고
+        // 정보(시계·해시계·날씨·인구·링크)는 이쪽으로.
+        #[cfg(not(feature = "no-ui"))]
+        app.add_plugins(ui::hud::HudPlugin);
     }
 }

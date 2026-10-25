@@ -15,9 +15,7 @@ pub mod chars;
 pub mod chat;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod civ;
-#[cfg(not(target_arch = "wasm32"))]
 pub mod daydial;
-#[cfg(not(target_arch = "wasm32"))]
 pub mod hud;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod i18n;
@@ -92,14 +90,12 @@ impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<UiState>()
             .init_resource::<PointerOverUi>()
-            .init_resource::<daydial::DayDialState>()
             .add_systems(
                 Startup,
                 (
                     load_theme,
                     crate::platform::safe_area::refresh, // 스폰 직전 인셋 2차 확인
                     (
-                        hud::spawn_hud,
                         menu::spawn_menu,
                         menu::spawn_account_popup,
                         chars::spawn,
@@ -129,9 +125,6 @@ impl Plugin for UiPlugin {
                         chat::refresh_chat_bar,
                     )
                         .chain(),
-                    hud::update_hud,
-                    hud::update_notice,
-                    daydial::update_daydial,
                     (menu::interact, menu::refresh_account_popup).chain(),
                     (chars::refresh_list, chars::refresh_sel_panel, look::refresh).chain(),
                     res::refresh_res,

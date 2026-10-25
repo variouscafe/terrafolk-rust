@@ -9,6 +9,22 @@ use crate::world::daynight::DayTime;
 use crate::world::precip::WeatherState;
 use crate::world::villager::Villager;
 
+/// HUD 플러그인 — 웹·네이티브 공용(2026-10-25 DOM→bevy_ui 통일 2호).
+/// 정보바(제목·시계·해시계·날씨·인구·링크)는 단일 구현. ☰ 메뉴 버튼은
+/// 네이티브 전용(웹은 DOM 메뉴·팝업 체인을 그대로 둔다 — menu.rs 게이트).
+pub struct HudPlugin;
+
+impl Plugin for HudPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<super::daydial::DayDialState>()
+            .add_systems(Startup, (super::ensure_theme, spawn_hud).chain())
+            .add_systems(
+                Update,
+                (update_hud, update_notice, super::daydial::update_daydial).chain(),
+            );
+    }
+}
+
 /// HUD 루트 마커 — 세이프에어리어 패치 대상
 #[derive(Component)]
 pub struct HudRoot;
@@ -148,12 +164,15 @@ pub fn spawn_hud(
                     BackgroundColor(theme::INK800),
                 ));
             }
-            // flex spacer — ☰를 우측으로 민다(버튼은 menu.rs 스폰)
-            p.spawn(Node {
-                flex_grow: 1.0,
-                ..default()
-            });
-            super::menu::spawn_menu_button(p, &theme);
+            // flex spacer + ☰ 메뉴 버튼 — 네이티브 전용(웹은 DOM 메뉴).
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                p.spawn(Node {
+                    flex_grow: 1.0,
+                    ..default()
+                });
+                super::menu::spawn_menu_button(p, &theme);
+            }
         });
     // 공지 칩 — HUD 아래 좌측(절대), 평소 숨김
     commands.spawn((

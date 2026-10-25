@@ -42,6 +42,14 @@
   background: rgba(11, 14, 20, .75);
   -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
 }
+/* 라이트 상단바 — 정보는 bevy_ui 공용 HUD가 담당(2026-10-25). 배경·보더
+ * 없이 우측 ☰·모드 칩만 띄운다(캔버스 이벤트는 통과). */
+.tf-topbar.tf-topbar-lite {
+  border-bottom: 0; background: none; -webkit-backdrop-filter: none; backdrop-filter: none;
+  pointer-events: none; display: flex; justify-content: flex-end;
+  align-items: center; gap: .5rem; padding-inline: .75rem; font-size: 12px;
+}
+.tf-topbar.tf-topbar-lite > * { pointer-events: auto; }
 .tf-topbar-row {
   pointer-events: auto; display: flex; height: 100%; align-items: center;
   gap: .5rem; padding-inline: .75rem; font-size: 12px;
