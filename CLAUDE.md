@@ -151,6 +151,16 @@ tf-api CORS 허용목록(../terrafolk `backend/src/terrafolk_api/config.py`)
 **원근 카메라(2026-10-23, PR #84)**: 정사영→원근(FOV 40°) 전환 — 줌=거리
   매핑(`cam_dist`)으로 줌 체감·미니맵·줌투커서 공식 불변. 요 0° 맵 변 정렬.
 
+**줌아웃 글로브 전환(2026-10-25, docs/globe-map-review.md 안 A 구현)**: 줌
+  4.55→6.0(=ZOOM_MAX) 구간에서 월드가 구면 행성으로 휘고 카메라는 궤도로 —
+  시뮬레이션·계약은 평면 그대로(착시 곡률). 지형·물 = 정점 셰이더 워프
+  (`terrain_globe_vertex.wgsl`·`water.wgsl` 버텍스 — globe.rs와 수식 계약),
+  월드 엔티티 = `world/globe.rs`의 PreUpdate 복원/PostUpdate 워프 쌍
+  (`Warped` 태그로 평면 원본 보존). 판정·투영·픽킹은 워프된 GlobalTransform
+  공간에서 자동 정합, `ground_at`만 구면 교차 분기. 함정 3종(모듈 임포트
+  무음 실패→인라인·Plane3d 분할 0·θ>π 이중 피복 z-fight)은 검토서 참조.
+  게이트 `tools/e2e/root3d_globe.cjs`(?tfdbg=globe 부팅 + 줌 복귀 회귀).
+
 **외형 편집 3D 반영(2026-10-23, PR #78)**: 레거시 lookJson parts(피부·머리색·눈·옷색)가
   3D 주민 재질 틴트로 반영된다 — `world/look_tint.rs`(LPC 팔레트·모델×재질 슬롯표,
   악세서리 미염색) + toonify 색 매칭 역추적(Gltf named_materials) + look 변경 재스폰.

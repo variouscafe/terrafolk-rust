@@ -13,9 +13,10 @@ use bevy::render::view::ColorGrading;
 use super::camera_input::{PointerInput, ground_at};
 use super::data::WorldData;
 
-/// 줌 범위 — scale = VIEW_H × zoom(최대 줌인 ≈9m 시야 ↔ 최대 줌아웃 ≈126m 시야)
+/// 줌 범위 — scale = VIEW_H × zoom(최대 줌인 ≈9m 시야 ↔ 최대 줌아웃 ≈126m 시야).
+/// 6.0 = 글로브 완성(globe.rs ZOOM_FULL) — 줌아웃 끝에서 행성 관전.
 pub const ZOOM_MIN: f32 = 0.3;
-pub const ZOOM_MAX: f32 = 4.2;
+pub const ZOOM_MAX: f32 = 6.0;
 /// 스무딩 계수(초당 수렴 속도)
 const ZOOM_SMOOTH: f32 = 9.0;
 /// 정사영 기본 시야 높이(월드 단위) — 줌 1에서 세로로 보이는 폭.
@@ -88,24 +89,49 @@ fn view_offset(zoom: f32) -> Vec3 {
     Vec3::new(horiz * y.cos(), d * p.sin(), horiz * y.sin())
 }
 
-fn pan_offset(rig: &CameraRig, focus: &super::look_edit::LookFocus) -> Vec3 {
-    let mut at = Vec3::new(rig.target.x, 0.0, rig.target.y) + view_offset(rig.zoom);
-    // 편집 미리보기(look_edit) — 캐릭터(타깃)를 화면 위쪽에 고정해 하단 시트·
-    // 우측 패널과 공존. 카메라 앵커를 -z(먼 쪽)로 옮기면 타깃이 위로 올라간다.
-    // 0.24 = 화면 상단 ~30% 지점에 캐릭터 중심(모바일 하단 시트 실측).
+/// 카메라 포즈(위치·시선점·업) — 곡률 반영. factor<ε(평면)에서는 기존
+/// pan_offset+look_at 수식과 동일(줌인 픽셀 동일 게이트). 곡률 구간은 평면
+/// 앵커를 워프한 국소 접면에 카메라를 띄운다(거리는 cam_dist→행성 궤도로
+/// 보간 — factor→0에서 연속).
+fn camera_pose(
+    rig: &CameraRig,
+    focus: &super::look_edit::LookFocus,
+    world: &super::data::WorldData,
+) -> (Vec3, Vec3, Vec3) {
+    let target = Vec3::new(rig.target.x, 0.0, rig.target.y);
+    // 편집 미리보기(look_edit) — 카메라 앵커를 -z(먼 쪽)로 옮겨 타깃을 화면
+    // 위쪽에 고정(하단 시트·우측 패널과 공존). 0.24 = 화면 상단 ~30% 지점.
+    let mut anchor = target;
     if focus.active {
-        at.z -= VIEW_H * rig.zoom * 0.24;
+        anchor.z -= VIEW_H * rig.zoom * 0.24;
     }
-    at
+    match super::globe::WarpFrame::active(world, rig.zoom) {
+        None => (anchor + view_offset(rig.zoom), target, Vec3::Y),
+        Some(frame) => {
+            let anchor_w = frame.warp_point(anchor);
+            let q = frame.warp_quat(anchor.xz());
+            let dir = q * view_offset(rig.zoom).normalize();
+            let d_flat = cam_dist(rig.zoom);
+            let d = d_flat
+                + (frame.r_planet * super::globe::ORBIT_DIST - d_flat) * frame.factor;
+            (anchor_w + dir * d, anchor_w, q * Vec3::Y)
+        }
+    }
 }
 
-pub fn spawn_camera(mut commands: Commands) {
-    let rig = CameraRig::default();
-    let mut tr = Transform::from_translation(pan_offset(
-        &rig,
-        &super::look_edit::LookFocus::default(),
-    ));
-    tr.look_at(Vec3::new(rig.target.x, 0.0, rig.target.y), Vec3::Y);
+pub fn spawn_camera(mut commands: Commands, world: Res<super::data::WorldData>, mut rig: ResMut<CameraRig>) {
+    // 디버그 부팅 게이트 — 곡률 최대(행성 뷰)로 시작(E2E·실물 검증).
+    #[cfg(target_arch = "wasm32")]
+    let globe_boot = crate::net::dbg_gate::on("globe");
+    #[cfg(not(target_arch = "wasm32"))]
+    let globe_boot = std::env::var("TF_GLOBE").is_ok();
+    if globe_boot {
+        rig.zoom = ZOOM_MAX;
+        rig.zoom_goal = ZOOM_MAX;
+    }
+    let (pos, look, up) = camera_pose(&rig, &super::look_edit::LookFocus::default(), &world);
+    let mut tr = Transform::from_translation(pos);
+    tr.look_at(look, up);
     commands.spawn((
         Camera3d::default(),
         perspective_projection(),
@@ -195,7 +221,9 @@ pub fn camera_control(
 
     // ── 4) 이번 프레임 적용될 카메라(줌 반영·팬 적용 전) — 그랩 광선 기준.
     //    그랩 팬 델타는 카메라 평행이동 불변이므로 팬 전 좌표로 계산해도 정확하다.
-    let gt_next = camera_at(gt, pan_offset(&rig, &focus));
+    let gt_next = camera_at(gt, camera_pose(&rig, &focus, &world).0);
+    // 곡률 프레임 — 지면 광선 판정(그랩·핀치·줌 앵커)이 구면 교차로 전환.
+    let gframe = super::globe::WarpFrame::active(&world, rig.zoom);
 
     // ── 5) 그랩 팬(마우스·한 손가락·핀치 중심) + 관성 — UI 점유 시 양보
     let frame = if ui_block {
@@ -204,7 +232,7 @@ pub fn camera_control(
             gesture_active: false,
         }
     } else {
-        input.apply_pans(camera, &gt_next, &world, &mouse, &touches, cursor, dt)
+        input.apply_pans(camera, &gt_next, &world, &mouse, &touches, cursor, dt, gframe.as_ref())
     };
     rig.target += frame.pan;
 
@@ -233,9 +261,9 @@ pub fn camera_control(
     //    고도(2단 계산)로 잡아 언덕 위에서도 정확하다.
     if zoom_moved && !frame.gesture_active {
         if let Some(px) = input.zoom_anchor {
-            let anchor = ground_at(camera, gt, px, 0.0).and_then(|g| {
+            let anchor = ground_at(camera, gt, px, 0.0, gframe.as_ref()).and_then(|g| {
                 let h = world.height_at(g.x.round() as i32, g.z.round() as i32);
-                ground_at(camera, gt, px, h).or(Some(g))
+                ground_at(camera, gt, px, h, gframe.as_ref()).or(Some(g))
             });
             if let Some(a0) = anchor {
                 let ratio = 1.0 - rig.zoom / zoom_prev.max(1e-4);
@@ -255,7 +283,7 @@ pub fn camera_control(
         input.stop_inertia();
     }
 
-    // ── 9) 적용 — 위치·방향·정사영 scale
+    // ── 9) 적용 — 위치·방향·투영
     // 초상(세로) 화면 초기 프레이밍 — 35° 정사영은 화면 22m가 지면 ~38m가
     // 되어 섬 전체+원해가 담겨 '바다가 과다'하게 보인다(2026-10-17 실기 보고).
     // 세로 화면은 마을 스케일 근접(0.62)로 시작 — 첫 세로 해상도에 1회.
@@ -264,7 +292,15 @@ pub fn camera_control(
         rig.zoom = PORTRAIT_INIT_ZOOM;
         rig.zoom_goal = PORTRAIT_INIT_ZOOM;
     }
-    tr.translation = pan_offset(&rig, &focus);
-    tr.look_at(Vec3::new(rig.target.x, 0.0, rig.target.y), Vec3::Y);
-    let _ = &mut proj; // 원근 전환 — 줌은 거리(pan_offset)로, 투영 갱신 없음
+    let (pos, look, up) = camera_pose(&rig, &focus, &world);
+    tr.translation = pos;
+    tr.look_at(look, up);
+    // far — 곡률 구간에서 라이브 256맵 궤도 거리 대응해 넓힌다. 평면=420
+    // 불변(terrain_splat.wgsl 안개 축 상수와 정합 유지).
+    let want_far = 420.0 + 280.0 * super::globe::factor_for(rig.zoom);
+    if let Projection::Perspective(ref mut p) = *proj {
+        if p.far != want_far {
+            p.far = want_far;
+        }
+    }
 }

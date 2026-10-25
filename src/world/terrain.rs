@@ -232,6 +232,7 @@ fn build_terrain(
         sand: assets.load("textures/ground/sand.png"),
         rock: assets.load("textures/ground/rock.png"),
         dirt: assets.load("textures/ground/dirt.png"),
+        globe: super::globe::flat_vec(n as f32 / 2.0),
     };
     let mat = TerrainMaterial {
         base: StandardMaterial {

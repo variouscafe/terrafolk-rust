@@ -19,10 +19,20 @@ const INERTIA_MIN_SPEED: f32 = 1.0;
 /// 드래그 속도 EMA 시정수(초)
 const VEL_TAU: f32 = 0.06;
 
-/// 뷰포트(논리 px) → 기준면(y=plane_y) 교차점.
-/// 카메라는 항상 45° 부저각이라 광선이 반드시 아래를 향한다(실패는 None).
-pub fn ground_at(camera: &Camera, gt: &GlobalTransform, px: Vec2, plane_y: f32) -> Option<Vec3> {
+/// 뷰포트(논리 px) → 기준면(y=plane_y) 교차점. 곡률 활성(globe) 시 광선∩구면
+/// 후 평면 좌표로 역변환해 반환(그랩 팬·핀치·줌 앵커·탭 전부 이 경로).
+/// 카메라는 항상 부저각이라 광선이 반드시 아래를 향한다(실패는 None).
+pub fn ground_at(
+    camera: &Camera,
+    gt: &GlobalTransform,
+    px: Vec2,
+    plane_y: f32,
+    globe: Option<&super::globe::WarpFrame>,
+) -> Option<Vec3> {
     let ray = camera.viewport_to_world(gt, px).ok()?;
+    if let Some(frame) = globe {
+        return ground_sphere(&ray, frame, plane_y);
+    }
     if ray.direction.y > -1e-6 {
         return None;
     }
@@ -33,6 +43,29 @@ pub fn ground_at(camera: &Camera, gt: &GlobalTransform, px: Vec2, plane_y: f32) 
     Some(ray.origin + *ray.direction * t)
 }
 
+/// 광선∩구면(중심=(cx,−R_eff,cz), 반경 R_eff+높이) → 평면 좌표 역변환.
+/// plane_y는 지형 고도 보정용(구면 반경에 가산) — 평면 2단 계산의 구면판.
+fn ground_sphere(
+    ray: &Ray3d,
+    frame: &super::globe::WarpFrame,
+    h: f32,
+) -> Option<Vec3> {
+    let c = Vec3::new(frame.center.x, -frame.r_eff, frame.center.y);
+    let r = frame.r_eff + h.max(0.0);
+    let oc = ray.origin - c;
+    let b = oc.dot(*ray.direction);
+    let cc = oc.dot(oc) - r * r;
+    let disc = b * b - cc;
+    if disc <= 0.0 {
+        return None; // 허공(행성 밖) — 그랩 없음
+    }
+    let t = -b - disc.sqrt();
+    if t < 0.0 {
+        return None;
+    }
+    Some(frame.unwarp_point(ray.origin + *ray.direction * t))
+}
+
 /// 지형 고도 2단 계산 — 1차(y=0) 교차점의 실제 지형 높이로 재교차.
 /// 그랩 시작점·줌 앵커가 언덕 위에서도 정확히 잡히도록 한다.
 fn ground_refined(
@@ -40,11 +73,12 @@ fn ground_refined(
     gt: &GlobalTransform,
     px: Vec2,
     world: &WorldData,
+    globe: Option<&super::globe::WarpFrame>,
 ) -> Option<Vec3> {
-    let g0 = ground_at(camera, gt, px, 0.0)?;
+    let g0 = ground_at(camera, gt, px, 0.0, globe)?;
     let h = world.height_at(g0.x.round() as i32, g0.z.round() as i32);
     if h.abs() > 1e-3 {
-        ground_at(camera, gt, px, h).or(Some(g0))
+        ground_at(camera, gt, px, h, globe).or(Some(g0))
     } else {
         Some(g0)
     }
@@ -199,6 +233,7 @@ impl PointerInput {
         touches: &Touches,
         cursor: Option<Vec2>,
         dt: f32,
+        globe: Option<&super::globe::WarpFrame>,
     ) -> PanFrame {
         let mut pan = Vec2::ZERO;
         let mut drag_delta: Option<Vec2> = None;
@@ -211,13 +246,13 @@ impl PointerInput {
                 // 그랩 점은 제스처 내내 불변 — "잡은 세계점이 커서 아래" 제약이
                 // 매 프레임 d=grab−ground(px,현재) 로 정확 복원된다(갱신 불필요).
                 Some(grab) => {
-                    if let Some(g) = ground_at(camera, gt, px, grab.y) {
+                    if let Some(g) = ground_at(camera, gt, px, grab.y, globe) {
                         let d = xz(grab) - xz(g);
                         pan += d;
                         drag_delta = Some(d);
                     }
                 }
-                None => self.mouse_grab = ground_refined(camera, gt, px, world),
+                None => self.mouse_grab = ground_refined(camera, gt, px, world, globe),
             }
         }
 
@@ -228,13 +263,13 @@ impl PointerInput {
             match self.touch_grab {
                 Some((gid, grab)) if gid == id => {
                     // 그랩 점 불변 (마우스와 동일 원리)
-                    if let Some(g) = ground_at(camera, gt, px, grab.y) {
+                    if let Some(g) = ground_at(camera, gt, px, grab.y, globe) {
                         let d = xz(grab) - xz(g);
                         pan += d;
                         drag_delta = Some(d);
                     }
                 }
-                _ => self.touch_grab = ground_refined(camera, gt, px, world).map(|g| (id, g)),
+                _ => self.touch_grab = ground_refined(camera, gt, px, world, globe).map(|g| (id, g)),
             }
         }
 
@@ -245,13 +280,13 @@ impl PointerInput {
                 match p.centroid_grab {
                     Some(grab) => {
                         // 중심 그랩 점 불변 — 줌(비 변화)과 동시에도 중심 아래 세계점 유지
-                        if let Some(g) = ground_at(camera, gt, c, grab.y) {
+                        if let Some(g) = ground_at(camera, gt, c, grab.y, globe) {
                             let d = xz(grab) - xz(g);
                             pan += d;
                             drag_delta = Some(d);
                         }
                     }
-                    None => p.centroid_grab = ground_refined(camera, gt, c, world),
+                    None => p.centroid_grab = ground_refined(camera, gt, c, world, globe),
                 }
             }
         }

@@ -125,6 +125,11 @@ pub fn drain_select(
 /// 클릭/탭 픽킹 — 광선-몸통중심 최단 거리. 빈 땅 클릭·Escape는 해제.
 #[allow(clippy::too_many_arguments)] // Bevy 시스템 파라미터 — 입력·카메라·월드를 한 프레임 안에서 순서 보정
 pub fn pick_agent(
+    // 줌·월드 크기(곡률 판정용) — bevy 시스템 파라미터 한도(16) 준수로 1개로 묶음
+    mut globe_src: ParamSet<(
+        Res<'static, super::camera_rig::CameraRig>,
+        Res<'static, super::data::WorldData>,
+    )>,
     buttons: Res<ButtonInput<MouseButton>>,
     touches: Res<Touches>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -134,7 +139,7 @@ pub fn pick_agent(
     q_ui_hover: Query<&bevy::ui::Interaction>,
     window: Single<&Window>,
     q_cam: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
-    q_agents: Query<(Entity, &Transform, Option<&LiveAgentTag>), With<Villager>>,
+    q_agents: Query<(Entity, &GlobalTransform, Option<&LiveAgentTag>), With<Villager>>,
     mut sel: ResMut<Selection>,
     mut ground_tap: ResMut<GroundTap>,
     mut press: Local<Option<Vec2>>,
@@ -203,8 +208,10 @@ pub fn pick_agent(
     };
 
     let mut best: Option<(f32, Entity, String)> = None;
-    for (e, tr, tag) in &q_agents {
-        let center = tr.translation + Vec3::Y * TORSO_H;
+    // 워프 공간 정합 — 광선(워프 카메라)과 같은 공간의 GlobalTransform으로
+    // 판정(글로브 모드에서도 픽 정합. 평면에선 Transform와 동일).
+    for (e, gtr, tag) in &q_agents {
+        let center = gtr.translation() + gtr.up() * TORSO_H;
         let v = center - ray.origin;
         let along = v.dot(*ray.direction);
         if along <= 0.0 {
@@ -234,11 +241,17 @@ pub fn pick_agent(
             notify_pick(None);
             // 유물 카드(§17.38) — 빈 땅 클릭 지점을 JS에 넘겨 근처 유물 판정.
             // 유물이 있으면 tf-ui가 자원 팝업+카드를 연다(주민 선택은 해제 유지).
+            // ParamSet 순차 대출 — 스칼라 복사 후 다음 대출(동시 대출 불가)
+            let zoom = globe_src.p0().zoom;
+            let gframe = super::globe::WarpFrame::active(&globe_src.p1(), zoom);
             #[cfg(target_arch = "wasm32")]
-            if let Some(g) = super::camera_input::ground_at(cam, gt, px, 0.0) {
+            if let Some(g) = super::camera_input::ground_at(cam, gt, px, 0.0, gframe.as_ref()) {
                 notify_ground(g.x, g.z);
             }
+            #[cfg(not(target_arch = "wasm32"))]
+            let _ = gframe; // 유물 판정은 웹 전용 — 네이티브 미사용 처리
             // 네이티브 — 빈 땅 탭을 툴팁에 통보(무덤·건물 §17.78 판정).
+            // 툴팁은 tap.px에서 곡률 프레임으로 재판정한다(평면 좌표 복원).
             #[cfg(not(target_arch = "wasm32"))]
             {
                 ground_tap.px = px;

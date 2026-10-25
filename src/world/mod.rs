@@ -10,6 +10,7 @@ pub mod camera_rig;
 pub mod data;
 pub mod daynight;
 pub mod foot_probe;
+pub mod globe;
 pub mod grav_probe;
 pub mod ground;
 pub mod night_glow;
@@ -72,6 +73,14 @@ impl Plugin for WorldPlugin {
             .insert_resource(look_edit::LocalLooks::default())
             .insert_resource(look_edit::LookFocus::default())
             .insert_resource(overlay::PanBridge::default())
+            .init_resource::<globe::LastWarp>()
+            // 글로브 곡률 — 프레임 시작 복원(시뮬레이션은 항상 평면 좌표)·
+            // 프레임 끝 워프(렌더는 구면 — 전파 직전에 적용해 자식·투영 정합).
+            .add_systems(PreUpdate, globe::restore_flat)
+            .add_systems(
+                PostUpdate,
+                globe::apply_warp.before(bevy::transform::TransformSystems::Propagate),
+            )
             .add_systems(
                 Startup,
                 (
@@ -146,6 +155,7 @@ impl Plugin for WorldPlugin {
                     propsfx::bob_relics,
                     propsfx::spark_veins,
                     sky::sky_update,
+                    globe::sync_globe_uniforms, // 카메라 이후 병렬 그룹에서 유니폼 반영
                 ),
                 villager::wander,
                 villager_tools::apply_villager_tools,

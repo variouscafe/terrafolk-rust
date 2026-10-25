@@ -77,7 +77,7 @@ pub fn apply_pan_to(
 pub fn overlay_feed(
     q_cam: Single<(&Camera, &GlobalTransform), With<Camera3d>>,
     window: Single<&Window>,
-    q_agents: Query<(&LiveAgentTag, &Transform), With<Villager>>,
+    q_agents: Query<(&LiveAgentTag, &GlobalTransform), With<Villager>>,
     rig: Res<CameraRig>,
 ) {
     #[cfg(not(target_arch = "wasm32"))]
@@ -104,8 +104,10 @@ pub fn overlay_feed(
         push_f(&mut buf, bh);
         buf.push_str("],\"a\":[");
         let mut first = true;
-        for (tag, tr) in &q_agents {
-            let anchor = tr.translation + Vec3::Y * ANCHOR_H;
+        // 워프 공간 투영 — 카메라와 같은 공간의 GlobalTransform(글로브 모드
+        // 정합. 평면에서는 Transform와 동일). up()=국소 법선(평면=Y).
+        for (tag, gtr) in &q_agents {
+            let anchor = gtr.translation() + gtr.up() * ANCHOR_H;
             let Ok(p) = cam.world_to_viewport(gt, anchor) else {
                 continue;
             };
@@ -156,6 +158,8 @@ pub(crate) fn view_box(zoom: f32, aspect: f32) -> (f32, f32) {
 #[allow(clippy::type_complexity)] // Bevy 쿼리 타입 — 호버 대상이 혼합 컴포넌트
 pub fn hover_res(
     window: Single<&Window>,
+    rig: Res<CameraRig>,
+    world: Res<super::data::WorldData>,
     q_cam: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
     q_res: Query<(
         &LiveResourceTag,
@@ -167,7 +171,7 @@ pub fn hover_res(
 ) {
     #[cfg(not(target_arch = "wasm32"))]
     {
-        let _ = (window, q_cam, q_res);
+        let _ = (window, rig, world, q_cam, q_res);
         *last_id = None; // 네이티브 무동작 — 상태 초기화
     }
     #[cfg(target_arch = "wasm32")]
@@ -182,7 +186,8 @@ pub fn hover_res(
         let Ok((cam, gt)) = q_cam.single() else {
             return;
         };
-        let Some(g) = super::camera_input::ground_at(cam, gt, cursor, 0.0) else {
+        let gframe = super::globe::WarpFrame::active(&world, rig.zoom);
+        let Some(g) = super::camera_input::ground_at(cam, gt, cursor, 0.0, gframe.as_ref()) else {
             if last_id.is_some() {
                 *last_id = None;
                 notify_hover(None);

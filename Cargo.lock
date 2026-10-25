@@ -5637,7 +5637,7 @@ dependencies = [
 
 [[package]]
 name = "terrafolk_bevy"
-version = "0.8.34"
+version = "0.8.35"
 dependencies = [
  "bevy",
  "colyseus-lite",

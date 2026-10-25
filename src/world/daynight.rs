@@ -87,7 +87,8 @@ pub fn spawn_sun(
             })),
             Visibility::Hidden,
         ));
-        // 별 — 상반구 90개, 절대각 카메라를 향한 작은 쿼드(루트가 카메라 추적)
+        // 별 — 상반구 90개, 절대각 카메라를 향한 작은 쿼드(루트가 카메라 추적).
+        // GlobeExempt — 원점 중심 반구 배치라 곡률 워프에서 제외.
         let star_mesh = meshes.add(Mesh::from(bevy::math::primitives::Circle::new(0.30)));
         let star_mat = mats.add(StandardMaterial {
             base_color: Color::srgb(0.80, 0.85, 0.94),
@@ -95,7 +96,7 @@ pub fn spawn_sun(
             ..default()
         });
         let root = commands
-            .spawn((StarsRoot, Visibility::Hidden, Transform::default()))
+            .spawn((StarsRoot, super::globe::GlobeExempt, Visibility::Hidden, Transform::default()))
             .with_children(|c| {
                 let mut rng = 20261017u64;
                 for _ in 0..90 {
@@ -288,5 +289,12 @@ pub fn daytime_override_or_default() -> DayTime {
 
 #[cfg(target_arch = "wasm32")]
 pub fn daytime_override_or_default() -> DayTime {
-    DayTime::default()
+    let mut d = DayTime::default();
+    // 웹판 시각 게이트 — tfdbg=hour14(TF_HOUR 상당, 야간 검증·E2E 결정론화)
+    if let Some(h) = crate::net::dbg_gate::value("hour").and_then(|v| v.parse::<f32>().ok()) {
+        if (0.0..24.0).contains(&h) {
+            d.hour = h;
+        }
+    }
+    d
 }

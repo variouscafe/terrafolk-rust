@@ -179,6 +179,13 @@ pub fn sync_daynight(
     }
     let Some(f) = net.frame.as_ref() else { return };
     day.hour = f.hour as f32 + f.minute as f32 / 60.0;
+    // 웹 시각 게이트(tfdbg=hourN) — 서버 시각을 덮어 쓴다(야간 재현·E2E 결정론).
+    #[cfg(target_arch = "wasm32")]
+    if let Some(h) = super::dbg_gate::value("hour").and_then(|v| v.parse::<f32>().ok()) {
+        if (0.0..24.0).contains(&h) {
+            day.hour = h;
+        }
+    }
     day.time_scale = 0.0;
     day.season = f.season.clone();
     if let Some(sr) = f.sunrise {
