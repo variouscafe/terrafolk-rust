@@ -309,6 +309,7 @@ fn finish_villager_setup(
         crate::character::AnimState(AnimKind::Idle),
         crate::character::tool::HeldTool::default(),
         crate::character::Fall::default(),
+        IdleFidget::new(entity.to_bits() as u64),
     ));
     true
 }
@@ -421,21 +422,47 @@ pub fn wander(
     }
 }
 
+/// 유휴 몸동작(피젯) — 한자리에 가만히 서 있는 주민은 주기적으로
+/// 짧은 몸동작(두리번·기지개)을 섞는다. 순수 Idle 클립의 무한 루프는
+/// 주민을 조형품처럼 보이게 한다(생명감 직결 — 2026-10-26 디테일 강화).
+#[derive(Component)]
+pub struct IdleFidget {
+    /// 다음 피젯까지 남은 시간(s) — 순수 Idle일 때만 감소.
+    next_in: f32,
+    /// 피젯 애님 유지 종료 시각(s — elapsed 기준).
+    until: f32,
+    /// 교차 선택(Wave↔Interact 번갈아 — 같은 동작 반복 방지).
+    wave: bool,
+}
+
+impl IdleFidget {
+    pub fn new(seed: u64) -> Self {
+        Self {
+            next_in: 3.0 + rand_free(seed, 4.0),
+            until: 0.0,
+            wave: rand_free(seed.wrapping_add(3), 1.0) < 0.5,
+        }
+    }
+}
+
 /// 애님 상태 전환(플레이어는 하위 엔티티에 있음) — 이동 우선, 정지 시
 /// 활동 코드(act 우선·status 폴백)로 Walk/Idle/Interact/Wave를 고른다.
 /// 지시 행동(ActiveAction) 수행 중엔 프레임워크 요청 애님(던지기 모션 등)을
 /// 우선한다. 0.25초 크로스페이드 — 하드 컷은 주민을 기계적으로 보이게
 /// 한다(생명감 직결).
 pub fn animate_states(
+    time: Res<Time>,
     mut q: Query<(
         &Villager,
         &mut VillagerAnims,
         &mut crate::character::AnimState,
+        Option<&mut IdleFidget>,
         Option<&crate::character::ActiveAction>,
     )>,
     mut players: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>,
 ) {
-    for (v, mut anims, mut state, action) in &mut q {
+    let now = time.elapsed_secs();
+    for (v, mut anims, mut state, fidget, action) in &mut q {
         let want = if v.moving {
             AnimKind::Walk
         } else {
@@ -444,6 +471,29 @@ pub fn animate_states(
         let want = match action {
             Some(a) => a.anim(), // 행동 중 오버라이드(준비 모션·복원)
             None => want,
+        };
+        // 유휴 피젯 — 행동·이동·활동 중엔 타이머만 리셋(끼어들지 않는다).
+        let want = if action.is_none() && want == AnimKind::Idle {
+            match fidget {
+                Some(mut fg) => {
+                    if now >= fg.until {
+                        fg.next_in -= time.delta_secs();
+                        if fg.next_in <= 0.0 {
+                            fg.until = now + 0.9;
+                            fg.next_in = 4.0 + rand_free((now * 997.0) as u64, 5.0);
+                            fg.wave = !fg.wave;
+                        }
+                    }
+                    if now < fg.until {
+                        if fg.wave { AnimKind::Wave } else { AnimKind::Interact }
+                    } else {
+                        want
+                    }
+                }
+                None => want,
+            }
+        } else {
+            want
         };
         if want == anims.current {
             continue;

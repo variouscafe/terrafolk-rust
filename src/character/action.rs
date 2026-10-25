@@ -103,13 +103,16 @@ impl ActiveAction {
         }
     }
 
-    /// 애님 요청 — 던지기 준비 동작만 오버라이드, 나머진 원본 복귀.
+    /// 애님 요청 — 단계별 연출 포즈(예고·후속). 예고(Windup)는 팔 흔들림,
+    /// 토스 캐치 후는 들어올림(Wave), 캐치볼 대기는 받을 자세(팔 내밀기),
+    /// 점프 체공·지면 정지는 기본 자세로 돌린다(허공 걷기 방지).
     pub fn anim(&self) -> AnimKind {
         match (self.kind, self.phase) {
-            (
-                ActionKind::TossCatch | ActionKind::ThrowGround | ActionKind::PlayCatch,
-                Phase::Windup,
-            ) => AnimKind::Punch,
+            (_, Phase::Windup) => AnimKind::Punch,
+            (ActionKind::TossCatch, Phase::Hold) => AnimKind::Wave,
+            (ActionKind::PlayCatch, Phase::Hold) => AnimKind::Punch,
+            (ActionKind::Jump, Phase::Flight) => AnimKind::Idle,
+            (_, Phase::Rest) => AnimKind::Idle,
             _ => self.saved_anim,
         }
     }
@@ -122,8 +125,29 @@ impl ActiveAction {
     }
 }
 
-/// 준비 동작 길이(s).
-const WINDUP_T: f32 = 0.30;
+/// 준비 동작 길이(s) — 종류별 의도 드러내기: 가벼운 손목 토스 < 캐치볼
+/// 어깨 던지기 < 크게 돌려 던지기, 점프 예고는 무릎 굽힘처럼 짧게.
+/// 개체차 ±15%를 곱한다 — 같은 지시를 받은 무리가 초 단위로 맞춰
+/// 움직이는 기계감(코러스 이펙트) 방지(2026-10-26 액션 디테일).
+fn windup_secs(kind: ActionKind, seed: u64) -> f32 {
+    let base = match kind {
+        ActionKind::TossCatch => 0.18,
+        ActionKind::ThrowGround => 0.34,
+        ActionKind::PlayCatch => 0.26,
+        ActionKind::Jump => 0.16,
+    };
+    base * (1.0 + rand_jitter(seed) * 0.15)
+}
+
+/// 캐치 유지 길이(s) — 종류별 여운. 토스는 잡고 든 채 만끽, 캐치볼은
+/// 주고받기 리듬 유지, 점프 착지는 짧게.
+fn hold_secs(kind: ActionKind) -> f32 {
+    match kind {
+        ActionKind::TossCatch => 0.35,
+        ActionKind::PlayCatch => 0.30,
+        _ => 0.25,
+    }
+}
 /// 수직 토스 초기속도(m/s) — 정점 ≈ vy²/2g = 1.08m.
 const TOSS_VY: f32 = 4.6;
 /// 토스 수평 흔들림 최대(m/s) — 손 중심 밖 자연스러운 타원 궤적.
@@ -149,7 +173,6 @@ fn catch_t(from: Vec3, to: Vec3) -> f32 {
     (from.distance(to) / CATCH_V).clamp(CATCH_T_MIN, CATCH_T_MAX)
 }
 /// 캐치 유지·지면 정지·비행 이상 시한(s).
-const HOLD_T: f32 = 0.25;
 const REST_T: f32 = 1.2;
 const FLIGHT_MAX: f32 = 3.0;
 /// 행동 총시한(s) — 단계 루프 이상 시 강제 종료.
@@ -173,7 +196,7 @@ pub fn advance_actions<F: Resource + SurfaceField>(
     mut q: Query<
         (
             Entity,
-            &Transform,
+            &mut Transform,
             &mut ActiveAction,
             &mut HeldTool,
             Option<&mut Fall>,
@@ -191,7 +214,7 @@ pub fn advance_actions<F: Resource + SurfaceField>(
 ) {
     let dt = time.delta_secs();
     let g = gravity.0;
-    for (root_e, root_tr, mut act, mut tool, fall) in &mut q {
+    for (root_e, mut root_tr, mut act, mut tool, fall) in &mut q {
         act.t += dt;
         // 총시한 — 단계 전환이 어떤 경로로든 막혀도 영구 스택 방지(진단
         // 로그와 함께). 캐치볼 3패스(~5s)·LOCK 9s보다 여유.
@@ -204,7 +227,14 @@ pub fn advance_actions<F: Resource + SurfaceField>(
         }
         match act.phase {
             Phase::Windup => {
-                if act.t < WINDUP_T {
+                // 캐치볼 예고 — 상대를 향해 몸 돌리기(발사 직전 자세 정렬).
+                if act.kind == ActionKind::PlayCatch
+                    && let Some(p) = act.partner
+                    && let Ok(pt) = gts.get(p)
+                {
+                    face_toward(&mut root_tr, pt.translation(), dt);
+                }
+                if act.t < windup_secs(act.kind, root_e.to_bits() as u64) {
                     continue;
                 }
                 // 캐치볼 최초 소유 확정(시작 주민이 물건을 쥔다).
@@ -420,9 +450,16 @@ pub fn advance_actions<F: Resource + SurfaceField>(
                         ptr.translation = hp;
                     }
                 }
-                if act.t >= HOLD_T {
+                if act.t >= hold_secs(act.kind) {
                     // 캐치볼 — 남은 패스면 holder가 상대 손으로 되던지기(탄도 해).
                     if act.kind == ActionKind::PlayCatch && act.passes_left > 0 {
+                        // 되던지기 직전 자세 정렬(이 행동의 주인이 던질 때).
+                        if holder == root_e
+                            && let Some(p) = act.partner
+                            && let Ok(pt) = gts.get(p)
+                        {
+                            face_toward(&mut root_tr, pt.translation(), dt);
+                        }
                         let other = if holder == root_e {
                             act.partner
                         } else {
@@ -462,6 +499,47 @@ fn hand_hold(
     tool::find_hand(root, children_q, names)
         .and_then(|h| gts.get(h).ok())
         .map(|gt| gt.translation())
+}
+
+/// 목표를 향한 몸 돌리기(요 축 지수 감쇠 스무딩) — 즉시 틀면 기계적.
+/// yaw 관례는 이 게임의 이동 회전(atan2(dx, dz))과 동일.
+fn face_toward(tr: &mut Transform, target: Vec3, dt: f32) {
+    let d = target - tr.translation;
+    if d.length_squared() < 1e-4 {
+        return;
+    }
+    let want = Quat::from_rotation_y(d.x.atan2(d.z));
+    tr.rotation = tr.rotation.slerp(want, (dt * 10.0).clamp(0.0, 1.0));
+}
+
+/// 대상을 지속 지향(요 회전) — 게임이 캐치볼 상대처럼 "바라봐야 할
+/// 액터"에 부착한다. 만료 자정리(ActionLock과 같은 운명 정책).
+#[derive(Component)]
+pub struct FaceTarget {
+    pub target: Entity,
+    /// 만료 시각(s — Time::elapsed_secs 기준).
+    pub expire_at: f32,
+}
+
+/// FaceTarget 적용·만료 정리.
+pub fn face_targets(
+    time: Res<Time>,
+    mut commands: Commands,
+    mut q: Query<(Entity, &mut Transform, &FaceTarget)>,
+    gts: Query<&GlobalTransform>,
+) {
+    let now = time.elapsed_secs();
+    for (e, mut tr, f) in &mut q {
+        if now >= f.expire_at {
+            if let Ok(mut ec) = commands.get_entity(e) {
+                ec.remove::<FaceTarget>();
+            }
+            continue;
+        }
+        if let Ok(gt) = gts.get(f.target) {
+            face_toward(&mut tr, gt.translation(), time.delta_secs());
+        }
+    }
 }
 
 /// 종료 공통 — 투사체 정리·도구 복원·컴포넌트 제거(빈손 원본은 복원 없음).

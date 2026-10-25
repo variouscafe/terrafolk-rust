@@ -67,6 +67,7 @@ impl<F: Resource + SurfaceField> Plugin for CharacterPlugin<F> {
         );
         app.add_systems(Update, action::reap_orphan_projs);
         app.add_systems(Update, action::reap_action_locks);
+        app.add_systems(Update, action::face_targets);
         app.add_systems(Update, foot_lock::foot_lock);
         app.add_systems(Update, leg_ik::leg_ik);
         app.add_systems(Update, tool::tool_sync);

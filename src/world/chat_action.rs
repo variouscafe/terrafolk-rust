@@ -193,7 +193,15 @@ pub fn drain_bridge(
             expire_at: time.elapsed_secs() + LOCK_SECS,
         };
         if let Some(p) = partner {
-            commands.entity(p).insert(lock);
+            // 상대는 지시 주인을 바라보며 받을 준비(요 회전 스무딩 —
+            // face_targets가 만료까지 적용, 프레임워크 제공).
+            commands.entity(p).insert((
+                lock,
+                crate::character::action::FaceTarget {
+                    target: owner,
+                    expire_at: time.elapsed_secs() + LOCK_SECS,
+                },
+            ));
         }
         commands.entity(owner).insert(lock);
         let act = match partner {
