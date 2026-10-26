@@ -16,6 +16,24 @@ pub(crate) fn structural_kind(kind: &str) -> bool {
     matches!(kind, "hut" | "campfire" | "stash" | "grave" | "relic")
 }
 
+/// 구조물 판정(kind+state) — 개굴 행(kind=hut·생태 state)은 제외. 청소 반경
+/// 집합이 이 판정을 쓴다(visual_map::is_den 주석 — den은 숲 속 굴이라
+/// 주변 나무·장식을 밀어내지 않는다).
+pub(crate) fn is_structure(r: &super::LiveResource) -> bool {
+    if !structural_kind(&r.kind) {
+        return false;
+    }
+    if r.kind == "hut" {
+        let st: super::visual_map::ResState = r
+            .state
+            .as_deref()
+            .and_then(|s| serde_json::from_str(s).ok())
+            .unwrap_or_default();
+        return !super::visual_map::is_den(&st);
+    }
+    true
+}
+
 /// 구조물 청소 반경(타일, 체비셰프) — 주변까지 포함해 나무·덤불 스폰을 양보한다.
 /// 에셋이 늦게 로딩돼도(나무 GLB가 마지막에 뜸) 기본 뷰에서 집이 숲에 묻히지
 /// 않게 하는 클라이언트 투영. 구조물 집합의 3×3 확장 좌표를 반환.
@@ -97,6 +115,8 @@ pub fn sync_resources(
     // 구조물 청소 집합 캐시 — (서명, 3×3 확장 좌표). 매 프레임 재구축(구조물×9
     // 삽입+할당) 대신 자원 목록 서명이 바뀔 때만 다시 계산한다.
     mut cleared_cache: Local<(u64, std::collections::HashSet<(i32, i32)>)>,
+    // 스폰 영구 스킵 id 캐시 — 아래 루프의 skip_cache.insert 참조(주석 상세).
+    mut skip_cache: Local<std::collections::HashSet<u32>>,
 ) {
     if net.status != NetStatus::Connected {
         return;
@@ -118,7 +138,14 @@ pub fn sync_resources(
             .as_deref()
             .and_then(|s| serde_json::from_str(s).ok())
             .unwrap_or_default();
-        let vis = live_visual(&r.kind, &r.species, &st).is_some();
+        // hut은 스폰 경로가 언제나 res_sig(r, true)로 서명한다(공사 발판·완공
+        // GLB 모두 실체 있음). 갱신 루프가 live_visual(is_some=false for 공사
+        // 중)으로 서명하면 매 프레임 불일치 → despawn/respawn 폭풍이 된다.
+        let vis = if r.kind == "hut" {
+            true
+        } else {
+            live_visual(&r.kind, &r.species, &st).is_some()
+        };
         let sig = res_sig(r, vis);
         match meta {
             Some(m) if m.0 == sig => {
@@ -178,7 +205,7 @@ pub fn sync_resources(
     let sig = frame
         .resources
         .iter()
-        .filter(|r| structural_kind(&r.kind))
+        .filter(|r| is_structure(r))
         .fold(frame.resources.len() as u64, |a, r| {
             a.rotate_left(5) ^ (r.x as u64).wrapping_mul(31) ^ (r.y as u64).wrapping_mul(97)
         });
@@ -186,7 +213,7 @@ pub fn sync_resources(
         let structural: std::collections::HashSet<(u16, u16)> = frame
             .resources
             .iter()
-            .filter(|r| structural_kind(&r.kind))
+            .filter(|r| is_structure(r))
             .map(|r| (r.x, r.y))
             .collect();
         cleared_cache.1 = cleared_tiles(&structural);
@@ -194,14 +221,22 @@ pub fn sync_resources(
     }
     let cleared = &cleared_cache.1;
     // 기존 실체 id 사전 — 신규 판정을 O(N×M) 순회 대신 해시 조회로.
-    let mut live_ids: std::collections::HashSet<u32> =
+    let live_ids: std::collections::HashSet<u32> =
         q_live.iter().map(|(_, t, _, _, _, _)| t.0).collect();
+    // 스폰 영구 스킵 캐시 — 씬닝된 나무·물 타일·개굴·비표시 종처 '스폰 없이
+    // 스킵'되는 행은 매 프레임 재평가되며 스폰 예산(64/프레임)을 반복 소비해
+    // 프론티어를 그 행들에 영구 가둔다(2026-10-26 '집이 안 보임' 근본 원인 —
+    // 실측: 씬닝 나무 64그루가 idx 93에 예산을 가둬 뒤 5,400행이 끝내 스폰
+    // 못 함. live_ids는 매 프레임 q_live로 재구축되므로 스킵 표시가 프레임을
+    // 못 넘긴다). 세션 수명 캐시로 예산이 행마다 정확히 1회만 소비되게 한다.
+    // 스킵 판정 근거(씬닝 해시·물 타일·사망·개굴)는 세션 내 정지 상태라 무해.
+    //
     // 스폰 예산 — 수천 자원이 한 프레임에 몰리면 씬 인스턴스화가 메인 스레드를
     // 수십 초 묶는다(2026-10-17 프리즈). 64/프레임 분산 — 잔여분은 다음 프레임
     // 호출에서 자동 이어진다(태그 없음 = 신규 판정).
     let mut budget: usize = 64;
     for r in &frame.resources {
-        if live_ids.contains(&r.id) {
+        if live_ids.contains(&r.id) || skip_cache.contains(&r.id) {
             continue;
         }
         if budget == 0 {
@@ -213,7 +248,15 @@ pub fn sync_resources(
             .as_deref()
             .and_then(|s| serde_json::from_str(s).ok())
             .unwrap_or_default();
+        // 동물 개굴(den) — kind='hut'이지만 건축 아님. 유령 오두막·공사 발판
+        // 모두 스킵(visual_map::is_den 주석).
+        if r.kind == "hut" && super::visual_map::is_den(&st) {
+            skip_cache.insert(r.id);
+            continue;
+        }
+        // 물 타일 자원(어류 서식 등) — 지형은 세션 내 불변이라 영구 스킵.
         if world.terrain_at(r.x as i32, r.y as i32) == "water" {
+            skip_cache.insert(r.id);
             continue;
         }
         // 나무 씬닝(2026-10-22 사용자 지시 — 라이브 5,576그루 과밀): 결정론
@@ -221,7 +264,7 @@ pub fn sync_resources(
         if r.kind == "tree"
             && crate::world::models::pos_hash(r.x as usize, r.y as usize, 7) % 100 >= 35
         {
-            live_ids.insert(r.id); // 스폰 스킵을 '이미 있음'으로 표시(재평가 방지)
+            skip_cache.insert(r.id);
             continue;
         }
         // ── hut — 다중 타일 발판(§17.75)·창불(§17.78). 서버 앵커=좌상단 타일,
@@ -353,6 +396,7 @@ pub fn sync_resources(
             continue;
         }
         let Some((kind, target_h)) = live_visual(&r.kind, &r.species, &st) else {
+            skip_cache.insert(r.id); // 비표시 종(미지 kind·사망 동물) — 1회 소비 표시
             continue;
         };
         if matches!(

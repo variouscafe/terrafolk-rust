@@ -5,7 +5,7 @@
 use bevy::gltf::GltfAssetLabel;
 use bevy::prelude::*;
 
-use super::resources::{LiveResourceTag, cleared_tiles, structural_kind};
+use super::resources::{LiveResourceTag, cleared_tiles};
 use super::{LiveFrame, NetState, NetStatus, TiledMap};
 use crate::world::data::{PropKind, WorldData};
 
@@ -113,7 +113,7 @@ pub fn prime_live_world(
     let structural: std::collections::HashSet<(u16, u16)> = frame
         .resources
         .iter()
-        .filter(|r| structural_kind(&r.kind))
+        .filter(|r| super::resources::is_structure(r))
         .map(|r| (r.x, r.y))
         .collect();
     let cleared = cleared_tiles(&structural);
