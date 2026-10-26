@@ -106,11 +106,14 @@ impl Plugin for WorldPlugin {
         // 데모 월드 제거(2026-10-23 사용자 결정) — 네이티브도 라이브 전제.
         // 이전: 레거시 맵 임베드 데모가 네이티브에서 구동(바이너리 용량 부담).
         app.add_systems(Update, animal_anim::play_animal_idles);
-        // 캐릭터 프레임워크(치비화·접지·발바닥 수평) — 게임 무관 계층
+        // 캐릭터 프레임워크(비율·접지·발바닥 수평) — 게임 무관 계층
         // (2026-10-24 P1, docs/character-module-redesign.md). 표면장=WorldData.
-        app.add_plugins(
-            crate::character::CharacterPlugin::<data::WorldData>::default(),
-        );
+        // 비율 룩 = 원본 리그 REAL(2026-10-26 사용자 결정 — 나무·건물 대비
+        // 사람 비율 정합. 치비 v1은 rig::CHIBI_V1로 언제든 복귀 가능).
+        app.add_plugins(crate::character::CharacterPlugin::<data::WorldData> {
+            profile: crate::character::rig::REAL,
+            ..Default::default()
+        });
         app.configure_sets(
             Update,
             crate::character::GroundSnapSet

@@ -37,14 +37,18 @@ pub use proportion::{ChibiDone, ChibiTarget, FootLift, SettleProbe};
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct GroundSnapSet;
 
-/// 캐릭터 접지·비율·포즈 시스템 꾸러미 — 표면장 F로 매개화.
+/// 캐릭터 접지·비율·포즈 시스템 꾸러미 — 표면장 F로 매개화, 비율 룩은
+/// profile로 선택(기본 치비 v1 — 다른 게임이 복사해도 동일 룩 보장).
 pub struct CharacterPlugin<F: Resource + SurfaceField> {
-    _marker: std::marker::PhantomData<fn(F)>,
+    /// 비율 프로파일(rig::CHIBI_V1 | rig::REAL).
+    pub profile: rig::ProportionProfile,
+    pub(crate) _marker: std::marker::PhantomData<fn(F)>,
 }
 
 impl<F: Resource + SurfaceField> Default for CharacterPlugin<F> {
     fn default() -> Self {
         Self {
+            profile: rig::CHIBI_V1,
             _marker: std::marker::PhantomData,
         }
     }
@@ -56,6 +60,7 @@ impl<F: Resource + SurfaceField> Plugin for CharacterPlugin<F> {
         if !app.world().contains_resource::<SpaceGravity>() {
             app.insert_resource(SpaceGravity::EARTH);
         }
+        app.insert_resource(self.profile);
         app.add_systems(
             Update,
             (proportion::chibiify, proportion::chibi_settle).chain(),

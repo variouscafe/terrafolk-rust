@@ -259,10 +259,11 @@ pub fn sync_resources(
             skip_cache.insert(r.id);
             continue;
         }
-        // 나무 씬닝(2026-10-22 사용자 지시 — 라이브 5,576그루 과밀): 결정론
-        // 위치 해시로 35%만 렌더. 데이터는 온전(호버·수확은 서버 정본).
+        // 나무 씬닝(2026-10-22 사용자 지시 — 라이브 5,576그루 과밀 · 2026-10-26
+        // 사용자 지시 듬성듬성 완화 35%→15%): 결정론 위치 해시로 15%만 렌더.
+        // 데이터는 온전(호버·수확은 서버 정본).
         if r.kind == "tree"
-            && crate::world::models::pos_hash(r.x as usize, r.y as usize, 7) % 100 >= 35
+            && crate::world::models::pos_hash(r.x as usize, r.y as usize, 7) % 100 >= 15
         {
             skip_cache.insert(r.id);
             continue;

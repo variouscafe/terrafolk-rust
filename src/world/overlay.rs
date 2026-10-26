@@ -16,7 +16,7 @@ use super::villager::Villager;
 use crate::net::apply::LiveAgentTag;
 use crate::net::resources::LiveResourceTag;
 
-/// 오버레이 앵커 높이(지면 기준 m) — 주민 상단(VILLAGER_H 1.62) 위 여백.
+/// 오버레이 앵커 높이(지면 기준 m) — 주민 상단(VILLAGER_H 1.72) 위 여백.
 /// 이름·배지·풍선은 JS가 이 앵커에서 위로 쌓는다.
 #[cfg(target_arch = "wasm32")]
 const ANCHOR_H: f32 = 1.85;

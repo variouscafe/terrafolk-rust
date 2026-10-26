@@ -49,10 +49,13 @@ pub struct FootSide {
     pub bind: [Vec3; 2],
 }
 
-/// 치비화 1회 적용 — ChibiTarget 보유 액터의 자손 본 스케일 조정 후
-/// 2프레임 측정 프로브 예약.
+/// 치비화 1회 적용 — ChibiTarget 보유 액터의 자손 본 스케일을 현재
+/// 프로파일(rig::ProportionProfile)로 조정 후 2프레임 측정 프로브 예약.
+/// REAL 프로파일에서는 항등(원본 리그 그대로) — 발 측정·IK 바인드 절차는
+/// 프로파일 무관하게 그대로 수행된다.
 pub fn chibiify(
     mut commands: Commands,
+    profile: Res<super::rig::ProportionProfile>,
     q: Query<Entity, (With<ChibiTarget>, Without<ChibiDone>)>,
     children_q: Query<&Children>,
     mut bones: Query<(&Name, &mut Transform), Without<ChibiDone>>,
@@ -60,12 +63,12 @@ pub fn chibiify(
     for entity in &q {
         for descendant in children_q.iter_descendants(entity) {
             if let Ok((name, mut tr)) = bones.get_mut(descendant) {
-                if let Some(scale) = bone_scale(name.as_str()) {
+                if let Some(scale) = bone_scale(name.as_str(), &profile) {
                     tr.scale *= scale;
                 }
                 // 고관절·발 앵커 횡간 수렴 — 스케일이 못 옮기는 본 위치 보정.
                 if super::rig::narrow_bone(name.as_str()) {
-                    tr.translation.x *= super::rig::HIP_NARROW;
+                    tr.translation.x *= profile.hip_narrow;
                 }
             }
         }
@@ -85,6 +88,7 @@ fn capture_foot_rig(
     parents: &Query<&ChildOf>,
     gts: &Query<&GlobalTransform>,
     bones: &mut Query<&mut Transform>,
+    profile: &super::rig::ProportionProfile,
 ) -> Option<FootRig> {
     // [좌우][발목, 폴타깃, 고관절] — 정확한 이름 매칭(헤어 GLB 뼈 오염 제외).
     let mut found: [[Option<Entity>; 3]; 2] = [[None; 3], [None; 3]];
@@ -123,7 +127,7 @@ fn capture_foot_rig(
         for (slot, bone) in [foot, pt].into_iter().enumerate() {
             if let Ok(mut tr) = bones.get_mut(bone) {
                 bind[slot] = tr.translation;
-                tr.translation = map_foot_local(tr.translation, pivot);
+                tr.translation = map_foot_local(tr.translation, pivot, profile);
             }
         }
         sides[i] = Some(FootSide {
@@ -146,6 +150,7 @@ fn capture_foot_rig(
 #[allow(clippy::type_complexity)]
 pub fn chibi_settle(
     mut commands: Commands,
+    profile: Res<super::rig::ProportionProfile>,
     mut q: Query<(Entity, &mut SettleProbe)>,
     children_q: Query<&Children>,
     names: Query<&Name>,
@@ -158,9 +163,15 @@ pub fn chibi_settle(
         if probe.0 == 2 {
             // 1단계 — 치비 스케일 GT 전파 완료. 발 본을 재배치해 두면
             // 2단계(0) 측정이 치비 발 위치 기준으로 잡힌다.
-            if let Some(rig) =
-                capture_foot_rig(root, &children_q, &names, &parents, &gts, &mut bones)
-            {
+            if let Some(rig) = capture_foot_rig(
+                root,
+                &children_q,
+                &names,
+                &parents,
+                &gts,
+                &mut bones,
+                &profile,
+            ) {
                 commands.entity(root).insert(rig);
             } else {
                 commands.entity(root).remove::<SettleProbe>();

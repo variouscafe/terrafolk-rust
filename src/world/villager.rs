@@ -12,8 +12,11 @@ use std::time::Duration;
 use super::data::WorldData;
 
 const WALK_TIME: f32 = 0.85;
-/// 주민 키 목표(미터) — 2026-10-19 사용자 요청 축소(1.62→1.38)
-pub const VILLAGER_H: f32 = 1.38;
+/// 주민 키 목표(미터) — 2026-10-26 사용자 결정 1:1 원복: 치비(1.38·두신
+/// ≈2.1)를 걷어내고 원본 리그 비율(rig::REAL)의 실측 신장으로. 나무(성목
+/// 7.2~8m)·오두막(4.2m) 대비 사람 비율이 정합 — 이전 치비는 작은 성인으로
+/// 읽혀 세계 전체가 과대해 보였다.
+pub const VILLAGER_H: f32 = 1.72;
 
 /// 모델 전방 보정 — Quaternius 리깅는 +Z 전방(실측 후 조정)
 const MODEL_YAW: f32 = 0.0;
