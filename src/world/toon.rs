@@ -171,16 +171,32 @@ pub fn toonify(
                 let c = src.base_color.to_srgba();
                 Vec4::new(c.red, c.green, c.blue, c.alpha)
             };
+            let mat_name = tints.as_ref().and_then(|_| {
+                let sc = src.base_color.to_linear();
+                candidates.iter().find(|(c, _)| {
+                    (c[0] - sc.red).abs() < 0.01
+                        && (c[1] - sc.green).abs() < 0.01
+                        && (c[2] - sc.blue).abs() < 0.01
+                }).map(|(_, n)| n.as_str())
+            });
+            // 진단 게이트 ?tfdbg=noshoes — 신발 슬롯 재질의 서브메시를 숨긴다
+            // ("발이 문제"의 원인 분리: 맨발 상태 보행·정지 발 모양 비교용.
+            // 아웃라인 헐은 메시 자식이라 숨김이 전파된다. 운영 무해).
+            if crate::net::dbg_gate::on("noshoes")
+                && let Some(name) = mat_name
+                && super::look_tint::slot_for(&model_stem, name)
+                    .is_some_and(|(s, _)| s == super::look_tint::Slot::Feet)
+            {
+                commands
+                    .entity(d)
+                    .insert((ToonSwapped, Visibility::Hidden));
+                continue;
+            }
             let tint = 'tint: {
                 let Some(t) = tints.as_ref() else {
                     break 'tint src_v4;
                 };
-                let sc = src.base_color.to_linear();
-                let Some((_, name)) = candidates.iter().find(|(c, _)| {
-                    (c[0] - sc.red).abs() < 0.01
-                        && (c[1] - sc.green).abs() < 0.01
-                        && (c[2] - sc.blue).abs() < 0.01
-                }) else {
+                let Some(name) = mat_name else {
                     break 'tint src_v4;
                 };
                 match super::look_tint::slot_for(&model_stem, name)
