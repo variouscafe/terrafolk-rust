@@ -29,12 +29,69 @@ async function shot(pg, name) {
   });
   const logs = [];
   const errors = [];
+  // 프레임 주입 모드(선택) — FRAME_PATH에 캡처한 실제 프레임 원문
+  // (root3d_hut_probe.cjs 산출)을 주입해 로컬 스택(8892/8893) 없이 월드를
+  // 띄운다. 로컬 오리진은 worldsim이 127.0.0.1로 접속 실패하므로 주입
+  // 프레임이 정본 — 이 모드에선 서버 부재 CORS 에러를 판정에서 제외.
+  const injectMode = !!process.env.FRAME_PATH;
   pg.on('console', (m) => {
     const t = m.text();
     if (t.includes('[action]') || t.includes('[grav]')) logs.push(t.slice(0, 200));
-    if (m.type() === 'error') errors.push(t.slice(0, 200));
+    const netNoise = /CORS|Failed to fetch|ERR_FAILED|net::/.test(t);
+    if (m.type() === 'error' && !(injectMode && netNoise)) errors.push(t.slice(0, 200));
   });
+  if (injectMode) {
+    await pg.addInitScript(() => {
+      window.__inject = { sink: null, frame: null };
+      const t = setInterval(function () {
+        const tf = window.terrafolk;
+        if (tf && tf.setSink && !tf.__wrapped) {
+          tf.__wrapped = true;
+          const orig = tf.setSink;
+          tf.setSink = function (fn) {
+            window.__inject.sink = fn;
+            return orig.call(this, function (json) { return fn(json); });
+          };
+          clearInterval(t);
+        }
+      }, 25);
+    });
+  }
+  await pg.bringToFront(); // 미포커스 RAF 스로틀 방지(스폰 예산·애님 프레임)
   await pg.goto(url, { waitUntil: 'load', timeout: 30000 });
+  if (injectMode) {
+    const frameJson = require('fs').readFileSync(process.env.FRAME_PATH, 'utf8');
+    await pg.waitForFunction(
+      () => window.__inject && window.terrafolk && window.terrafolk.__wrapped,
+      null, { timeout: 60000 },
+    );
+    await pg.evaluate((f) => { window.__inject.frame = f; }, frameJson);
+    await pg.evaluate(() => {
+      setInterval(function () {
+        if (!window.__inject.sink || !window.__inject.frame) return;
+        try { window.__inject.sink(window.__inject.frame); } catch (e) { /* pass */ }
+        // DOM UI(앵커 이름·욕구·활동 배지)는 worldsim의 feed.frame 경로라 함께
+        // 주입해야 한다 — 주입 프레임을 worldsim과 같은 구조로 사상(worldsim.js
+        // snapshot 참조). 이게 없으면 .tf-wname이 비어 픽이 무음 실패한다.
+        if (window.TF_UI && window.TF_UI.feed && window.TF_UI.feed.frame) {
+          try {
+            const f = JSON.parse(window.__inject.frame);
+            window.TF_UI.feed.frame({
+              day: f.day, hour: f.hour, minute: f.minute, season: f.season,
+              weather: f.weather, sunrise: f.sunrise, sunset: f.sunset,
+              agents: f.agents,
+              resources: (f.resources || []).map(function (r) {
+                let st = {};
+                try { st = r.state ? JSON.parse(r.state) : {}; } catch (e) { /* pass */ }
+                return { id: r.id, kind: r.kind, species: r.species, x: r.x, y: r.y, state: st };
+              }),
+              inventions: [],
+            });
+          } catch (e) { /* pass */ }
+        }
+      }, 700);
+    });
+  }
   let primed = false;
   for (let i = 0; i < 40 && !primed; i++) {
     await pg.waitForTimeout(3000);
@@ -48,7 +105,10 @@ async function shot(pg, name) {
   const sleepWorld = await pg.evaluate(() =>
     Array.from(document.querySelectorAll('.tf-zz')).filter((z) => z.style.display !== 'none').length > 0);
   let picked = false;
-  const agentPos = await pg.evaluate(() =>
+  // 앵커 출현 대기 — 프라임 직후 주민 스폰·오버레이 투영이 프레임 주입
+  // 모드에서 수십 초 늦는다(실측: prime+2.5s .tf-wa 0개 → 이후 출현).
+  // 0개로 픽을 건너뛰면 전 지시가 무음 실패한다.
+  const readAnchors = () => pg.evaluate(() =>
     Array.from(document.querySelectorAll('.tf-wa')).flatMap((el) => {
       const nm = el.querySelector('.tf-wname');
       if (!nm || !nm.textContent.trim()) return [];
@@ -62,13 +122,20 @@ async function shot(pg, name) {
       }];
     }),
   );
+  let agentPos = [];
+  for (let i = 0; i < 30 && agentPos.length === 0; i++) {
+    agentPos = await readAnchors();
+    if (agentPos.length === 0) await pg.waitForTimeout(1500);
+  }
   if (agentPos.length) {
     // 깨어 있는 주민 우선(수면 거부 회피), 그다음 화면 중심 근접.
     agentPos.sort((a, b) => (b.awake - a.awake) ||
       Math.hypot(a.x - 640, a.y - 400) - Math.hypot(b.x - 640, b.y - 400));
     const firstName = agentPos[0].name;
+    console.error(`[dbg] anchors=${agentPos.length} pick=${firstName} ` +
+      `pos=(${agentPos[0].x.toFixed(0)},${agentPos[0].y.toFixed(0)}) awake=${agentPos[0].awake}`);
     const spots = [];
-    for (const dy of [9, 18, 35]) for (const dx of [-30, 0, 30]) spots.push([dx, dy]);
+    for (const dy of [0, 9, 18, 35]) for (const dx of [-30, 0, 30]) spots.push([dx, dy]);
     for (const [dx, dy] of spots) {
       // 매 시도마다 앵커 현재 위치 재판독 — 걷는 주민은 고정 좌표가 빗나간다.
       const t = await pg.evaluate((nm) => {
@@ -103,15 +170,33 @@ async function shot(pg, name) {
   const results = {};
   for (const d of directives) {
     const n0 = logs.length;
-    const ok = await pg.evaluate((text) => {
-      const inp = document.querySelector('.tf-chatdock .tf-input');
-      if (!inp) return false;
-      inp.value = text;
-      inp.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
-      );
-      return true;
-    }, d.text);
+    // 지시 전송 — 통상 모드는 실제 채팅 DOM(Enter → send() → 브리지+서버).
+    // 주입 모드는 worldsim room 부재로 send()가 조기 반환하므로(live()=!!room)
+    // 선택 이름을 프레임에서 id로 되짚어 브리지 직호출(ui.js와 동일 계약).
+    const ok = injectMode
+      ? await pg.evaluate((text) => {
+          let ag = null;
+          try {
+            const f = JSON.parse(window.__inject.frame);
+            const selEl = document.querySelector('.tf-wname.sel');
+            const nm = selEl ? selEl.textContent.trim() : '';
+            ag = f.agents.find((a) => a.name === nm) || f.agents.find((a) => a.kind === 'bot');
+          } catch (e) { /* pass */ }
+          if (window.terrafolk && window.terrafolk.chatAction && ag) {
+            window.terrafolk.chatAction(ag.id, text);
+            return true;
+          }
+          return false;
+        }, d.text)
+      : await pg.evaluate((text) => {
+          const inp = document.querySelector('.tf-chatdock .tf-input');
+          if (!inp) return false;
+          inp.value = text;
+          inp.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+          );
+          return true;
+        }, d.text);
     await pg.waitForTimeout(d.shotAt * 1000);
     await shot(pg, d.key);
     if (d.key === 'catch') {

@@ -45,6 +45,16 @@ pub(crate) struct ResState {
     pub(crate) purpose: Option<String>,
 }
 
+/// 동물 개굴(den) 행 판정 — kind='hut'이지만 state에 건축 정체성 필드
+/// (stage·type·w) 없이 생태 필드(alive)만 있는 행. 서버가 동물 서식지를
+/// hut kind로 심는다(2026-10-26 라이브 실측 — kind=hut 136행 중 개굴 117행).
+/// 건축 폴백(stage 기본 COMPLETED)이 개굴마다 유령 오두막을 세우던 결함
+/// 차단. 개굴은 지하 굴 — 3D 표현 없음(레거시 FE는 부지 텍스처로 그리나
+/// 숲 속 공사 발판 소음이 될 뿐이라 따르지 않는다).
+pub(crate) fn is_den(st: &ResState) -> bool {
+    st.stage.is_none() && st.bld_type.is_none() && st.w.is_none() && st.alive.is_some()
+}
+
 /// 발판 크기 — state.w/h 우선, 레거시 스냅숏은 타입 기본값(FE BLD_SEED_SIZE).
 pub(crate) fn bld_size(state: &ResState, bld_type: &str) -> (u16, u16) {
     if let (Some(w), Some(h)) = (state.w, state.h)
@@ -83,6 +93,9 @@ pub(crate) fn live_visual(kind: &str, species: &str, state: &ResState) -> Option
             Some((k, crate::world::models::prop_model(k).0))
         }
         "hut" => {
+            if is_den(state) {
+                return None; // 동물 개굴 — 유령 오두막 방지(is_den 주석)
+            }
             // 완공만 GLB — 공사 중(PLANNED~ROOF_READY)은 bld::spawn_site 발판.
             let stage = state.stage.as_deref().unwrap_or("COMPLETED");
             if stage != "COMPLETED" {

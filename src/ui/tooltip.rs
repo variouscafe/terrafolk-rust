@@ -61,12 +61,14 @@ pub fn spawn_tooltip(mut commands: Commands, theme: Res<UiTheme>) {
 pub fn update_tooltip(
     time: Res<Time>,
     window: Single<&Window>,
+    rig: Res<crate::world::camera_rig::CameraRig>,
+    world: Res<crate::world::data::WorldData>,
     q_cam: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
     sel: Res<Selection>,
     tap: Res<GroundTap>,
     ui_hover: Res<crate::platform::UiHover>,
     net: Res<NetState>,
-    villagers: Query<(&Transform, &Villager, Option<&LiveAgentTag>, Option<&AgentHud>)>,
+    villagers: Query<(&GlobalTransform, &Villager, Option<&LiveAgentTag>, Option<&AgentHud>)>,
     mut q_node: Query<(&mut TooltipNode, &mut Node, &mut Visibility)>,
     mut q_text: Query<&mut Text, Without<TooltipNode>>,
     mut last_sel: Local<u32>,
@@ -81,9 +83,10 @@ pub fn update_tooltip(
     if sel.epoch != *last_sel {
         *last_sel = sel.epoch;
         if let Some(entity) = sel.entity
-            && let Ok((tr, v, _tag, hud)) = villagers.get(entity)
+            && let Ok((gtr, v, _tag, hud)) = villagers.get(entity)
             && let Ok((cam, gt)) = q_cam.single()
-            && let Ok(p) = cam.world_to_viewport(gt, tr.translation + Vec3::Y * 2.0)
+            // 워프 공간 투영(글로브 정합 — 평면에서는 기존과 동일)
+            && let Ok(p) = cam.world_to_viewport(gt, gtr.translation() + gtr.up() * 2.0)
         {
             let act = hud
                 .map(|h| i18n::act_label(&h.act_type))
@@ -102,7 +105,10 @@ pub fn update_tooltip(
         *last_tap = tap.epoch;
         if show.is_none()
             && let Ok((cam, gt)) = q_cam.single()
-            && let Some(g) = crate::world::camera_input::ground_at(cam, gt, tap.px, 0.0)
+            && let Some(g) = crate::world::camera_input::ground_at(
+                cam, gt, tap.px, 0.0,
+                crate::world::globe::WarpFrame::active(&world, rig.zoom).as_ref(),
+            )
             && let Some(text) = res_tip(&net, g.x, g.z)
             && let Ok(p) = cam.world_to_viewport(gt, g)
         {
@@ -117,8 +123,9 @@ pub fn update_tooltip(
         let ray = cam.viewport_to_world(gt, cursor).ok();
         let mut vill: Option<(f32, String)> = None;
         if let Some(ray) = ray.as_ref() {
-            for (tr, v, _tag, hud) in &villagers {
-                let center = tr.translation + Vec3::Y * TORSO_H;
+            for (gtr, v, _tag, hud) in &villagers {
+                // 워프 공간 판정(글로브 정합 — 평면에서는 기존과 동일)
+                let center = gtr.translation() + gtr.up() * TORSO_H;
                 let dv = center - ray.origin;
                 let along = dv.dot(*ray.direction);
                 if along <= 0.0 {
@@ -144,7 +151,10 @@ pub fn update_tooltip(
         if let Some((_, text)) = vill {
             show = Some((text, cursor));
             node.until = t + HOVER_LINGER;
-        } else if let Some(g) = crate::world::camera_input::ground_at(cam, gt, cursor, 0.0)
+        } else if let Some(g) = crate::world::camera_input::ground_at(
+            cam, gt, cursor, 0.0,
+            crate::world::globe::WarpFrame::active(&world, rig.zoom).as_ref(),
+        )
             && let Some(text) = res_tip(&net, g.x, g.z)
         {
             show = Some((text, cursor));

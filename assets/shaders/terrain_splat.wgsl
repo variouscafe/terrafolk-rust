@@ -28,6 +28,9 @@
 @group(#{MATERIAL_BIND_GROUP}) @binding(107) var s_sand: sampler;
 @group(#{MATERIAL_BIND_GROUP}) @binding(108) var s_rock: sampler;
 @group(#{MATERIAL_BIND_GROUP}) @binding(109) var s_dirt: sampler;
+// 글로브 곡률 — terrain_globe_vertex.wgsl과 동일 바인딩(프래그먼트에선
+// 안개 소등용 w=factor만 사용). 곡률 구간의 수평면 근사 안개는 끈다.
+@group(#{MATERIAL_BIND_GROUP}) @binding(110) var<uniform> globe: vec4<f32>;
 
 fn hash21(p: vec2<f32>) -> f32 {
     var q = fract(p * vec2<f32>(127.1, 311.7));
@@ -103,7 +106,8 @@ fn fragment(
     // VIEW_DIR/140은 camera_rig.rs의 CAM_PITCH 35°·CAM_YAW 45°·CAM_DIST와 정합.
     let view_dir = vec3<f32>(-0.5792, -0.5736, -0.5792);
     let axis = dot(in.world_position.xyz - view.world_position, view_dir) - 140.0;
-    let fog_f = smoothstep(42.0, 125.0, axis);
+    // 곡률(factor) 구간에서는 수평면 근사 안개가 성립하지 않는다 — 소등.
+    let fog_f = smoothstep(42.0, 125.0, axis) * (1.0 - clamp(globe.w, 0.0, 1.0));
     let fog_col = vec3<f32>(0.72, 0.81, 0.92);
     out.color = vec4<f32>(mix(out.color.rgb, fog_col, fog_f * 0.75), out.color.a);
 #endif

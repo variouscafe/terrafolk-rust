@@ -29,3 +29,14 @@ impl AnimKind {
 /// 함께 쓴다(클립 핸들은 게임 소유라 여기 없음).
 #[derive(Component)]
 pub struct AnimState(pub AnimKind);
+
+/// 우선 포즈 홀드 — 만료 시각까지 지정 애님을 유지(게임이 연출로 부착·
+/// 애니메이터가 활동 코드보다 우선해 소비). 예: 캐치볼 수신 측의 받을
+/// 자세 — `ActiveAction` 없이 짝 행동에 참여하는 액터의 연출(행동
+/// 상태머신은 지시 주인만 갖는다). 만료 잔류 컴포넌트는 소비처가 정리.
+#[derive(Component)]
+pub struct PoseHold {
+    pub anim: AnimKind,
+    /// 만료 시각(s — `Time::elapsed_secs` 기준).
+    pub until: f32,
+}

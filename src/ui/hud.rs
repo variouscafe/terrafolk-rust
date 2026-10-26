@@ -21,7 +21,9 @@ impl Plugin for HudPlugin {
             .add_systems(
                 Update,
                 (update_hud, update_notice, super::daydial::update_daydial).chain(),
-            );
+            )
+            // 진단 — ?tfdbg=uidbg: 모든 bevy_ui 노드의 화면좌표를 1회 덤프
+            .add_systems(Update, uidbg_dump);
     }
 }
 
@@ -320,4 +322,36 @@ pub fn update_hud(
             **t = net_txt;
         }
     }
+}
+
+/// UI 노드 화면좌표 덤프(진단) — ?tfdbg=uidbg. bevy 0.19 bevy_ui는 전용
+/// 트랜스폼 스택(UiGlobalTransform)을 쓴다 — GlobalTransform 쿼리는 0매치
+/// (2026-10-25 "하늘 가발" 조사 중 실측).
+#[allow(clippy::type_complexity)]
+pub fn uidbg_dump(
+    mut done: Local<bool>,
+    q: Query<
+        (
+            &bevy::ui::UiGlobalTransform,
+            Option<&bevy::ui::ComputedNode>,
+            Option<&Text>,
+        ),
+        With<Node>,
+    >,
+) {
+    if *done || !crate::net::dbg_gate::on("uidbg") {
+        return;
+    }
+    *done = true;
+    #[cfg(target_arch = "wasm32")]
+    for (gt, cn, text) in &q {
+        let p = gt.transform_point2(Vec2::ZERO);
+        let (w, h) = cn.map(|c| (c.size.x, c.size.y)).unwrap_or((0.0, 0.0));
+        let txt: String = text.map(|t| t.0.chars().take(14).collect()).unwrap_or_default();
+        web_sys::console::log_1(
+            &format!("UIDBG pos=({:.0},{:.0}) size=({:.0}x{:.0}) text={}", p.x, p.y, w, h, txt).into(),
+        );
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = q;
 }

@@ -26,11 +26,11 @@ impl Plugin for GamePlugin {
         app.add_plugins(ui::UiPlugin);
         // 미니맵은 예외 — 웹·네이티브 공용 bevy_ui 단일 구현(2026-10-25,
         // tf-minimap.js 폐지. DOM 상단 바 아래 같은 슬롯에 렌더).
-        #[cfg(not(feature = "no-ui"))]
+        #[cfg(all(not(feature = "no-ui"), not(feature = "no-minimap")))]
         app.add_plugins(ui::minimap::MinimapPlugin);
         // HUD 정보바도 공용(통일 2호) — 웹 DOM 상단바는 ☰ 메뉴만 남고
         // 정보(시계·해시계·날씨·인구·링크)는 이쪽으로.
-        #[cfg(not(feature = "no-ui"))]
+        #[cfg(all(not(feature = "no-ui"), not(feature = "no-hud")))]
         app.add_plugins(ui::hud::HudPlugin);
     }
 }

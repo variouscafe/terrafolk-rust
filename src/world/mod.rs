@@ -10,6 +10,7 @@ pub mod camera_rig;
 pub mod data;
 pub mod daynight;
 pub mod foot_probe;
+pub mod globe;
 pub mod grav_probe;
 pub mod ground;
 pub mod night_glow;
@@ -72,6 +73,14 @@ impl Plugin for WorldPlugin {
             .insert_resource(look_edit::LocalLooks::default())
             .insert_resource(look_edit::LookFocus::default())
             .insert_resource(overlay::PanBridge::default())
+            .init_resource::<globe::LastWarp>()
+            // 글로브 곡률 — 프레임 시작 복원(시뮬레이션은 항상 평면 좌표)·
+            // 프레임 끝 워프(렌더는 구면 — 전파 직전에 적용해 자식·투영 정합).
+            .add_systems(PreUpdate, globe::restore_flat)
+            .add_systems(
+                PostUpdate,
+                globe::apply_warp.before(bevy::transform::TransformSystems::Propagate),
+            )
             .add_systems(
                 Startup,
                 (
@@ -97,11 +106,14 @@ impl Plugin for WorldPlugin {
         // 데모 월드 제거(2026-10-23 사용자 결정) — 네이티브도 라이브 전제.
         // 이전: 레거시 맵 임베드 데모가 네이티브에서 구동(바이너리 용량 부담).
         app.add_systems(Update, animal_anim::play_animal_idles);
-        // 캐릭터 프레임워크(치비화·접지·발바닥 수평) — 게임 무관 계층
+        // 캐릭터 프레임워크(비율·접지·발바닥 수평) — 게임 무관 계층
         // (2026-10-24 P1, docs/character-module-redesign.md). 표면장=WorldData.
-        app.add_plugins(
-            crate::character::CharacterPlugin::<data::WorldData>::default(),
-        );
+        // 비율 룩 = 원본 리그 REAL(2026-10-26 사용자 결정 — 나무·건물 대비
+        // 사람 비율 정합. 치비 v1은 rig::CHIBI_V1로 언제든 복귀 가능).
+        app.add_plugins(crate::character::CharacterPlugin::<data::WorldData> {
+            profile: crate::character::rig::REAL,
+            ..Default::default()
+        });
         app.configure_sets(
             Update,
             crate::character::GroundSnapSet
@@ -146,6 +158,7 @@ impl Plugin for WorldPlugin {
                     propsfx::bob_relics,
                     propsfx::spark_veins,
                     sky::sky_update,
+                    globe::sync_globe_uniforms, // 카메라 이후 병렬 그룹에서 유니폼 반영
                 ),
                 villager::wander,
                 villager_tools::apply_villager_tools,

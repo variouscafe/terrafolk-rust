@@ -5,7 +5,7 @@
 use bevy::gltf::GltfAssetLabel;
 use bevy::prelude::*;
 
-use super::resources::{LiveResourceTag, cleared_tiles, structural_kind};
+use super::resources::{LiveResourceTag, cleared_tiles};
 use super::{LiveFrame, NetState, NetStatus, TiledMap};
 use crate::world::data::{PropKind, WorldData};
 
@@ -113,7 +113,7 @@ pub fn prime_live_world(
     let structural: std::collections::HashSet<(u16, u16)> = frame
         .resources
         .iter()
-        .filter(|r| structural_kind(&r.kind))
+        .filter(|r| super::resources::is_structure(r))
         .map(|r| (r.x, r.y))
         .collect();
     let cleared = cleared_tiles(&structural);
@@ -179,6 +179,13 @@ pub fn sync_daynight(
     }
     let Some(f) = net.frame.as_ref() else { return };
     day.hour = f.hour as f32 + f.minute as f32 / 60.0;
+    // 웹 시각 게이트(tfdbg=hourN) — 서버 시각을 덮어 쓴다(야간 재현·E2E 결정론).
+    #[cfg(target_arch = "wasm32")]
+    if let Some(h) = super::dbg_gate::value("hour").and_then(|v| v.parse::<f32>().ok()) {
+        if (0.0..24.0).contains(&h) {
+            day.hour = h;
+        }
+    }
     day.time_scale = 0.0;
     day.season = f.season.clone();
     if let Some(sr) = f.sunrise {
@@ -416,9 +423,9 @@ pub fn live_move(
             v.moving = false;
         } else {
             tr.translation += d / dist * step;
-            // 이동 방향 회전(발밑 스케일 보존)
-            let yaw = d.x.atan2(d.z);
-            tr.rotation = Quat::from_rotation_y(yaw);
+            // 이동 방향 회전 — 지수 감쇠 스무딩(하드 스냅은 방향 전환마다
+            // 몸이 뚝 끊긴다 — 이징 디테일 2026-10-26, character::turn_yaw).
+            crate::character::action::turn_yaw(&mut tr, d.x.atan2(d.z), time.delta_secs());
         }
     }
 }

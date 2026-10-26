@@ -38,3 +38,11 @@ pub fn off(name: &str) -> bool {
 pub fn on(name: &str) -> bool {
     flags().iter().any(|f| f == name)
 }
+
+/// 값 플래그 — 접두 뒤 나머지 반환(예: `tfdbg=hour14` → value("hour")="14").
+/// 시각 오버라이드(tfdbg=hourN — TF_HOUR 웹판)등 진단 파라미터용.
+pub fn value(prefix: &str) -> Option<String> {
+    flags()
+        .iter()
+        .find_map(|f| f.strip_prefix(prefix).map(str::to_string))
+}

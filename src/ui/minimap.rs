@@ -279,18 +279,21 @@ pub fn update_minimap(
             rect_fill(&mut buf, size, x, y, 2, 2, c);
         }
     }
-    let (vw, vh) = view_box(rig.zoom, window.width() / window.height().max(1.0));
-    let x0 = (rig.target.x - vw * 0.5).floor().clamp(0.0, size as f32) as usize;
-    let y0 = (rig.target.y - vh * 0.5).floor().clamp(0.0, size as f32) as usize;
-    let x1 = ((rig.target.x + vw * 0.5)
-        .ceil()
-        .clamp(0.0, (size - 1) as f32)) as usize;
-    let y1 = ((rig.target.y + vh * 0.5)
-        .ceil()
-        .clamp(0.0, (size - 1) as f32)) as usize;
-    rect_stroke(&mut buf, size, x0, y0, x1, y1, VIEW_DARK);
-    if x1 > x0 + 1 && y1 > y0 + 1 {
-        rect_stroke(&mut buf, size, x0 + 1, y0 + 1, x1 - 1, y1 - 1, VIEW_GOLD);
+    // 뷰박스 — 곡률(행성 뷰) 구간에선 평면 AABB가 무의미하므로 숨긴다.
+    if crate::world::globe::factor_for(rig.zoom) < 0.05 {
+        let (vw, vh) = view_box(rig.zoom, window.width() / window.height().max(1.0));
+        let x0 = (rig.target.x - vw * 0.5).floor().clamp(0.0, size as f32) as usize;
+        let y0 = (rig.target.y - vh * 0.5).floor().clamp(0.0, size as f32) as usize;
+        let x1 = ((rig.target.x + vw * 0.5)
+            .ceil()
+            .clamp(0.0, (size - 1) as f32)) as usize;
+        let y1 = ((rig.target.y + vh * 0.5)
+            .ceil()
+            .clamp(0.0, (size - 1) as f32)) as usize;
+        rect_stroke(&mut buf, size, x0, y0, x1, y1, VIEW_DARK);
+        if x1 > x0 + 1 && y1 > y0 + 1 {
+            rect_stroke(&mut buf, size, x0 + 1, y0 + 1, x1 - 1, y1 - 1, VIEW_GOLD);
+        }
     }
 
     if let Some(h) = &st.image

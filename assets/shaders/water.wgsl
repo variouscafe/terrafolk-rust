@@ -2,9 +2,15 @@
 // Bevy 0.19 wgsl — 유니폼 명시 선언(공식 custom_material.wgsl 패턴).
 // 유니폼 3개 패킹(2026-10-17): 스칼라 파라미터를 params Vec4에 겹쳐 담아
 // WebGL2 프래그먼트 유니폼 한도(12) 초과로 파이프라인이 죽는 회귀를 막는다.
+// 글로브 버텍스(2026-10-25): 커스텀 io 구조체로 워프 전 평면좌표(flat_xz)를
+// 버링 전달 — 해안 UV·포말 노이즈는 평면 좌표 그대로, 프레넬·거리감쇠는
+// 워프 좌표(world_position)로 쓴다(둘 다 정합). 워프 수식은 src/world/globe.rs
+// WarpFrame·terrain_globe_vertex.wgsl과 동일 계약(수정 시 세 곳 함께).
 #import bevy_pbr::{
     mesh_view_bindings::{globals, view},
-    forward_io::VertexOutput,
+    forward_io::Vertex,
+    mesh_functions,
+    view_transformations::position_world_to_clip,
 }
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> deep: vec4<f32>;
@@ -13,6 +19,52 @@
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var<uniform> params: vec4<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(3) var t_shore: texture_2d<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(4) var s_shore: sampler;
+// 글로브 곡률 — 버텍스 워프 전용(프래그먼트 미참조 — 유니폼 예산 불변)
+@group(#{MATERIAL_BIND_GROUP}) @binding(5) var<uniform> globe: vec4<f32>;
+
+// 평면 위치 → 구면 위치 (θ→0에서 항등 — 중심 직상공 포함)
+fn globe_warp_pos(g: vec4<f32>, p: vec3<f32>) -> vec3<f32> {
+    let d = p.xz - g.xy;
+    let l = length(d);
+    let u = select(vec2<f32>(1.0, 0.0), d / l, l > 1e-6);
+    // θ 클램프(π−ε) — 극 관통 이중 피복 z-fight 방지(terrain 버텍스와 동일)
+    let theta = min(l / g.z, 3.1405);
+    let s = sin(theta);
+    let c = cos(theta);
+    let n = vec3<f32>(u.x * s, c, u.y * s);
+    let base = vec3<f32>(g.x, 0.0, g.y)
+        + vec3<f32>(u.x * g.z * s, g.z * (c - 1.0), u.y * g.z * s);
+    return base + n * p.y;
+}
+
+struct WaterVertexOutput {
+    @builtin(position) position: vec4<f32>,
+    // 워프 후 위치 — 프레넬·거리 감쇠용
+    @location(0) world_position: vec4<f32>,
+    // 워프 전 평면좌표 — 해안 UV·포말 노이즈용
+    @location(1) flat_xz: vec2<f32>,
+    // 플레인 UV 0..1 — 파형 스크롤용(불변)
+    @location(2) uv: vec2<f32>,
+}
+
+@vertex
+fn vertex(vertex_no_morph: Vertex) -> WaterVertexOutput {
+    var out: WaterVertexOutput;
+    // 수면 엔티티는 원점 평행이동만(Translation) — local→world 후 워프.
+    let world_from_local = mesh_functions::get_world_from_local(vertex_no_morph.instance_index);
+    var wp = mesh_functions::mesh_position_local_to_world(
+        world_from_local, vec4<f32>(vertex_no_morph.position, 1.0));
+    out.flat_xz = wp.xz;
+    if (globe.w >= 0.003) {
+        wp = vec4<f32>(globe_warp_pos(globe, wp.xyz), 1.0);
+    }
+    out.world_position = wp;
+    out.position = position_world_to_clip(out.world_position.xyz);
+#ifdef VERTEX_UVS_A
+    out.uv = vertex_no_morph.uv;
+#endif
+    return out;
+}
 
 const MAX_SHORE: f32 = 14.0;
 
@@ -34,12 +86,12 @@ fn vnoise(p: vec2<f32>) -> f32 {
 }
 
 @fragment
-fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
+fn fragment(in: WaterVertexOutput) -> @location(0) vec4<f32> {
     let t = globals.time;
     let scroll = params.x;
     let wave = params.y;
     let world_size = params.z;
-    let wp = in.world_position.xz;
+    let wp = in.flat_xz;
     let uv1 = in.uv * wave + vec2<f32>(t * scroll, t * scroll * 0.7);
     let uv2 = in.uv * wave * 1.9 - vec2<f32>(t * scroll * 1.3, t * scroll * 0.5);
     let n = vnoise(uv1) * 0.6 + vnoise(uv2) * 0.4;

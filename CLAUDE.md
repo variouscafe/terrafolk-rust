@@ -17,7 +17,10 @@
 https://assetgen.pages.dev)가 이 기준으로 생성한다(2026-10-19 결정 — 이 repo가
 직접 그리지 않는다). 지형 water·sand도 이 서비스 생성물이며, 발명품 스프라이트는
 브레인의 외형 서술(`design`)이 잡 큐를 거쳐 스프라이트로 되돌아오는 연동(계약
-§17.86)으로 생성된다. 배포·운영은 `assetgen/CLAUDE.md` 참조.
+§17.86)으로 생성된다. 배포·운영은 `assetgen/CLAUDE.md` 참조. **생성 인프라는
+2026-10-26 llmserver(mac studio)로 완전 이관** — ComfyUI·워커·3D meshgen 전부
+llmserver에서 `https://llm-asset.suseona.com`(cloudflared 터널)로 동작하고
+개발 맥은 순수 클라이언트다(상세·운용 레시피는 assetgen/CLAUDE.md).
 
 ## 코드 규칙
 
@@ -150,6 +153,16 @@ tf-api CORS 허용목록(../terrafolk `backend/src/terrafolk_api/config.py`)
 문서화된 wasm 텍스처 회귀(proto2d 0.19.1 핀과 같은 원인)로 보수적 회피.
 **원근 카메라(2026-10-23, PR #84)**: 정사영→원근(FOV 40°) 전환 — 줌=거리
   매핑(`cam_dist`)으로 줌 체감·미니맵·줌투커서 공식 불변. 요 0° 맵 변 정렬.
+
+**줌아웃 글로브 전환(2026-10-25, docs/globe-map-review.md 안 A 구현)**: 줌
+  4.55→6.0(=ZOOM_MAX) 구간에서 월드가 구면 행성으로 휘고 카메라는 궤도로 —
+  시뮬레이션·계약은 평면 그대로(착시 곡률). 지형·물 = 정점 셰이더 워프
+  (`terrain_globe_vertex.wgsl`·`water.wgsl` 버텍스 — globe.rs와 수식 계약),
+  월드 엔티티 = `world/globe.rs`의 PreUpdate 복원/PostUpdate 워프 쌍
+  (`Warped` 태그로 평면 원본 보존). 판정·투영·픽킹은 워프된 GlobalTransform
+  공간에서 자동 정합, `ground_at`만 구면 교차 분기. 함정 3종(모듈 임포트
+  무음 실패→인라인·Plane3d 분할 0·θ>π 이중 피복 z-fight)은 검토서 참조.
+  게이트 `tools/e2e/root3d_globe.cjs`(?tfdbg=globe 부팅 + 줌 복귀 회귀).
 
 **외형 편집 3D 반영(2026-10-23, PR #78)**: 레거시 lookJson parts(피부·머리색·눈·옷색)가
   3D 주민 재질 틴트로 반영된다 — `world/look_tint.rs`(LPC 팔레트·모델×재질 슬롯표,

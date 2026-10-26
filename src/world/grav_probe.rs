@@ -41,7 +41,10 @@ pub fn drop_probe(
         return;
     }
     if !arm.lifted {
-        if now - arm.seen_at.unwrap() < ARM_DELAY {
+        // seen_at은 위 is_none 조기반환이 Some을 보장 — 린트 벨트 경유 해체
+        if let Some(seen) = arm.seen_at
+            && now - seen < ARM_DELAY
+        {
             return;
         }
         if let Some((mut tr, mut fall)) = q.iter_mut().next() {

@@ -27,6 +27,7 @@ use super::rig::{FOOT_L_BIND, FOOT_R_BIND, map_foot_local};
 /// ⚠️ 액터 회전은 GlobalTransform으로 읽는다 — Transform을 &mut(본)와
 /// 함께 물면 B0001 쿼리 충돌 panic(2026-10-23 wasm 부팅 사망 실측).
 pub fn foot_lock(
+    profile: Res<super::rig::ProportionProfile>,
     q: Query<(&AnimState, &FootRig, &GlobalTransform)>,
     parents: Query<&ChildOf>,
     gts: Query<&GlobalTransform>,
@@ -51,7 +52,7 @@ pub fn foot_lock(
             for (bone, bind) in [(side.foot, side.bind[0]), (side.pt, side.bind[1])] {
                 if let Ok(mut tr) = bones.get_mut(bone) {
                     let authored = if driven { tr.translation } else { bind };
-                    tr.translation = map_foot_local(authored, pivot);
+                    tr.translation = map_foot_local(authored, pivot, &profile);
                 }
             }
             // 회전 — 발바닥 수평 완전 잠금(PT는 헬퍼라 잠금 불필요).

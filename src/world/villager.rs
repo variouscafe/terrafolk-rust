@@ -12,8 +12,11 @@ use std::time::Duration;
 use super::data::WorldData;
 
 const WALK_TIME: f32 = 0.85;
-/// 주민 키 목표(미터) — 2026-10-19 사용자 요청 축소(1.62→1.38)
-pub const VILLAGER_H: f32 = 1.38;
+/// 주민 키 목표(미터) — 2026-10-26 사용자 결정 1:1 원복: 치비(1.38·두신
+/// ≈2.1)를 걷어내고 원본 리그 비율(rig::REAL)의 실측 신장으로. 나무(성목
+/// 7.2~8m)·오두막(4.2m) 대비 사람 비율이 정합 — 이전 치비는 작은 성인으로
+/// 읽혀 세계 전체가 과대해 보였다.
+pub const VILLAGER_H: f32 = 1.72;
 
 /// 모델 전방 보정 — Quaternius 리깅는 +Z 전방(실측 후 조정)
 const MODEL_YAW: f32 = 0.0;
@@ -309,6 +312,7 @@ fn finish_villager_setup(
         crate::character::AnimState(AnimKind::Idle),
         crate::character::tool::HeldTool::default(),
         crate::character::Fall::default(),
+        IdleFidget::new(entity.to_bits() as u64),
     ));
     true
 }
@@ -370,6 +374,16 @@ pub fn wander(
                 tr.translation = v.from.lerp(v.to, s);
                 // 고도 보간 — 계단 절벽에서 직선 관통 방지(낮은 쪽 따라감)
                 tr.translation.y = tr.translation.y.max(v.from.y.min(v.to.y));
+                // 이동 방향으로 몸 돌리기 — 지수 감쇠 스무딩(이동 개시의
+                // 하드 스냅을 매 프레임 수렴으로 — 이징 디테일 2026-10-26).
+                let d = v.to - v.from;
+                if d.length_squared() > 1e-6 {
+                    crate::character::action::turn_yaw(
+                        &mut tr,
+                        d.x.atan2(d.z) + MODEL_YAW,
+                        time.delta_secs(),
+                    );
+                }
             }
             continue;
         }
@@ -401,9 +415,7 @@ pub fn wander(
             let (nx, ny) = (here.0 + d[0], here.1 + d[1]);
             if world.walkable(nx, ny) {
                 let target = Vec3::new(nx as f32 + 0.5, world.height_at(nx, ny), ny as f32 + 0.5);
-                // 이동 방향 회전(발밑 고정 — 스케일 보존)
-                let yaw = (d[0] as f32).atan2(d[1] as f32) + MODEL_YAW;
-                tr.rotation = Quat::from_rotation_y(yaw);
+                // 회전은 이동계(mover)가 방향으로 지수 수렴시킨다(하드 스냅 폐지).
                 v.from = tr.translation;
                 v.to = target;
                 v.moving = true;
@@ -421,29 +433,99 @@ pub fn wander(
     }
 }
 
+/// 유휴 몸동작(피젯) — 한자리에 가만히 서 있는 주민은 주기적으로
+/// 짧은 몸동작(두리번·기지개)을 섞는다. 순수 Idle 클립의 무한 루프는
+/// 주민을 조형품처럼 보이게 한다(생명감 직결 — 2026-10-26 디테일 강화).
+/// 길이는 클립별 자연 길이차(기지개>두리번)+개체 랜덤, 교차 선택으로
+/// 같은 동작 반복을 막는다.
+#[derive(Component)]
+pub struct IdleFidget {
+    /// 다음 피젯까지 남은 시간(s) — 순수 Idle일 때만 감소.
+    next_in: f32,
+    /// 피젯 애님 유지 종료 시각(s — elapsed 기준).
+    until: f32,
+    /// 교차 선택(Wave↔Interact 번갈아 — 같은 동작 반복 방지).
+    wave: bool,
+}
+
+impl IdleFidget {
+    pub fn new(seed: u64) -> Self {
+        Self {
+            next_in: 3.0 + rand_free(seed, 4.0),
+            until: 0.0,
+            wave: rand_free(seed.wrapping_add(3), 1.0) < 0.5,
+        }
+    }
+}
+
 /// 애님 상태 전환(플레이어는 하위 엔티티에 있음) — 이동 우선, 정지 시
 /// 활동 코드(act 우선·status 폴백)로 Walk/Idle/Interact/Wave를 고른다.
-/// 지시 행동(ActiveAction) 수행 중엔 프레임워크 요청 애님(던지기 모션 등)을
-/// 우선한다. 0.25초 크로스페이드 — 하드 컷은 주민을 기계적으로 보이게
-/// 한다(생명감 직결).
+/// 지시 행동(ActiveAction) 수행 중엔 프레임워크 요청 애님(던지기 모션 등)을,
+/// PoseHold(캐치볼 수신 자세 등 연출 홀드)를 활동보다 우선한다. 만료된
+/// 홀드는 여기서 정리(부착은 게임 — anim.rs PoseHold 계약). 0.25초
+/// 크로스페이드 — 하드 컷은 주민을 기계적으로 보이게 한다(생명감 직결).
 pub fn animate_states(
+    time: Res<Time>,
+    mut commands: Commands,
     mut q: Query<(
+        Entity,
         &Villager,
         &mut VillagerAnims,
         &mut crate::character::AnimState,
+        Option<&mut IdleFidget>,
         Option<&crate::character::ActiveAction>,
+        Option<&crate::character::PoseHold>,
     )>,
     mut players: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>,
 ) {
-    for (v, mut anims, mut state, action) in &mut q {
+    let now = time.elapsed_secs();
+    for (e, v, mut anims, mut state, fidget, action, pose) in &mut q {
+        // 만료 포즈 홀드 정리 — 소비처 책임(anim.rs 계약).
+        if pose.is_some_and(|p| now >= p.until) {
+            if let Ok(mut ec) = commands.get_entity(e) {
+                ec.remove::<crate::character::PoseHold>();
+            }
+        }
         let want = if v.moving {
             AnimKind::Walk
         } else {
             act_kind(if v.act.is_empty() { &v.status } else { &v.act })
         };
+        // 우선순위 — 행동 상태머신 > 포즈 홀드 > 활동 코드.
+        let held = pose.filter(|p| now < p.until).map(|p| p.anim);
         let want = match action {
             Some(a) => a.anim(), // 행동 중 오버라이드(준비 모션·복원)
-            None => want,
+            None => held.unwrap_or(want),
+        };
+        // 유휴 피젯 — 행동·이동·활동 중엔 타이머만 리셋(끼어들지 않는다).
+        let want = if action.is_none() && want == AnimKind::Idle {
+            match fidget {
+                Some(mut fg) => {
+                    if now >= fg.until {
+                        fg.next_in -= time.delta_secs();
+                        if fg.next_in <= 0.0 {
+                            // 몸동작 길이 다양성 — 클립별 자연 길이차(기지개는
+                            // 길게 두리번은 짧게)+개체 랜덤(이징 디테일 2026-10-26).
+                            fg.wave = !fg.wave;
+                            let len = if fg.wave {
+                                0.85 + rand_free((now * 991.0) as u64, 0.45)
+                            } else {
+                                0.55 + rand_free((now * 991.0) as u64, 0.35)
+                            };
+                            fg.until = now + len;
+                            fg.next_in = 4.0 + rand_free((now * 997.0) as u64, 5.0);
+                        }
+                    }
+                    if now < fg.until {
+                        if fg.wave { AnimKind::Wave } else { AnimKind::Interact }
+                    } else {
+                        want
+                    }
+                }
+                None => want,
+            }
+        } else {
+            want
         };
         if want == anims.current {
             continue;

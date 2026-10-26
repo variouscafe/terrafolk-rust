@@ -31,9 +31,17 @@ pub struct WaterMaterial {
     #[texture(3)]
     #[sampler(4)]
     pub shore: Handle<Image>,
+    /// 글로브 곡률 (x=cx, y=cz, z=R_eff, w=factor) — 버텍스 워프 전용.
+    /// 프래그먼트는 참조 안 함(해안 UV는 flat_xz 버링으로 전달 — 유니폼 예산
+    /// 불변). 기본값 globe::flat_vec.
+    #[uniform(5)]
+    pub globe: Vec4,
 }
 
 impl Material for WaterMaterial {
+    fn vertex_shader() -> ShaderRef {
+        "shaders/water.wgsl".into()
+    }
     fn fragment_shader() -> ShaderRef {
         "shaders/water.wgsl".into()
     }
@@ -151,10 +159,13 @@ fn build_water(
             ..default()
         });
     let shore = images.add(shore_img);
-    let mesh = Mesh::from(bevy::math::primitives::Plane3d::new(
-        Vec3::Y,
-        Vec2::splat(size * OCEAN_EXTEND / 2.0),
-    ));
+    // 글로브 워프 대응 세분화(2026-10-25) — 기본 Plane3d는 정점 4개(분할 0)라
+    // 구면 워프가 코너만 매핑해 물이 구 내부로 꺼진다(바다 소실 사고).
+    // 축별 θ 폭 2π(평면 ±1.5·size = ±π 호)를 ~3° 간격으로: 128분할.
+    let mesh = bevy::math::primitives::Plane3d::new(Vec3::Y, Vec2::splat(size * OCEAN_EXTEND / 2.0))
+        .mesh()
+        .subdivisions(128)
+        .build();
     (
         Mesh3d(meshes.add(mesh)),
         MeshMaterial3d(materials.add(WaterMaterial {
@@ -164,6 +175,7 @@ fn build_water(
             // x=스크롤 속도 · y=파형 스케일 · z=월드 크기
             params: Vec4::new(0.06, 3.2, size, 0.0),
             shore,
+            globe: super::globe::flat_vec(size / 2.0),
         })),
     )
 }

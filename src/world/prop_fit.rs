@@ -156,7 +156,14 @@ pub fn fit_props(
     mut aabb_cache: ResMut<MeshAabbCache>,
 ) {
     for (root_e, prop, children) in &q_root {
-        let mut keep_mesh: Option<Entity> = None;
+        // 변형 선택(2026-10-26 개정) — GLB 번들의 변형(House_1·PalmTree_3)은
+        // 벽·지붕·잎처럼 여러 primitive로 구성된다. 예전 '이름 매칭 메시 첫 1개만
+        // 유지'는 같은 변형의 나머지 부품까지 파기해 완공 집이 벽 파편 하나로
+        // 렌더되었다('집이 안 보임' 실측 2026-10-26, CottageHouses 9-primitive).
+        // pick 접두사에 매칭되는 메시는 전부 유지하고 비매칭 메시만 파기한다.
+        // 비메시 노드(RootNode 등 빈 변환)는 파기하지 않는다 — despawn이 재귀라
+        // 유지 메시의 조상까지 죽일 수 있고, 메시가 없으니 렌더·측정에도 무해.
+        let mut measure: Vec<Entity> = Vec::new();
         if !prop.variants.is_empty() {
             let pick_idx = (pos_hash(
                 (prop.ground_y.to_bits() as usize) % 997,
@@ -171,23 +178,13 @@ pub fn fit_props(
             }
             for (e, name) in &all_meshes {
                 if name.starts_with(pick) {
-                    if keep_mesh.is_none() {
-                        keep_mesh = Some(*e); // 첫 매칭 유지
-                    } else {
-                        commands.entity(*e).despawn();
-                    }
+                    measure.push(*e); // 변형 구성 메시 전체 유지
                 } else {
                     commands.entity(*e).despawn();
                 }
             }
         }
-        // 측정 — 유지 메시들만(변형 미지정이면 전체 메시)
-        let mut measure: Vec<Entity> = Vec::new();
-        if !prop.variants.is_empty()
-            && let Some(k) = keep_mesh
-        {
-            measure.push(k);
-        }
+        // 측정 대상 없음(변형 미지정=통째 사용, 또는 매칭 실패) — 전체 메시
         if measure.is_empty() {
             let mut all = Vec::new();
             for c in children.iter() {
