@@ -423,9 +423,9 @@ pub fn live_move(
             v.moving = false;
         } else {
             tr.translation += d / dist * step;
-            // 이동 방향 회전(발밑 스케일 보존)
-            let yaw = d.x.atan2(d.z);
-            tr.rotation = Quat::from_rotation_y(yaw);
+            // 이동 방향 회전 — 지수 감쇠 스무딩(하드 스냅은 방향 전환마다
+            // 몸이 뚝 끊긴다 — 이징 디테일 2026-10-26, character::turn_yaw).
+            crate::character::action::turn_yaw(&mut tr, d.x.atan2(d.z), time.delta_secs());
         }
     }
 }

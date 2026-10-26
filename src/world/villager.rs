@@ -374,6 +374,16 @@ pub fn wander(
                 tr.translation = v.from.lerp(v.to, s);
                 // 고도 보간 — 계단 절벽에서 직선 관통 방지(낮은 쪽 따라감)
                 tr.translation.y = tr.translation.y.max(v.from.y.min(v.to.y));
+                // 이동 방향으로 몸 돌리기 — 지수 감쇠 스무딩(이동 개시의
+                // 하드 스냅을 매 프레임 수렴으로 — 이징 디테일 2026-10-26).
+                let d = v.to - v.from;
+                if d.length_squared() > 1e-6 {
+                    crate::character::action::turn_yaw(
+                        &mut tr,
+                        d.x.atan2(d.z) + MODEL_YAW,
+                        time.delta_secs(),
+                    );
+                }
             }
             continue;
         }
@@ -405,9 +415,7 @@ pub fn wander(
             let (nx, ny) = (here.0 + d[0], here.1 + d[1]);
             if world.walkable(nx, ny) {
                 let target = Vec3::new(nx as f32 + 0.5, world.height_at(nx, ny), ny as f32 + 0.5);
-                // 이동 방향 회전(발밑 고정 — 스케일 보존)
-                let yaw = (d[0] as f32).atan2(d[1] as f32) + MODEL_YAW;
-                tr.rotation = Quat::from_rotation_y(yaw);
+                // 회전은 이동계(mover)가 방향으로 지수 수렴시킨다(하드 스냅 폐지).
                 v.from = tr.translation;
                 v.to = target;
                 v.moving = true;
@@ -428,6 +436,8 @@ pub fn wander(
 /// 유휴 몸동작(피젯) — 한자리에 가만히 서 있는 주민은 주기적으로
 /// 짧은 몸동작(두리번·기지개)을 섞는다. 순수 Idle 클립의 무한 루프는
 /// 주민을 조형품처럼 보이게 한다(생명감 직결 — 2026-10-26 디테일 강화).
+/// 길이는 클립별 자연 길이차(기지개>두리번)+개체 랜덤, 교차 선택으로
+/// 같은 동작 반복을 막는다.
 #[derive(Component)]
 pub struct IdleFidget {
     /// 다음 피젯까지 남은 시간(s) — 순수 Idle일 때만 감소.
@@ -494,9 +504,16 @@ pub fn animate_states(
                     if now >= fg.until {
                         fg.next_in -= time.delta_secs();
                         if fg.next_in <= 0.0 {
-                            fg.until = now + 0.9;
-                            fg.next_in = 4.0 + rand_free((now * 997.0) as u64, 5.0);
+                            // 몸동작 길이 다양성 — 클립별 자연 길이차(기지개는
+                            // 길게 두리번은 짧게)+개체 랜덤(이징 디테일 2026-10-26).
                             fg.wave = !fg.wave;
+                            let len = if fg.wave {
+                                0.85 + rand_free((now * 991.0) as u64, 0.45)
+                            } else {
+                                0.55 + rand_free((now * 991.0) as u64, 0.35)
+                            };
+                            fg.until = now + len;
+                            fg.next_in = 4.0 + rand_free((now * 997.0) as u64, 5.0);
                         }
                     }
                     if now < fg.until {

@@ -527,8 +527,16 @@ fn face_toward(tr: &mut Transform, target: Vec3, dt: f32) {
     if d.length_squared() < 1e-4 {
         return;
     }
-    let want = Quat::from_rotation_y(d.x.atan2(d.z));
-    tr.rotation = tr.rotation.slerp(want, (dt * 10.0).clamp(0.0, 1.0));
+    turn_yaw(tr, d.x.atan2(d.z), dt);
+}
+
+/// 요 축 목표 회전 스무딩(지수 감쇠) — 이동 시스템의 방향 전환 공용 헬퍼.
+/// 하드 스냅(즉시 틀어짐)은 방향 바뀔 때마다 몸이 뚝 끊겨 보인다(이징
+/// 디테일, 2026-10-26). 보행 중 회전 게인 12/s — face_toward(10/s)보다
+/// 살짝 빠르다(걷는 발 방향이 몸을 끌고 간다는 무게감).
+pub fn turn_yaw(tr: &mut Transform, yaw: f32, dt: f32) {
+    let want = Quat::from_rotation_y(yaw);
+    tr.rotation = tr.rotation.slerp(want, (dt * 12.0).clamp(0.0, 1.0));
 }
 
 /// 대상을 지속 지향(요 회전) — 게임이 캐치볼 상대처럼 "바라봐야 할
