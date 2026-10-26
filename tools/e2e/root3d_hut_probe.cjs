@@ -27,6 +27,7 @@ const fs = require('fs');
     if (m.type() === 'error') errors.push(t.slice(0, 300));
   });
   pg.on('pageerror', (e) => errors.push(String(e).slice(0, 300)));
+  await pg.bringToFront(); // 미포커스 RAF 스로틀 방지 — 스폰 예산 풀림
 
   // sink 랩 — Rust가 setSink(fn)으로 등록하기 전에 설치(모든 페이지 스크립트 선행)
   await pg.addInitScript(() => {
@@ -93,7 +94,9 @@ const fs = require('fs');
       const tf = window.terrafolk;
       if (tf && tf.selectAgent) tf.selectAgent(id);
     }, camAgent);
-    await pg.waitForTimeout(6000); // 카메라 팬 + 에셋 로딩 여유
+    // 스폰 예산(64/프레임)이 5천+ 자원을 다 도는 시간까지 — 프라임 직후 촬영은
+    // 아직 스폰 중인 월드를 찍는다(2026-10-26 기아 수정 전 오판의 교훈).
+    await pg.waitForTimeout(25000);
   }
   await pg.screenshot({ path: PNG_OUT });
   await b.close();

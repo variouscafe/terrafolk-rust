@@ -22,10 +22,11 @@ pub mod ground;
 pub mod leg_ik;
 pub mod proportion;
 pub mod rig;
+pub mod squash;
 pub mod tool;
 
 pub use action::{ActionKind, ActionLock, ActiveAction};
-pub use anim::{AnimKind, AnimState};
+pub use anim::{AnimKind, AnimState, PoseHold};
 pub use fall::{Fall, SpaceGravity};
 pub use ground::{GroundActor, SurfaceField};
 pub use proportion::{ChibiDone, ChibiTarget, FootLift, SettleProbe};
@@ -60,6 +61,9 @@ impl<F: Resource + SurfaceField> Plugin for CharacterPlugin<F> {
             (proportion::chibiify, proportion::chibi_settle).chain(),
         );
         app.add_systems(Update, ground::ground_snap::<F>.in_set(GroundSnapSet));
+        // 착지 스쿼시 — 같은 프레임 착지(landed 1프레임 노출)를 소비하려면
+        // 접지 적분 직후에 실행(fall.rs integrate가 다음 프레임 초반 청소).
+        app.add_systems(Update, squash::land_squash.after(GroundSnapSet));
         // 지시 행동(점프의 Fall 주입 등)은 접지 적분보다 먼저 — 같은 프레임 반영.
         app.add_systems(
             Update,

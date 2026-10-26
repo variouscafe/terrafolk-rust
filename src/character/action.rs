@@ -104,11 +104,17 @@ impl ActiveAction {
     }
 
     /// 애님 요청 — 단계별 연출 포즈(예고·후속). 예고(Windup)는 팔 흔들림,
-    /// 토스 캐치 후는 들어올림(Wave), 캐치볼 대기는 받을 자세(팔 내밀기),
-    /// 점프 체공·지면 정지는 기본 자세로 돌린다(허공 걷기 방지).
+    /// 발사 직후는 후속 동작(follow-through — 팔 뻗음 유지), 토스 캐치 후는
+    /// 들어올림(Wave), 캐치볼 대기는 받을 자세(팔 내밀기), 점프 체공·지면
+    /// 정지는 기본 자세로 돌린다(허공 걷기 방지).
     pub fn anim(&self) -> AnimKind {
         match (self.kind, self.phase) {
             (_, Phase::Windup) => AnimKind::Punch,
+            (k, Phase::Flight)
+                if k != ActionKind::Jump && self.t < follow_secs(k) =>
+            {
+                AnimKind::Punch
+            }
             (ActionKind::TossCatch, Phase::Hold) => AnimKind::Wave,
             (ActionKind::PlayCatch, Phase::Hold) => AnimKind::Punch,
             (ActionKind::Jump, Phase::Flight) => AnimKind::Idle,
@@ -146,6 +152,19 @@ fn hold_secs(kind: ActionKind) -> f32 {
         ActionKind::TossCatch => 0.35,
         ActionKind::PlayCatch => 0.30,
         _ => 0.25,
+    }
+}
+
+/// 후속 동작(follow-through) 길이(s) — 발사 후 팔 뻗음 유지. 예고
+/// (windup_secs)와 같은 서열: 크게 돌려 던지기 > 캐치볼 어깨 패스 >
+/// 손목 토스. 이 여운이 없으면 발사 프레임에 팔이 걷기·대기로 힘없이
+/// 풀려 던진 물건만 멀리 가는 그림이 된다(애니메이션 3원칙의 마지막 마디).
+fn follow_secs(kind: ActionKind) -> f32 {
+    match kind {
+        ActionKind::ThrowGround => 0.30,
+        ActionKind::PlayCatch => 0.24,
+        ActionKind::TossCatch => 0.20,
+        ActionKind::Jump => 0.0,
     }
 }
 /// 수직 토스 초기속도(m/s) — 정점 ≈ vy²/2g = 1.08m.
@@ -645,6 +664,25 @@ fn rand_jitter(seed: u64) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 후속 동작 — 발사 직후 팔 뻗음(Punch), 여윔 시간 지나면 원복.
+    #[test]
+    fn follow_through_after_launch() {
+        let part = ToolPart {
+            prim: super::tool::ToolPrim::Cyl { r: 0.03, h: 0.2 },
+            offset: Vec3::ZERO,
+            yaw_deg: 0.0,
+            color: Color::srgb(0.6, 0.5, 0.3),
+        };
+        let mut act = ActiveAction::new(ActionKind::ThrowGround, AnimKind::Walk, vec![], part);
+        act.phase = Phase::Flight;
+        act.t = 0.10;
+        assert_eq!(act.anim(), AnimKind::Punch, "발사 직후 follow-through");
+        act.t = follow_secs(ActionKind::ThrowGround) + 0.01;
+        assert_eq!(act.anim(), AnimKind::Walk, "여윔 지나면 원본 애님");
+        // 서열 — 큰 던지기가 손목 토스보다 여운이 길다.
+        assert!(follow_secs(ActionKind::ThrowGround) > follow_secs(ActionKind::TossCatch));
+    }
 
     /// 탄도 해 — T초 뒤 정확히 목적지(중력 적분과 상쇄). 지구 기준.
     #[test]

@@ -194,12 +194,19 @@ pub fn drain_bridge(
         };
         if let Some(p) = partner {
             // 상대는 지시 주인을 바라보며 받을 준비(요 회전 스무딩 —
-            // face_targets가 만료까지 적용, 프레임워크 제공).
+            // face_targets가 만료까지 적용, 프레임워크 제공) + 받을 자세
+            // 유지(PoseHold — ActiveAction은 지시 주인만 갖으므로 비행 중
+            // 팔 내밀기가 활동 애님에 묻히지 않게 연출 우선 홀드).
+            let until = time.elapsed_secs() + LOCK_SECS;
             commands.entity(p).insert((
                 lock,
                 crate::character::action::FaceTarget {
                     target: owner,
-                    expire_at: time.elapsed_secs() + LOCK_SECS,
+                    expire_at: until,
+                },
+                crate::character::PoseHold {
+                    anim: crate::character::AnimKind::Punch,
+                    until,
                 },
             ));
         }

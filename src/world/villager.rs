@@ -447,30 +447,42 @@ impl IdleFidget {
 
 /// 애님 상태 전환(플레이어는 하위 엔티티에 있음) — 이동 우선, 정지 시
 /// 활동 코드(act 우선·status 폴백)로 Walk/Idle/Interact/Wave를 고른다.
-/// 지시 행동(ActiveAction) 수행 중엔 프레임워크 요청 애님(던지기 모션 등)을
-/// 우선한다. 0.25초 크로스페이드 — 하드 컷은 주민을 기계적으로 보이게
-/// 한다(생명감 직결).
+/// 지시 행동(ActiveAction) 수행 중엔 프레임워크 요청 애님(던지기 모션 등)을,
+/// PoseHold(캐치볼 수신 자세 등 연출 홀드)를 활동보다 우선한다. 만료된
+/// 홀드는 여기서 정리(부착은 게임 — anim.rs PoseHold 계약). 0.25초
+/// 크로스페이드 — 하드 컷은 주민을 기계적으로 보이게 한다(생명감 직결).
 pub fn animate_states(
     time: Res<Time>,
+    mut commands: Commands,
     mut q: Query<(
+        Entity,
         &Villager,
         &mut VillagerAnims,
         &mut crate::character::AnimState,
         Option<&mut IdleFidget>,
         Option<&crate::character::ActiveAction>,
+        Option<&crate::character::PoseHold>,
     )>,
     mut players: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>,
 ) {
     let now = time.elapsed_secs();
-    for (v, mut anims, mut state, fidget, action) in &mut q {
+    for (e, v, mut anims, mut state, fidget, action, pose) in &mut q {
+        // 만료 포즈 홀드 정리 — 소비처 책임(anim.rs 계약).
+        if pose.is_some_and(|p| now >= p.until) {
+            if let Ok(mut ec) = commands.get_entity(e) {
+                ec.remove::<crate::character::PoseHold>();
+            }
+        }
         let want = if v.moving {
             AnimKind::Walk
         } else {
             act_kind(if v.act.is_empty() { &v.status } else { &v.act })
         };
+        // 우선순위 — 행동 상태머신 > 포즈 홀드 > 활동 코드.
+        let held = pose.filter(|p| now < p.until).map(|p| p.anim);
         let want = match action {
             Some(a) => a.anim(), // 행동 중 오버라이드(준비 모션·복원)
-            None => want,
+            None => held.unwrap_or(want),
         };
         // 유휴 피젯 — 행동·이동·활동 중엔 타이머만 리셋(끼어들지 않는다).
         let want = if action.is_none() && want == AnimKind::Idle {
