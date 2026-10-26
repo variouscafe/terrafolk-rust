@@ -17,7 +17,10 @@
 https://assetgen.pages.dev)가 이 기준으로 생성한다(2026-10-19 결정 — 이 repo가
 직접 그리지 않는다). 지형 water·sand도 이 서비스 생성물이며, 발명품 스프라이트는
 브레인의 외형 서술(`design`)이 잡 큐를 거쳐 스프라이트로 되돌아오는 연동(계약
-§17.86)으로 생성된다. 배포·운영은 `assetgen/CLAUDE.md` 참조.
+§17.86)으로 생성된다. 배포·운영은 `assetgen/CLAUDE.md` 참조. **생성 인프라는
+2026-10-26 llmserver(mac studio)로 완전 이관** — ComfyUI·워커·3D meshgen 전부
+llmserver에서 `https://llm-asset.suseona.com`(cloudflared 터널)로 동작하고
+개발 맥은 순수 클라이언트다(상세·운용 레시피는 assetgen/CLAUDE.md).
 
 ## 코드 규칙
 
