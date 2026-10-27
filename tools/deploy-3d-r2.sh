@@ -133,8 +133,8 @@ printf '/*.wasm\n  Cache-Control: public, max-age=31536000, immutable\n\n/*.wasm
 # ⑤.5 /character — 캐릭터 프레임워크 테스트 전용 페이지(2026-10-28).
 #    sibling ../3d-chibi-character의 chibi-viewer wasm을 trunk로 빌드해
 #    dist/character/로 탑재 → https://terrafolk-3d.pages.dev/character
-#    상대 경로(public_url="./")라 서브패스에서 그대로 동작. viewer wasm은
-#    wasm-opt 금지(그 레포 Trunk.toml 계약) — raw 그대로.
+#    상대 경로(public_url="./")라 서브패스에서 그대로 동작. viewer wasm도
+#    25MiB 한도에 걸리면 게임과 동일 gz 라우트(.wasm.gz + fetch 래퍼 주입).
 CHAR="$R/../3d-chibi-character"
 if [ ! -d "$CHAR/crates/chibi-viewer" ]; then
   echo "✗ ../3d-chibi-character/crates/chibi-viewer 없음 — sibling 클론 필수(게임 CLAUDE.md)" >&2
@@ -144,7 +144,47 @@ echo "→ /character 페이지 빌드(chibi-viewer wasm — 상대경로 서브�
 ( cd "$CHAR/crates/chibi-viewer" && trunk build --release )
 rm -rf "$R/dist/character"
 cp -R "$CHAR/crates/chibi-viewer/dist" "$R/dist/character"
-printf '\n/character/*.wasm\n  Cache-Control: public, max-age=31536000, immutable\n' >> "$R/dist/_headers"
+printf '\n/character/*.wasm\n  Cache-Control: public, max-age=31536000, immutable\n\n/character/*.wasm.gz\n  Cache-Control: public, max-age=31536000, immutable\n' >> "$R/dist/_headers"
+CW=$(basename "$(ls "$R"/dist/character/*_bg.wasm | head -1)")
+CWSIZE=$(stat -f %z "$R/dist/character/$CW")
+echo "viewer wasm: $((CWSIZE / 1048576))MiB ($CW)"
+if [ "$CWSIZE" -gt $((25 * 1024 * 1024)) ]; then
+  echo "→ /character gz 라우트 — .wasm.gz + DecompressionStream 래퍼(게임 ③과 동일)"
+  gzip -9 -c "$R/dist/character/$CW" > "$R/dist/character/$CW.gz"
+  python3 - "$CW" "$R/dist/character" <<'PYGZ'
+import sys, re
+w, cdir = sys.argv[1], sys.argv[2]
+p = f'{cdir}/index.html'
+src = open(p).read()
+src2, n = re.subn(r'<link[^>]*href="[^"]*' + re.escape(w) + r'"[^>]*/?>\s*', '', src)
+print('preload 제거:', n)
+wrapper = """<script>
+(function () {
+  var orig = window.fetch;
+  window.fetch = function (input, init) {
+    var u = typeof input === 'string' ? input : (input && input.url) || '';
+    if (/_bg\\.wasm(\\?|$)/.test(u) && typeof DecompressionStream !== 'undefined') {
+      var gz = u.replace(/(_bg\\.wasm)(\\?|$)/, '$1.gz$2');
+      return orig(gz, init).then(function (r) {
+        if (r.ok) return new Response(
+          r.body.pipeThrough(new DecompressionStream('gzip')),
+          { headers: { 'content-type': 'application/wasm' } });
+        return orig(u, init);
+      });
+    }
+    return orig(input, init);
+  };
+})();
+</script>"""
+i = src2.find('<body')
+j = src2.find('>', i) if i >= 0 else -1
+assert i >= 0 and j > i, f'<body> 태그 미발견(i={i},j={j})'
+src3 = src2[: j + 1] + '\n' + wrapper + src2[j + 1:]
+open(p, 'w').write(src3)
+print('gz 래퍼 주입 완료 →', p)
+PYGZ
+  rm "$R/dist/character/$CW"   # .gz만 탑재(원본은 로컬 대피 없이 제거 — 재빌드로 복구)
+fi
 TMPD=$(mktemp -d)
 [ -d dist/wasm ] && mv dist/wasm "$TMPD/wasm_old"
 if [ "$ROUTE" = "gz" ] || [ "$ROUTE" = "r2" ]; then
