@@ -177,11 +177,33 @@
     }
   }
 
+  const PROD_BASES = { api: 'https://tf-api.suseona.com', ws: 'https://tf-world.suseona.com' };
+  const LOCAL_BASES = { api: 'http://127.0.0.1:8892', ws: 'http://127.0.0.1:8893' };
+
+  // ?tfenv=prod|local — 명시 오버라이드. 미지정이면 connect의 프로브가 확정한다.
+  function tfenv() {
+    const v = new URLSearchParams(location.search).get('tfenv');
+    return v === 'prod' || v === 'local' ? v : null;
+  }
+
   function autoBases() {
-    const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
-    return local
-      ? { api: 'http://127.0.0.1:8892', ws: 'http://127.0.0.1:8893' }
-      : { api: 'https://tf-api.suseona.com', ws: 'https://tf-world.suseona.com' };
+    if (tfenv() === 'prod') return PROD_BASES;
+    if (tfenv() === 'local') return LOCAL_BASES;
+    return /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? LOCAL_BASES : PROD_BASES;
+  }
+
+  // 로컬 백엔드 생존 프로브 — 네이티브 pick_bases(native_conn.rs)와 대칭.
+  // no-cors fetch는 거부=즉시 reject·기동=opaque resolve라 CORS 무관 생존만 판정.
+  async function probeLocalBackend() {
+    try {
+      const ctl = new AbortController();
+      const timer = setTimeout(function () { ctl.abort(); }, 700);
+      await fetch('http://127.0.0.1:8892/health', { mode: 'no-cors', signal: ctl.signal });
+      clearTimeout(timer);
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 
   // ── 접속(지수 백오프 + 탭 복귀 즉시 재시도, docs §17.29) ──
@@ -197,8 +219,14 @@
 
   async function connect(apiBase, wsBase) {
     if (!apiBase || !wsBase) {
-      const b = autoBases();
-      apiBase = b.api; wsBase = b.ws;
+      // 로컬 오리진 + tfenv 미지정: 프로브로 확정 — 로컬 스택 있으면 로컬,
+      // 없으면 aiserver(로컬 무백엔드 개발 직결). 재시도마다 재판정한다.
+      const fallback = !tfenv()
+        && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)
+        && !(await probeLocalBackend())
+        ? PROD_BASES
+        : autoBases();
+      apiBase = fallback.api; wsBase = fallback.ws;
     }
     // tf-i18n(mt 번역)·ui.js(백로그)가 쓰는 공용 베이스
     window.TF = window.TF || {};

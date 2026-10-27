@@ -64,7 +64,12 @@ fn run_blocking(queue: FrameQueue, phase: Arc<AtomicU8>, feeds: FeedQueues) {
 
 /// 로컬 백엔드 우선 프로브 — 데스크톱 개발·에뮬레이터(adb reverse) 무설정.
 /// 127.0.0.1 거부는 즉시 실패라 실기기 체감 지연 없음.
+/// TF_ENV=prod|local — 명시 오버라이드(프로브 스킵).
 pub(crate) fn pick_bases() -> (&'static str, &'static str) {
+    if let Ok(v) = std::env::var("TF_ENV") {
+        if v == "prod" { return (PROD_API, PROD_WS); }
+        if v == "local" { return (LOCAL_API, LOCAL_WS); }
+    }
     use std::net::TcpStream;
     // 상수 파싱 — 실패가 논리상 불가능한 고정 리터럴(벨트 사유 주석).
     #[allow(clippy::expect_used)]
