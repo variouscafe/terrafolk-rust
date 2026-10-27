@@ -81,6 +81,7 @@ pub fn toonify(
         Entity,
         &super::villager::VillagerModel,
         Option<&SeenStdMesh>,
+        Option<&super::reference_look::ReferenceVillager>,
     ), With<Villager>>,
     children: Query<&Children>,
     gltfs: Res<Assets<bevy::gltf::Gltf>>,
@@ -106,7 +107,7 @@ pub fn toonify(
     if villagers.is_empty() {
         return;
     }
-    for (root, model, seen) in &villagers {
+    for (root, model, seen, reference) in &villagers {
         let look = model.1.clone().unwrap_or_default();
         let tints = if look.is_empty() {
             None
@@ -166,6 +167,16 @@ pub fn toonify(
                     .insert((ToonSwapped, Visibility::Visible));
                 continue;
             }
+            // 레퍼런스 파머 얼굴 개조 — 원본 눈(Eye)·빨간 프림(Red)은 숨기고
+            // 절차적 큰 눈·입(reference_look::items Face 슬롯)이 대체.
+            if reference.is_some()
+                && super::reference_look::hide_face_prim(src.base_color.to_linear())
+            {
+                commands
+                    .entity(d)
+                    .insert((ToonSwapped, Visibility::Hidden));
+                continue;
+            }
             // 틴트 — 재질명 역추적(색 매칭) → 슬롯 → 팔레트색. 실패 시 원본색.
             let src_v4 = {
                 let c = src.base_color.to_srgba();
@@ -193,6 +204,15 @@ pub fn toonify(
                 continue;
             }
             let tint = 'tint: {
+                // 레퍼런스 파머 — 고정 팔레트(데님·크림)가 look 틴트에 우선.
+                if let Some(col) = reference
+                    .is_some()
+                    .then(|| super::reference_look::tint_for(src.base_color.to_linear()))
+                    .flatten()
+                {
+                    let c = col.to_srgba();
+                    break 'tint Vec4::new(c.red, c.green, c.blue, 1.0);
+                }
                 let Some(t) = tints.as_ref() else {
                     break 'tint src_v4;
                 };

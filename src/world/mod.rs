@@ -36,6 +36,7 @@ pub mod terrain;
 pub mod villager;
 pub mod villager_tools;
 pub mod water;
+pub mod reference_look;
 pub mod wear;
 #[allow(dead_code)] // 바람 흔들림 효과 제거(2026-10-22 사용자 지시 — 성능) — 모듈은 보존
 pub mod wind;
@@ -108,11 +109,11 @@ impl Plugin for WorldPlugin {
         app.add_systems(Update, animal_anim::play_animal_idles);
         // 캐릭터 프레임워크(비율·접지·발바닥 수평) — 게임 무관 계층
         // (2026-10-24 P1, docs/character-module-redesign.md). 표면장=WorldData.
-        // 비율 룩 = 치비 v1(2026-10-27 사용자 결정 — 레퍼런스 치비 캐릭터
-        // 지향. 두신 ≈2.1. 가시 신장 1.72m 유지를 위해 VILLAGER_H는
-        // 치비화 이전 raw 기준 2.33 — 실측 비율 0.7396).
+        // 비율 룩 = 레퍼런스 치비(2026-10-27 — CHIBI_REF, head 2.20:
+        // 모자 포함 실루엣까지 감안. 가시 신장 1.72m 유지 fit = 1.94,
+        // 비율 0.889 = 0.865 + 헤드 상향분 0.024).
         app.add_plugins(crate::character::CharacterPlugin::<data::WorldData>::new(
-            crate::character::rig::CHIBI_V1,
+            crate::character::rig::CHIBI_REF,
         ));
         app.configure_sets(
             Update,

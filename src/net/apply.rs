@@ -225,6 +225,8 @@ pub fn sync_agents(
     q_model: Query<&crate::world::villager::VillagerModel, With<LiveAgentTag>>,
     mut local_looks: ResMut<crate::world::look_edit::LocalLooks>,
     mut first_log: Local<u32>,
+    // 레퍼런스 파머 1명 배정 플래그(첫 스폰 봇 — 세션 지속, 2026-10-27).
+    mut ref_assigned: Local<bool>,
 ) {
     if net.status != NetStatus::Connected {
         return;
@@ -354,7 +356,14 @@ pub fn sync_agents(
                 "{{\"sex\":\"{sex}\",\"parts\":{{\"skin\":\"{sk}\",\"hairColor\":\"{hc}\",\"eye\":\"{ey}\",\"topColor\":\"{tp}\",\"bottomColor\":\"{bt}\",\"feetColor\":\"{ft}\"}}}}"
             ));
         }
-        let path = crate::world::villager::model_path_for(&a.id, look.as_deref());
+        // 레퍼런스 파머 — 첫 스폰 봇 1명: m-farmer 강제 + 마커(모자·얼굴·틴트).
+        let reference = !*ref_assigned && a.kind == "bot";
+        let path = if reference {
+            *ref_assigned = true;
+            crate::world::villager::MODELS_M[0]
+        } else {
+            crate::world::villager::model_path_for(&a.id, look.as_deref())
+        };
         let scene = assets.load(GltfAssetLabel::Scene(0).from_asset(path));
         let gltf = assets.load(path);
         // 착지 클램프 — 서버가 물 타일에 세워도(§17.80 취수) 몸이 불투명
@@ -362,32 +371,35 @@ pub fn sync_agents(
         let ground = world
             .height_at(a.x.floor() as i32, a.y.floor() as i32)
             .max(crate::world::ground::WATER_STAND_Y);
-        commands
-            .spawn((
-                crate::world::wear::Wears(crate::world::wear::wear_ids_from_look(
-                    look.as_deref().unwrap_or(""),
-                )),
-                crate::world::villager::VillagerModel(gltf, look),
-                crate::world::villager::Villager {
-                    from: Vec3::new(a.x, ground, a.y),
-                    to: Vec3::new(a.x, ground, a.y),
-                    t: 0.0,
-                    moving: false,
-                    idle: 0.0,
-                    target_h: crate::world::villager::VILLAGER_H,
-                    name: a.name.clone(),
-                    status: a.status.clone(),
-                    act: a.act_type.clone().unwrap_or_default(),
-                },
-                LiveAgentTag(a.id.clone()),
-                super::agent_hud::AgentHud::default(),
-                bevy::world_serialization::WorldAssetRoot(scene),
-                Transform::from_translation(Vec3::new(a.x, ground, a.y)),
-                // 스폰 직후 PBR 프레임 노출 방지(2026-10-23 '3D 질감→카툰 덮임'
-                // 보고) — toonify가 자손 툰 스왑을 완료한 프레임에 표시된다.
-                Visibility::Hidden,
-            ))
-            .observe(crate::world::villager::villager_ready);
+        let mut spawned_villager = commands.spawn((
+            crate::world::wear::Wears(crate::world::wear::wear_ids_from_look(
+                look.as_deref().unwrap_or(""),
+            )),
+            crate::world::villager::VillagerModel(gltf, look),
+            crate::world::villager::Villager {
+                from: Vec3::new(a.x, ground, a.y),
+                to: Vec3::new(a.x, ground, a.y),
+                t: 0.0,
+                moving: false,
+                idle: 0.0,
+                target_h: crate::world::villager::VILLAGER_H,
+                name: a.name.clone(),
+                status: a.status.clone(),
+                act: a.act_type.clone().unwrap_or_default(),
+            },
+            LiveAgentTag(a.id.clone()),
+            super::agent_hud::AgentHud::default(),
+            bevy::world_serialization::WorldAssetRoot(scene),
+            Transform::from_translation(Vec3::new(a.x, ground, a.y)),
+            // 스폰 직후 PBR 프레임 노출 방지(2026-10-23 '3D 질감→카툰 덮임'
+            // 보고) — toonify가 자손 툰 스왑을 완료한 프레임에 표시된다.
+            Visibility::Hidden,
+        ));
+        if reference {
+            // 레퍼런스 파머 — 착용(villager finish)·틴트·얼굴 개조(toonify) 훅.
+            spawned_villager.insert(crate::world::reference_look::ReferenceVillager);
+        }
+        spawned_villager.observe(crate::world::villager::villager_ready);
         spawned += 1;
     }
     if spawned > 0 {
