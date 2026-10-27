@@ -356,8 +356,9 @@ pub fn sync_agents(
                 "{{\"sex\":\"{sex}\",\"parts\":{{\"skin\":\"{sk}\",\"hairColor\":\"{hc}\",\"eye\":\"{ey}\",\"topColor\":\"{tp}\",\"bottomColor\":\"{bt}\",\"feetColor\":\"{ft}\"}}}}"
             ));
         }
-        // 레퍼런스 파머 — 첫 스폰 봇 1명: m-farmer 강제 + 마커(모자·얼굴·틴트).
-        let reference = !*ref_assigned && a.kind == "bot";
+        // 레퍼런스 파머 — 첫 스폰 주민 1명(종류 무관: 라이브 섬이 user 종류
+        //뿐인 세션이 있어 bot 한정은 미할당 결함이었다, 2026-10-27).
+        let reference = !*ref_assigned;
         let path = if reference {
             *ref_assigned = true;
             crate::world::villager::MODELS_M[0]
@@ -398,6 +399,7 @@ pub fn sync_agents(
         if reference {
             // 레퍼런스 파머 — 착용(villager finish)·틴트·얼굴 개조(toonify) 훅.
             spawned_villager.insert(crate::world::reference_look::ReferenceVillager);
+            info!("[net] 레퍼런스 파머 배정: {} ({})", a.name, a.id);
         }
         spawned_villager.observe(crate::world::villager::villager_ready);
         spawned += 1;
