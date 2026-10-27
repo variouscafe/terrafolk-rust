@@ -129,6 +129,22 @@ PY
 #    업로드 트리에 포함되므로 wasm 원본(dist/wasm 등)은 /tmp 대피.
 # 해시 파일명 wasm(·.gz)은 불변 — Pages 기본(max-age=0 재검증) 대신 1년 캐시.
 printf '/*.wasm\n  Cache-Control: public, max-age=31536000, immutable\n\n/*.wasm.gz\n  Cache-Control: public, max-age=31536000, immutable\n' > dist/_headers
+
+# ⑤.5 /character — 캐릭터 프레임워크 테스트 전용 페이지(2026-10-28).
+#    sibling ../3d-chibi-character의 chibi-viewer wasm을 trunk로 빌드해
+#    dist/character/로 탑재 → https://terrafolk-3d.pages.dev/character
+#    상대 경로(public_url="./")라 서브패스에서 그대로 동작. viewer wasm은
+#    wasm-opt 금지(그 레포 Trunk.toml 계약) — raw 그대로.
+CHAR="$R/../3d-chibi-character"
+if [ ! -d "$CHAR/crates/chibi-viewer" ]; then
+  echo "✗ ../3d-chibi-character/crates/chibi-viewer 없음 — sibling 클론 필수(게임 CLAUDE.md)" >&2
+  exit 1
+fi
+echo "→ /character 페이지 빌드(chibi-viewer wasm — 상대경로 서브패스)"
+( cd "$CHAR/crates/chibi-viewer" && trunk build --release )
+rm -rf "$R/dist/character"
+cp -R "$CHAR/crates/chibi-viewer/dist" "$R/dist/character"
+printf '\n/character/*.wasm\n  Cache-Control: public, max-age=31536000, immutable\n' >> "$R/dist/_headers"
 TMPD=$(mktemp -d)
 [ -d dist/wasm ] && mv dist/wasm "$TMPD/wasm_old"
 if [ "$ROUTE" = "gz" ] || [ "$ROUTE" = "r2" ]; then
