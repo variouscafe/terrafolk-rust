@@ -110,6 +110,15 @@ screencap·logcat(RustStdoutStderr 라인)으로 매번 확인한다. **재설�
 
 **웹 테스트 URL**: 자동화 테스트(헤드리스·Playwright 등)는 https://terrafolk-rust.pages.dev 로 접속할 것. 커스텀 도메인(terrafolk.suseona.com)은 Cloudflare 봇 방어가 자동화 접속을 챌린지(403)로 차단한다 — 사람 브라우저는 통과, 자동 검증은 pages.dev 사용. 단 suseona.com 존의 API(tf-api)도 헤드리스 지문을 차단할 수 있어 라이브 백엔드 연동 E2E가 필요하면 headed 모드(`headless: false` + `--disable-blink-features=AutomationControlled` + 실제 UA)로 실행할 것.
 
+**로컬 무스택 개발(2026-10-27)**: 로컬 postgres 제거로 로컬 백엔드 상시
+구동을 폐지했다 — 클라이언트는 로컬 8892가 죽으면 자동으로 aiserver 라이브로
+폴백한다(worldsim.js `probeLocalBackend` 700ms no-cors /health · 네이티브
+`pick_bases` 600ms TCP — `?tfenv=prod|local`(웹)·`TF_ENV=`(네이티브)로 강제
+가능). 로컬 웹 서빙은 CORS 허용 포트 **5174**로 할 것(tf-api 허용목록의 유일
+localhost 오리진 — 8095/8096은 CORS 400). 인증 액션은 배포 사이트 로그인 후
+localStorage `readAuth` 토큰을 로컬 탭에 복사. **proto2d는 개발 종료
+(2026-10-27, 사용자 지시)** — 루트 3D 클라이언트만 유지보수한다.
+
 **proto2d 웹 배포(terrafolk-2d.pages.dev)**: wasm이 25MiB를 넘으므로 Pages
 직행이 안 된다 — `./tools/deploy-proto2d-r2.sh` 원스텝(2026-10-21 확립).
 wasm은 R2 버킷 `terrafolk-wasm`(공개 r2.dev 도메인 + CORS `*`)에 올리고,

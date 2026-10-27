@@ -5644,7 +5644,7 @@ dependencies = [
 
 [[package]]
 name = "terrafolk_bevy"
-version = "0.8.41"
+version = "0.8.42"
 dependencies = [
  "bevy",
  "chibi-character",
