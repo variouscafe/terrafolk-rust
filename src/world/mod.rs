@@ -108,10 +108,11 @@ impl Plugin for WorldPlugin {
         app.add_systems(Update, animal_anim::play_animal_idles);
         // 캐릭터 프레임워크(비율·접지·발바닥 수평) — 게임 무관 계층
         // (2026-10-24 P1, docs/character-module-redesign.md). 표면장=WorldData.
-        // 비율 룩 = 원본 리그 REAL(2026-10-26 사용자 결정 — 나무·건물 대비
-        // 사람 비율 정합. 치비 v1은 rig::CHIBI_V1로 언제든 복귀 가능).
+        // 비율 룩 = 치비 v1(2026-10-27 사용자 결정 — 레퍼런스 치비 캐릭터
+        // 지향. 두신 ≈2.1. 가시 신장 1.72m 유지를 위해 VILLAGER_H는
+        // 치비화 이전 raw 기준 2.33 — 실측 비율 0.7396).
         app.add_plugins(crate::character::CharacterPlugin::<data::WorldData>::new(
-            crate::character::rig::REAL,
+            crate::character::rig::CHIBI_V1,
         ));
         app.configure_sets(
             Update,
