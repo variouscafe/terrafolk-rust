@@ -36,6 +36,13 @@ llmserver에서 `https://llm-asset.suseona.com`(cloudflared 터널)로 동작하
 
 ## 역할 분담
 
+- **캐릭터 프레임워크 = 오픈소스 레포 이관(2026-10-27)**: `src/character/`는
+  **`../3d-chibi-character`(github variouscafe/3d-chibi-character, private)**의
+  `crates/chibi-character`로 이관됐고 이 게임은 path 의존으로 직접 소비한다
+  (src/character.rs 셤이 import 경로 보존). **클론 전제: 이 repo 빌드엔 sibling로
+  `../3d-chibi-character`가 필요** (fresh clone 시 함께 클론할 것). 캐릭터 기능
+  추가는 그 레포에서 먼저(순수성 게이트 tools/check-purity.sh) → 게임 적용.
+  뷰어(chibi-viewer)·검증 파이프라인(viewer_shot.cjs)도 그쪽 소관.
 - **이 repo = client 담당**: Rust/Bevy 클라이언트 — **웹 3D(terrafolk-3d.pages.dev,
   루트 terrafolk_bevy)가 우선 타겟**(2026-10-21 전환 — 사용자 지시). 안드로이드
   앱은 후순위 유지(빌드 레시피·adb 검증 루프는 유효) — 웹과 충돌하면 **웹을
