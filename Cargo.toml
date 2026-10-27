@@ -6,12 +6,13 @@ edition = "2024"
 exclude = ["dist", "build", "assets", "credits"]
 
 [workspace]
-members = ["mobile", "crates/ws-link", "crates/colyseus-lite", "proto2d"]
+members = ["mobile", "crates/ws-link", "crates/colyseus-lite"]
 
 # never-crash 린트 벨트(chartcraft 채택 2호, 2026-10-24) — 경고 레벨로
 # 시작해 상위 소속(net=서버 데이터 경로 우선)부터 제거, 0 도달 시 deny로.
 [workspace.lints.clippy]
-# 2026-10-24 완주 — 프로덕션 크레이트 0화 후 warn→deny 승격(proto2d 제외).
+# 2026-10-24 완주 — 프로덕션 크레이트 0화 후 warn→deny 승격(proto2d는 2026-10-28
+# terrafolk-2d-rust-proto 레포로 분리 — 벨트 제외 상태 그대로 그쪽 동결).
 # 차후 예외는 위치에 #[allow] + 사유 주석으로.
 unwrap_used = "deny"
 expect_used = "deny"
