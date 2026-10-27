@@ -110,10 +110,9 @@ impl Plugin for WorldPlugin {
         // (2026-10-24 P1, docs/character-module-redesign.md). 표면장=WorldData.
         // 비율 룩 = 원본 리그 REAL(2026-10-26 사용자 결정 — 나무·건물 대비
         // 사람 비율 정합. 치비 v1은 rig::CHIBI_V1로 언제든 복귀 가능).
-        app.add_plugins(crate::character::CharacterPlugin::<data::WorldData> {
-            profile: crate::character::rig::REAL,
-            ..Default::default()
-        });
+        app.add_plugins(crate::character::CharacterPlugin::<data::WorldData>::new(
+            crate::character::rig::REAL,
+        ));
         app.configure_sets(
             Update,
             crate::character::GroundSnapSet

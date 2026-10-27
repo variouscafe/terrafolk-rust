@@ -25,7 +25,9 @@ deny() { # $1=검사 대상 dir, $2..=금지 prefix
 
 # 하위 계층은 상위를 모름
 deny src/platform 'world|net|ui|character'
-deny src/character 'world|net|ui'
+# 캐릭터 프레임워크는 오픈소스 레포로 이관(2026-10-27) — 여기는 셤만
+# 남았고, 순수성 게이트는 ../3d-chibi-character의 tools/check-purity.sh가 담당.
+deny src/character.rs 'world|net|ui'
 # 게임 콘텐츠는 UI를 모름(웹은 DOM, 네이티브 UI는 최상위)
 deny src/world 'ui'
 
