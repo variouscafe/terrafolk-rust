@@ -134,6 +134,12 @@ crates/ws-link·colyseus-lite 밴딩)로 옮겼다. 이 repo에는 proto2d 흔�
 금지 레시피는 그쪽 README.md·CLAUDE.md가 단일 기준. ws-link·colyseus-lite는
 양쪽이 계보 공유 — 한쪽 수정 시 반대쪽 반영 검토.
 
+/character 테스트 페이지(2026-10-28): https://terrafolk-3d.pages.dev/character —
+캐릭터 오픈소스(sibling 3d-chibi-character) 뷰어 wasm을 deploy-3d-r2.sh ⑤.5가
+dist/character/에 탑재. 주민 보행은 절차적 게이트(gait — 월드 고정 착지·
+미끄럼 0, 상세는 그 레포 CLAUDE.md '보행 아키텍처')로 구동 — 발 관련 본 쓰기
+시스템의 PostUpdate 등록 계약 동반.
+
 **3D 웹 배포(terrafolk-3d.pages.dev, 2026-10-21)**: 루트 3D 클라이언트
 (bevy 0.20.0)의 웹 판 — `./tools/deploy-3d-r2.sh` 원스텝. **Pages 직행
 2모드(2026-10-23 개편 — 사용자 지시: R2보다 Pages CDN이 우위)**: wasm-opt
