@@ -123,27 +123,16 @@ screencap·logcat(RustStdoutStderr 라인)으로 매번 확인한다. **재설�
 `pick_bases` 600ms TCP — `?tfenv=prod|local`(웹)·`TF_ENV=`(네이티브)로 강제
 가능). 로컬 웹 서빙은 CORS 허용 포트 **5174**로 할 것(tf-api 허용목록의 유일
 localhost 오리진 — 8095/8096은 CORS 400). 인증 액션은 배포 사이트 로그인 후
-localStorage `readAuth` 토큰을 로컬 탭에 복사. **proto2d는 개발 종료
-(2026-10-27, 사용자 지시)** — 루트 3D 클라이언트만 유지보수한다.
+localStorage `readAuth` 토큰을 로컬 탭에 복사. proto2d는 별도 레포로
+분리돼 있으며(위 proto2d 절 참조) 이 repo 소관이 아니다.
 
-**proto2d 웹 배포(terrafolk-2d.pages.dev)**: wasm이 25MiB를 넘으므로 Pages
-직행이 안 된다 — `./tools/deploy-proto2d-r2.sh` 원스텝(2026-10-21 확립).
-wasm은 R2 버킷 `terrafolk-wasm`(공개 r2.dev 도메인 + CORS `*`)에 올리고,
-Pages는 HTML/JS만: 스크립트가 index.html의 `module_or_path`·preload href를
-R2 절대 URL로 재작성 + SRI 재계산 후, wasm을 dist 밖으로 대피시켜(하위
-디렉터리도 업로드 트리에 포함되므로) `wrangler pages deploy`, 끝나면 복원.
-**금지 사항 2가지**: ① **wasm-opt/압축 금지** — 사용자 지시(2026-10-21).
-bevy 0.20 그래픽 회귀는 opt 무관하게 0.20 자체 결함으로 판명(0.19.1 유지)
-— 빌드 플래그를 바꾸지 말 것. ② wrangler 비대화면 배포는 Pages 프로젝트
-바인딩을 빈값으로 덮어쓴다 — R2 바인딩·함수 프록시 방식은 쓰지 말고 절대
-URL 방식 유지. 로컬 dist 검증은 trunk가 dist를 지우므로
-`./tools/ui2-local.sh`(wasm 복사 후 상대 경로)로.
-**배포 전 회귀 게이트 필수(2026-10-21, #63 사고 후)**: 로컬 스택
-(backend 8892·room 8893·dist 8095 -c-1)을 띄운 뒤
-`NODE_PATH=/opt/homebrew/lib/node_modules TF_MOCK_ECO=1 node
-tools/e2e/proto2d_regress.cjs`가 **allPass: true**일 때만 배포한다 —
-기능 하나만 검증하면 다른 표면 회귀(#63: 월드 스프라이트가 플로팅
-패널 전멸)를 놓친다.
+**proto2d 완전 분리(2026-10-28)**: proto2d는 개발 종료(2026-10-27, 사용자
+지시)로 sibling 레포 **`../terrafolk-2d-rust-proto`**(github
+variouscafe/terrafolk-2d-rust-proto — 코드·tools·notes 전부 이관,
+crates/ws-link·colyseus-lite 밴딩)로 옮겼다. 이 repo에는 proto2d 흔적이
+없다. 배포(terrafolk-2d.pages.dev + R2 wasm 우회)·E2E 게이트·wasm-opt
+금지 레시피는 그쪽 README.md·CLAUDE.md가 단일 기준. ws-link·colyseus-lite는
+양쪽이 계보 공유 — 한쪽 수정 시 반대쪽 반영 검토.
 
 **3D 웹 배포(terrafolk-3d.pages.dev, 2026-10-21)**: 루트 3D 클라이언트
 (bevy 0.20.0)의 웹 판 — `./tools/deploy-3d-r2.sh` 원스텝. **Pages 직행
