@@ -2064,6 +2064,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "chibi-character"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
 name = "clipboard-win"
 version = "5.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5640,6 +5647,7 @@ name = "terrafolk_bevy"
 version = "0.8.41"
 dependencies = [
  "bevy",
+ "chibi-character",
  "colyseus-lite",
  "console_error_panic_hook",
  "embed-resource",
