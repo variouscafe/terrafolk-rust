@@ -14,11 +14,10 @@ use super::data::WorldData;
 const WALK_TIME: f32 = 0.85;
 /// 주민 fit 목표(미터) — **치비화 이전 raw 기준치**(오토폿이 chibiify 전
 /// AABB를 재므로). 2026-10-27 치비 복귀 결정: CHIBI_V1에서 가시 신장
-/// 1.72m 유지에 필요한 값(실측 비율 0.865 — 뷰어 setle 후 Head 본
-/// y 0.546·Foot 0.012·헤드 익스텐트 0.331 @fit1.0. 애님 포즈(Idle)가
-/// 반영된 런타임 수치라 바인드 해석 추정 0.74보다 우선). 세계 물체 대비
+/// 1.72m 유지에 필요한 값(실측 비율 0.889 — CHIBI_REF head 2.20 반영:
+/// 0.865 + 헤드 상향분 0.024). 세계 물체 대비
 /// 가시 신장은 REAL 시대(1.72)와 동일 — 카메라·오버레이 보정 불변.
-pub const VILLAGER_H: f32 = 1.99;
+pub const VILLAGER_H: f32 = 1.94;
 
 /// 모델 전방 보정 — Quaternius 리깅는 +Z 전방(실측 후 조정)
 const MODEL_YAW: f32 = 0.0;
@@ -112,7 +111,7 @@ pub struct VillagerPending(pub f32);
 pub fn villager_ready(
     trigger: On<WorldInstanceReady>,
     mut commands: Commands,
-    q_self: Query<(&Villager, &VillagerModel, &Transform)>,
+    q_self: Query<(&Villager, &VillagerModel, &Transform, Option<&super::reference_look::ReferenceVillager>)>,
     children: Query<&Children>,
     mut players: Query<(Entity, &mut AnimationPlayer)>,
     q_walk: super::prop_fit::FitQuery,
@@ -122,7 +121,7 @@ pub fn villager_ready(
     mut aabb_cache: ResMut<super::prop_fit::MeshAabbCache>,
     world: Res<super::data::WorldData>,
 ) {
-    let Ok((villager, model, tr)) = q_self.get(trigger.entity) else {
+    let Ok((villager, model, tr, reference)) = q_self.get(trigger.entity) else {
         return;
     };
     let done = finish_villager_setup(
@@ -130,6 +129,7 @@ pub fn villager_ready(
         villager,
         model,
         tr,
+        reference.is_some(),
         &mut commands,
         &children,
         &mut players,
@@ -156,6 +156,7 @@ pub fn retry_villager_setup(
         &Villager,
         &VillagerModel,
         &Transform,
+        Option<&super::reference_look::ReferenceVillager>,
         &mut VillagerPending,
     )>,
     children: Query<&Children>,
@@ -167,7 +168,7 @@ pub fn retry_villager_setup(
     mut aabb_cache: ResMut<super::prop_fit::MeshAabbCache>,
     world: Res<super::data::WorldData>,
 ) {
-    for (entity, villager, model, tr, mut pending) in &mut q {
+    for (entity, villager, model, tr, reference, mut pending) in &mut q {
         pending.0 += time.delta_secs();
         if pending.0 > 60.0 {
             warn!("[villager] 스폰 완료 실패(60s) — 포기 {:?}", model.0.path());
@@ -179,6 +180,7 @@ pub fn retry_villager_setup(
             villager,
             model,
             tr,
+            reference.is_some(),
             &mut commands,
             &children,
             &mut players,
@@ -204,6 +206,7 @@ fn finish_villager_setup(
     villager: &Villager,
     model: &VillagerModel,
     tr: &Transform,
+    reference: bool,
     commands: &mut Commands,
     children: &Query<&Children>,
     players: &mut Query<(Entity, &mut AnimationPlayer)>,
