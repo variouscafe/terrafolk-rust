@@ -12,12 +12,11 @@ use std::time::Duration;
 use super::data::WorldData;
 
 const WALK_TIME: f32 = 0.85;
-/// 주민 fit 목표(미터) — **치비화 이전 raw 기준치**(오토폿이 chibiify 전
-/// AABB를 재므로). 2026-10-27 치비 복귀 결정: CHIBI_V1에서 가시 신장
-/// 1.72m 유지에 필요한 값(실측 비율 0.889 — CHIBI_REF head 2.20 반영:
-/// 0.865 + 헤드 상향분 0.024). 세계 물체 대비
-/// 가시 신장은 REAL 시대(1.72)와 동일 — 카메라·오버레이 보정 불변.
-pub const VILLAGER_H: f32 = 1.94;
+/// 주민 fit 목표(미터) — 오토폿이 chibiify 전 raw AABB를 재므로 raw 기준치.
+/// 2026-10-28 KayKit 베이스 전환: **REAL 프로파일**(본 스케일 항등 — 네이티브
+/// 치비 비율 그대로, 사용자 결정)이라 raw=가시 → 1.72 직결. 이전 qchar
+/// CHIBI_REF 시대 1.94(비율 0.889 보정) 폐지.
+pub const VILLAGER_H: f32 = 1.72;
 
 /// 모델 전방 보정 — Quaternius 리깅는 +Z 전방(실측 후 조정)
 const MODEL_YAW: f32 = 0.0;
@@ -71,35 +70,18 @@ pub struct VillagerAnims {
 #[derive(Component)]
 pub struct VillagerModel(pub Handle<Gltf>, pub Option<String>);
 
-/// Quaternius Ultimate Modular Men/Women(CC0, 표준 휴머노이드 리그·애님 24종,
-/// Body/Legs/Feet 파츠 분리) — 원시 마을 테마 6종. 치비화(본 스케일)는
-/// chibiify가 담당. 착의 다양성은 변형(의상·헤어)이, 부착 아이템은 wear가 담당.
-pub(crate) const MODELS_M: [&str; 4] = [
-    "models/qchar/m-farmer.glb",
-    "models/qchar/m-worker.glb",
-    "models/qchar/m-adventurer.glb",
-    "models/qchar/m-casual-character.glb",
-];
-const MODELS_F: [&str; 2] = [
-    "models/qchar/f-adventurer.glb",
-    "models/qchar/f-worker.glb",
-];
+/// 캐릭터 베이스 — **KayKit Farmer(CC0)**(2026-10-28 전환, 사용자 결정:
+/// 오픈소스 조사 채택. 오픈소스 레포 tools/kaykit_farmer.py가 Rogue를
+/// 레퍼런스 농부 소년 팔레트로 변환한 산출물 — 리프그린 멜빵바지·아이보리
+/// 소매·머스터드 장화·테라코타 장갑 텍스처 내장, 망토·무기 제거, 애님 76종).
+/// 치비 통통 비율이 메시에 내장돼 프로파일 REAL(본 스케일 항등)로 소비.
+/// 이전 qchar 6종(성별 변형)은 look 다양성 경로와 함께 후속 재도입 과제.
+const MODELS_KAYKIT: [&str; 1] = ["models/kaykit/Farmer.glb"];
 
-/// 라이브 에이전트용 — lookJson.sex(있으면) 또는 id 해시로 남/녀 그룹을 고르고,
-/// 해시로 변형(의상·헤어)을 1택한다.
-pub fn model_path_for(id: &str, look: Option<&str>) -> &'static str {
-    let female = if let Some(look) = look
-        && look.contains("\"sex\":\"")
-        && let Some(i) = look.find("\"sex\":\"")
-    {
-        let c = look[i + 7..].chars().next().unwrap_or('M');
-        c == 'F' || c == 'f'
-    } else {
-        false
-    };
-    let h = id.bytes().fold(0u64, |a, b| a.wrapping_mul(31) + b as u64);
-    let group: &[&str] = if female { &MODELS_F } else { &MODELS_M };
-    group[(h % group.len() as u64) as usize]
+/// 라이브 에이전트용 — KayKit 단일 모델 시대(2026-10-28). 성별·해시 변형은
+/// 보류(단일 농부 룩) — 시그니처는 계약 유지(look 다양성 재도입 시 복원).
+pub fn model_path_for(_id: &str, _look: Option<&str>) -> &'static str {
+    MODELS_KAYKIT[0]
 }
 
 /// 스폰 완료 보장 마커 — finish_villager_setup이 아직 못 끝낸 주민.
@@ -220,30 +202,35 @@ fn finish_villager_setup(
     let Some(gltf) = gltfs.get(&model.0) else {
         return false; // Gltf 아직 로딩 — 재시도로 흡수
     };
-    // Walk/Idle 클립 검색 — 접미 매칭(프리픽스는 모델별 상이)
-    let find = |suffix: &str| {
+    // 클립 검색 — 부분 매칭(KayKit 이름: Walking_A·Idle·Interact·
+    // Unarmed_Melee_Attack_Punch_A. qchar 접미 시대와 달리 형용사가 뒤에
+    // 붙어 contains로 확장, 2026-10-28).
+    let find = |needle: &str| {
         gltf.named_animations
             .iter()
             .find(|(name, _)| {
                 name.to_ascii_lowercase()
-                    .ends_with(&suffix.to_ascii_lowercase())
+                    .contains(&needle.to_ascii_lowercase())
             })
             .map(|(_, h)| h.clone())
     };
-    let (Some(walk_h), Some(idle_h)) = (find("Walk"), find("Idle")) else {
+    let (Some(walk_h), Some(idle_h)) = (find("Walking_A"), find("Idle")) else {
         return false;
     };
     let mut graph = AnimationGraph::new();
     let walk_i = graph.add_clip(walk_h, 1.0, graph.root);
     let idle_i = graph.add_clip(idle_h, 1.0, graph.root);
-    // Interact·Wave — 이 팩엔 있으나 이후 합류 모델을 위해 폴백(Idle 인덱스)
+    // Interact·Wave(→KayKit Cheer 폴백)·Punch(→Unarmed_Punch) — 클립
+    // 부재 모델을 위해 Idle/Interact 인덱스 폴백 유지.
     let interact_i = find("Interact")
         .map(|h| graph.add_clip(h, 1.0, graph.root))
         .unwrap_or(idle_i);
     let wave_i = find("Wave")
+        .or_else(|| find("Cheer"))
         .map(|h| graph.add_clip(h, 1.0, graph.root))
         .unwrap_or(idle_i);
     let punch_i = find("Punch_Left")
+        .or_else(|| find("Punch_A"))
         .map(|h| graph.add_clip(h, 1.0, graph.root))
         .unwrap_or(interact_i);
     let graph_h = graphs.add(graph);
@@ -319,6 +306,14 @@ fn finish_villager_setup(
         crate::character::Fall::default(),
         IdleFidget::new(entity.to_bits() as u64),
     ));
+    // 레퍼런스 봃 — 모자·초록 눈·포켓 소품 착용(crate wear_sync가 자손
+    // 조각 구성. 2026-10-28 KayKit 전환으로 재활성화 — qchar 시대 부착이
+    // 0.2.5 '감자' 차단으로 끊겨 있었다).
+    if reference {
+        commands
+            .entity(entity)
+            .insert(super::reference_look::items());
+    }
     true
 }
 
