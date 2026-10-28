@@ -141,44 +141,11 @@ pub fn slot_for(model: &str, mat: &str) -> Option<(Slot, f32)> {
         "Eye" => return Some((Slot::Eye, 1.0)),
         _ => {}
     }
-    match (model, mat) {
-        // m-farmer — 밀짚모자 아래 머리(Beige)
-        ("m-farmer", "Beige") => Some((Slot::Hair, 1.0)),
-        ("m-farmer", "Brown") => Some((Slot::Top, 1.0)),
-        ("m-farmer", "LightBlue") => Some((Slot::Bottom, 1.0)),
-        ("m-farmer", "Brown2") => Some((Slot::Feet, 1.0)),
-        // m-worker — 안전모(Worker_Yellow) 제외
-        ("m-worker", "Worker_Vest") => Some((Slot::Top, 1.0)),
-        ("m-worker", "LightBrown") => Some((Slot::Top, 1.25)),
-        ("m-worker", "Brown2") => Some((Slot::Bottom, 1.0)),
-        ("m-worker", "Black") => Some((Slot::Feet, 1.0)),
-        // m-adventurer
-        ("m-adventurer", "Hair") => Some((Slot::Hair, 1.0)),
-        ("m-adventurer", "Green") => Some((Slot::Top, 1.0)),
-        ("m-adventurer", "LightGreen") => Some((Slot::Top, 1.3)),
-        ("m-adventurer", "Brown") => Some((Slot::Bottom, 1.0)),
-        ("m-adventurer", "Black") => Some((Slot::Feet, 1.0)),
-        // m-casual-character
-        ("m-casual-character", "Hair") => Some((Slot::Hair, 1.0)),
-        ("m-casual-character", "LightBrown") => Some((Slot::Top, 1.0)),
-        ("m-casual-character", "LightBlue") => Some((Slot::Bottom, 1.0)),
-        ("m-casual-character", "White") => Some((Slot::Feet, 1.15)),
-        ("m-casual-character", "Red_Dark") => Some((Slot::Feet, 0.75)),
-        // f-adventurer
-        ("f-adventurer", "Hair_Brown") => Some((Slot::Hair, 1.0)),
-        ("f-adventurer", "Brown") => Some((Slot::Hair, 0.8)),
-        ("f-adventurer", "LightGreen") => Some((Slot::Top, 1.0)),
-        ("f-adventurer", "Green") => Some((Slot::Top, 0.8)),
-        ("f-adventurer", "Brown_02") => Some((Slot::Bottom, 1.0)),
-        ("f-adventurer", "Brown2") => Some((Slot::Feet, 1.0)),
-        // f-worker — 머리수건(Worker_Yellow) 제외, DarkBrown=머리
-        ("f-worker", "DarkBrown") => Some((Slot::Hair, 1.0)),
-        ("f-worker", "Worker_Vest") => Some((Slot::Top, 1.0)),
-        ("f-worker", "Worker_Yellow") if model == "f-worker" => None, // 몸통 밝은 셔츠도 노란색이지만 원본 유지
-        ("f-worker", "Brown_02") => Some((Slot::Bottom, 1.0)),
-        ("f-worker", "Black") => Some((Slot::Feet, 1.0)),
-        _ => None,
-    }
+    // qchar m-/f- 팩 의상 재질표는 팩 제거(2026-10-28)와 함께 폐지 —
+    // KayKit Farmer는 텍스처 아틀라스 재질이라 재질명 매칭이 애초에
+    // 무동작(재질 틴트 경로 전체가 qchar 시대 보정). 공통 얼굴 슬롯만 유지.
+    let _ = model;
+    None
 }
 
 /// 슬롯 틴트 → 최종 색(rgb 배율 적용, 알파 1).

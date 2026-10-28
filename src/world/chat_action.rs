@@ -113,7 +113,7 @@ pub fn drain_bridge(
     time: Res<Time>,
     mut commands: Commands,
     bridge: ResMut<ActionBridge>,
-    mut q: Query<
+    q: Query<
         (
             Entity,
             &Transform,
