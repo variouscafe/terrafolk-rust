@@ -15,7 +15,8 @@ use chibi_character::{WearPart, WearPrim, WearSlot, WornItems};
 #[derive(Component)]
 pub struct ReferenceVillager;
 
-/// 착용 + 얼굴 + 가슴 — 오픈소스 뷰어 reference.rs kaykit_items와 동일
+/// 착용 + 얼굴 + 가슴 — folk 몸체(2026-10-29 교체) 시대: 멜빵·비브·포켓은
+/// build_folk.py 메시가 담당, 프림은 모자·얼굴·포켓 디테일만(뷰어 reference.rs 정본 동기)
 /// 상수(단일 룩 계약 — 2026-10-29 정본 동기: 0.3.5 상수 + 모자·앞머리
 /// 패싯). 좌표는 KayKit head/chest 본 로컬 bind 단위(실측
 /// 2026-10-28: head 본 원점 y=1.241·헤드 y[−0.08,+0.95]·폭 ±0.55·전방
@@ -153,8 +154,7 @@ pub fn items() -> WornItems {
     // 가슴 — 멜빵 끈 2(사각 버클 포함)·앞포켓 패널·체커 패치·흙손·새싹·
     // 셔츠 버튼 2·카라(바이블 §5.1~5.2 — 포켓 소품 3종은 정체성 필수).
     // chest 본 로컬 bind 단위(chest 원점 y=0.973 · 몸통 전면 z≈+0.42).
-    let chest = vec![
-        // 카라 — 목 밑 웜 아이보리 양단(안쪽으로 살짝 벌어진 V 인상).
+    let chest = vec![        // 카라 — 목 밑 웜 아이보리 양단(안쪽으로 살짝 벌어진 V 인상).
         WearPart::new(WearPrim::Box {
             w: 0.10,
             h: 0.035,
@@ -168,8 +168,7 @@ pub fn items() -> WornItems {
             d: 0.014,
         })
         .at(Vec3::new(0.05, 0.13, 0.41))
-        .tint(Color::srgb_u8(233, 223, 192)),
-        // 셔츠 버튼 — 가슴 중앙 세로 2개, 작고 얌전한 갈색(§5.1).
+        .tint(Color::srgb_u8(233, 223, 192)),        // 셔츠 버튼 — 가슴 중앙 세로 2개, 작고 얌전한 갈색(§5.1).
         WearPart::new(WearPrim::Box {
             w: 0.028,
             h: 0.028,
@@ -183,9 +182,7 @@ pub fn items() -> WornItems {
             d: 0.012,
         })
         .at(Vec3::new(0.0, -0.07, 0.42))
-        .tint(Color::srgb_u8(122, 82, 48)),
-        // 멜빵 끈 — 가슴을 세로로 내려가는 넓은 끈(어깨 위는 클립이므로
-        // 가슴 세그먼트만 오버레이).
+        .tint(Color::srgb_u8(122, 82, 48)),        // 가슴 세그먼트만 오버레이).
         WearPart::new(WearPrim::Box {
             w: 0.05,
             h: 0.30,
@@ -199,39 +196,7 @@ pub fn items() -> WornItems {
             d: 0.016,
         })
         .at(Vec3::new(0.155, -0.09, 0.415))
-        .tint(Color::srgb_u8(102, 135, 70)),
-        // 사각 버클 — 오치어, 중앙 인셋 느낌은 어두운 내부 박스.
-        WearPart::new(WearPrim::Box {
-            w: 0.085,
-            h: 0.065,
-            d: 0.022,
-        })
-        .at(Vec3::new(-0.155, -0.185, 0.425))
-        .tint(Color::srgb_u8(181, 138, 67)),
-        WearPart::new(WearPrim::Box {
-            w: 0.085,
-            h: 0.065,
-            d: 0.022,
-        })
-        .at(Vec3::new(0.155, -0.185, 0.425))
-        .tint(Color::srgb_u8(181, 138, 67)),
-        // 포켓 상단 시임 — 어두운 그린 얇은 라인(포켓 입구 — 3차 디테일).
-        WearPart::new(WearPrim::Box {
-            w: 0.36,
-            h: 0.016,
-            d: 0.012,
-        })
-        .at(Vec3::new(0.0, -0.244, 0.428))
-        .tint(Color::srgb_u8(85, 115, 55)),
-        // 앞포켓 — 본체보다 살짝 어두운 그린 패널.
-        WearPart::new(WearPrim::Box {
-            w: 0.36,
-            h: 0.20,
-            d: 0.018,
-        })
-        .at(Vec3::new(0.0, -0.345, 0.425))
-        .tint(Color::srgb_u8(90, 122, 60)),
-        // 체커 패치 — 오렌지 바탕 + 노랑 스트라이프 2(체커 인상).
+        .tint(Color::srgb_u8(102, 135, 70)),        // 체커 패치 — 오렌지 바탕 + 노랑 스트라이프 2(체커 인상).
         WearPart::new(WearPrim::Box {
             w: 0.105,
             h: 0.085,
@@ -252,8 +217,7 @@ pub fn items() -> WornItems {
             d: 0.016,
         })
         .at(Vec3::new(-0.065, -0.352, 0.442))
-        .tint(Color::srgb_u8(233, 181, 27)),
-        // 흙손(삽) — 회색 날 + 갈색 손잡이.
+        .tint(Color::srgb_u8(233, 181, 27)),        // 흙손(삽) — 회색 날 + 갈색 손잡이.
         WearPart::new(WearPrim::Box {
             w: 0.04,
             h: 0.095,
@@ -267,8 +231,7 @@ pub fn items() -> WornItems {
             d: 0.018,
         })
         .at(Vec3::new(0.105, -0.255, 0.44))
-        .tint(Color::srgb_u8(122, 82, 48)),
-        // 새싹 — 가느다란 줄기 + 좌우 잎 2장.
+        .tint(Color::srgb_u8(122, 82, 48)),        // 새싹 — 가느다란 줄기 + 좌우 잎 2장.
         WearPart::new(WearPrim::Sph { r: 0.011 })
             .at(Vec3::new(0.0, -0.295, 0.448))
             .scaled(Vec3::new(0.5, 2.4, 0.5))

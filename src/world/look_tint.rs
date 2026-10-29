@@ -141,9 +141,19 @@ pub fn slot_for(model: &str, mat: &str) -> Option<(Slot, f32)> {
         "Eye" => return Some((Slot::Eye, 1.0)),
         _ => {}
     }
-    // qchar m-/f- 팩 의상 재질표는 팩 제거(2026-10-28)와 함께 폐지 —
-    // KayKit Farmer는 텍스처 아틀라스 재질이라 재질명 매칭이 애초에
-    // 무동작(재질 틴트 경로 전체가 qchar 시대 보정). 공통 얼굴 슬롯만 유지.
+    // folk 재질명 슬롯(2026-10-29 몸체 교체로 재질 단위 틴트 부활) —
+    // build_folk.py가 파트별 플랫 컬러 재질(folk_*)로 내보낸다. 얼굴 재질
+    // (Skin/Eye…)은 folk 얼굴이 프림(face_parts)이라 그쪽 좌표계 슬롯 사용.
+    match mat {
+        "folk_skin" => return Some((Slot::Skin, 1.0)),
+        "folk_hair" => return Some((Slot::Hair, 1.0)),
+        "folk_shirt" => return Some((Slot::Top, 1.0)),
+        "folk_overall" => return Some((Slot::Bottom, 1.0)),
+        "folk_overall_d" => return Some((Slot::Bottom, 0.86)),
+        "folk_boot" => return Some((Slot::Feet, 1.0)),
+        "folk_sole" => return Some((Slot::Feet, 0.8)),
+        _ => {}
+    }
     let _ = model;
     None
 }

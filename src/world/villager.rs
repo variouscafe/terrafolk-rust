@@ -70,18 +70,18 @@ pub struct VillagerAnims {
 #[derive(Component)]
 pub struct VillagerModel(pub Handle<Gltf>, pub Option<String>);
 
-/// 캐릭터 베이스 — **KayKit Farmer(CC0)**(2026-10-28 전환, 사용자 결정:
-/// 오픈소스 조사 채택. 오픈소스 레포 tools/kaykit_farmer.py가 Rogue를
-/// 레퍼런스 농부 소년 팔레트로 변환한 산출물 — 리프그린 멜빵바지·아이보리
-/// 소매·머스터드 장화·테라코타 장갑 텍스처 내장, 망토·무기 제거, 애님 76종).
-/// 치비 통통 비율이 메시에 내장돼 프로파일 REAL(본 스케일 항등)로 소비.
-/// 이전 qchar 6종(성별 변형)은 look 다양성 경로와 함께 후속 재도입 과제.
-const MODELS_KAYKIT: [&str; 1] = ["models/kaykit/Farmer.glb"];
+/// 캐릭터 베이스 — **folk Villager**(2026-10-29 전면 교체, 사용자 지시
+/// "기존 3D 캐릭터 완전 제거·새 구현"): 오픈소스 레포 tools/build_folk.py가
+/// KayKit 리그·애니 76종만 승계해 파라메트릭 로우폴리 몸체(바이블 §6
+/// 팔레트 플랫 존 — 리프그린 멜빵바지·아이보리 셔츠·머스터드 장화)를 새로
+/// 지은 GLB. 2.5D 카툰 렌더링(toon 램프)과 재질명 look 틴트가 정상 동작.
+/// KayKit GLB는 게임 assets에서 제거(리그 도너는 캐릭터 레포 tools 보관).
+const MODELS_FOLK: [&str; 1] = ["models/folk/Villager.glb"];
 
-/// 라이브 에이전트용 — KayKit 단일 모델 시대(2026-10-28). 성별·해시 변형은
-/// 보류(단일 농부 룩) — 시그니처는 계약 유지(look 다양성 재도입 시 복원).
+/// 라이브 에이전트용 — folk 단일 모델. look 다양성은 look_tint 재질
+/// 슬롯(folk_* 재질명)로 제공(성별·해시 변형은 후속 과제).
 pub fn model_path_for(_id: &str, _look: Option<&str>) -> &'static str {
-    MODELS_KAYKIT[0]
+    MODELS_FOLK[0]
 }
 
 /// 스폰 완료 보장 마커 — finish_villager_setup이 아직 못 끝낸 주민.
