@@ -125,7 +125,8 @@ fn fragment(in: WaterVertexOutput) -> @location(0) vec4<f32> {
     let foam_tex = (vnoise(wp * 3.0 + vec2<f32>(t * 0.35, t * 0.2)) * 0.7
                  + vnoise(wp * 6.5 - vec2<f32>(t * 0.5)) * 0.3) * hi;
     let foam = foam_edge * smoothstep(0.35, 0.75, foam_tex + foam_edge * 0.35);
-    col = mix(col, vec3<f32>(0.94, 0.97, 0.98), clamp(foam, 0.0, 1.0) * 0.92);
+    // 포말 — 레퍼런스 실측 웜화이트(#EEF6EB↔#FDFEF9, R≥G>B)로 2026-10-29 조정.
+    col = mix(col, vec3<f32>(0.95, 0.965, 0.93), clamp(foam, 0.0, 1.0) * 0.92);
 
     // 얕은수 — 해안 근처 밝게(수심 환상) — 평균장으로 밴딩 완화
     let shallow_w = 1.0 - smoothstep(0.0, 3.2, sd_sm);

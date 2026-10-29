@@ -66,9 +66,27 @@ fn fragment(
     w2 = w2 / total;
 
     let uv = in.uv;
-    var col = w.x * textureSample(t_grass, s_grass, uv).rgb
-            + w.y * textureSample(t_forest, s_forest, uv).rgb
-            + w.z * textureSample(t_sand, s_sand, uv).rgb
+    // ── 지브리톤 레이어 틴트(2026-10-30 해안 마을 정본 실측) — 원본 타일
+    //    (assetgen) 불변, 렌더 계층에서 재조준. 핵심 = 루마 보존 색조 시프트:
+    //    텍스처의 명암 구조는 살리고 채도만 올리브/골드 팔레트로 눌러
+    //    페인티드 패치 느낌(무아웃라인·가치대비 조형). 순수 채널 게인은
+    //    전역 그레이딩(채도 +0.12)과 프레이밍별 조도 편차에 휘둘려 목표에서
+    //    이탈했다(실측 2회 교차 검증).
+    let g_l = dot(textureSample(t_grass, s_grass, uv).rgb, vec3<f32>(0.3, 0.59, 0.11));
+    let grass_c = mix(
+        textureSample(t_grass, s_grass, uv).rgb * vec3<f32>(0.88, 0.94, 1.15),
+        vec3<f32>(g_l) * vec3<f32>(0.95, 1.02, 0.80), 0.55);
+    let f_l = dot(textureSample(t_forest, s_forest, uv).rgb, vec3<f32>(0.3, 0.59, 0.11));
+    let forest_c = mix(
+        textureSample(t_forest, s_forest, uv).rgb * vec3<f32>(0.82, 0.86, 1.05),
+        vec3<f32>(f_l) * vec3<f32>(0.80, 0.92, 0.72), 0.65);
+    let s_l = dot(textureSample(t_sand, s_sand, uv).rgb, vec3<f32>(0.3, 0.59, 0.11));
+    let sand_c = mix(
+        textureSample(t_sand, s_sand, uv).rgb * vec3<f32>(1.05, 0.96, 0.86),
+        vec3<f32>(s_l) * vec3<f32>(1.12, 0.99, 0.80), 0.50);
+    var col = w.x * grass_c
+            + w.y * forest_c
+            + w.z * sand_c
             + w2.x * textureSample(t_rock, s_rock, uv).rgb
             + w2.y * textureSample(t_dirt, s_dirt, uv).rgb;
 
