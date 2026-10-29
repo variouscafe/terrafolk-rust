@@ -20,3 +20,28 @@ pub fn guard_blend_materials(mut mats: ResMut<Assets<StandardMaterial>>) {
         }
     }
 }
+
+/// 지브리톤 지붕 잠금 — 파란 지붕 재질을 테라코타로 재지정(2026-10-30).
+/// 정본 레퍼런스 지붕 팔레트는 테라코타 단일(#C46C2B 계열 실측)인데
+/// CottageHouses GLB에 파란 RoofTiles 변형(#4F7EA8 선형)이 섞여 있다.
+/// GLB 재질은 비동기 삽입이라 매 프레임 스캔(멱등 — 재지정 뒤엔 시그니처가
+/// 불일치해 자연 종료). 창문 짙은 파랑(루마 0.27)은 루마 하한(0.38)으로
+/// 제외 — 지붕 파랑(루마 0.455)만 매치.
+pub fn lock_roof_palette(mut mats: ResMut<Assets<StandardMaterial>>) {
+    for (_, m) in mats.iter_mut() {
+        let c = m.base_color.to_linear();
+        let (r, g, b) = (c.red, c.green, c.blue);
+        let luma = r * 0.3 + g * 0.59 + b * 0.11;
+        if b > r + 0.06 && b > g + 0.03 && (0.38..0.70).contains(&luma) {
+            // CottageHouses 테라코타 변형(선형 0.72, 0.36, 0.26)과 동일값 —
+            // 마을 지붕 전체가 한 팔레트로 읽히게.
+            m.base_color = LinearRgba {
+                red: 0.72,
+                green: 0.36,
+                blue: 0.26,
+                alpha: c.alpha,
+            }
+            .into();
+        }
+    }
+}

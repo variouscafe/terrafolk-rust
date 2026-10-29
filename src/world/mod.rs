@@ -85,6 +85,7 @@ impl Plugin for WorldPlugin {
         // 이전: 레거시 맵 임베드 데모가 네이티브에서 구동(바이너리 용량 부담).
         app.add_systems(Update, animal_anim::play_animal_idles);
         app.add_systems(Update, materials_guard::guard_blend_materials);
+        app.add_systems(Update, materials_guard::lock_roof_palette);
         app.add_systems(
             Update,
             (

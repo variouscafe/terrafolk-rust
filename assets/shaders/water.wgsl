@@ -119,12 +119,18 @@ fn fragment(in: WaterVertexOutput) -> @location(0) vec4<f32> {
     let sd = min(min(s0, s1), min(s2, s3)) * MAX_SHORE;
     let sd_sm = (s0 + s1 + s2 + s3) * 0.25 * MAX_SHORE;
     let wob = (vnoise(wp * 1.1 + vec2<f32>(t * 0.22, -t * 0.17)) - 0.5) * 1.1 * hi;
-    let band = 0.75 + wob;
-    let foam_edge = 1.0 - smoothstep(band - 0.35, band + 0.55, sd);
+    let band = 0.95 + wob;
+    let foam_edge = 1.0 - smoothstep(band - 0.35, band + 0.65, sd);
     // 포말 텍스처 — 미세 거품 얼룩
     let foam_tex = (vnoise(wp * 3.0 + vec2<f32>(t * 0.35, t * 0.2)) * 0.7
                  + vnoise(wp * 6.5 - vec2<f32>(t * 0.5)) * 0.3) * hi;
-    let foam = foam_edge * smoothstep(0.35, 0.75, foam_tex + foam_edge * 0.35);
+    // 뭉치 블롭 — 저주파 클럼프 마스크로 포말을 덩어리 묶음(2026-10-30
+    // 정본 실측: 해안선 포말은 크고 부드러운 웜화이트 덩어리 뭉치 — 연속
+    // 얇은 선이 아니다). 마스크에 foam_edge를 섞어 해안 근처가 우세하게.
+    let clump = smoothstep(
+        0.34, 0.74,
+        vnoise(wp * 0.45 + vec2<f32>(t * 0.07, -t * 0.05)) * 0.72 + foam_edge * 0.28);
+    let foam = foam_edge * clump * smoothstep(0.30, 0.70, foam_tex + clump * 0.42);
     // 포말 — 레퍼런스 실측 웜화이트(#EEF6EB↔#FDFEF9, R≥G>B)로 2026-10-29 조정.
     col = mix(col, vec3<f32>(0.95, 0.965, 0.93), clamp(foam, 0.0, 1.0) * 0.92);
 
