@@ -1,9 +1,12 @@
-// 캐릭터 툰 셰이딩 — 맵(핸드페인트 아소)과 재질감 통일(2026-10-22).
-// 3밴드 양자화 조명 + 웜 라이트/쿨 섀도 이중 틴트. PBR 스펙큘러·환경
-// 반사를 아예 계산하지 않아(커스텀 프래그먼트) 매트 카툰 촉감이 된다.
+// 캐릭터 셰이딩 — 레퍼런스 §7 재질감(2026-10-28 질감 재현 4차).
+// 이전: 3밴드 양자화 툰(핸드페인트 카툰). 레퍼런스는 'soft faceted
+// low-poly · matte+satin · soft studio light'라 밴드 경계가 없는 넓은
+// S-커브 그라디언트로 바꾸고, 낮은 강도의 넓은 스펙큘러(새틴 머리·러버
+// 장화 감촉)를 더했다. 웜 라이트/쿨 섀도 이중 틴트는 유지하되 섀도 대비를
+// 낮춰 스튜디오 감광(harsh shadow 금지 §7)에 맞춘다.
 // 버텍스는 bevy 기본(mesh.wgsl) — SKINNED 분기가 스키닝을 처리한다.
 #import bevy_pbr::{
-    mesh_view_bindings::lights,
+    mesh_view_bindings::{lights, view},
     forward_io::VertexOutput,
 }
 
@@ -20,11 +23,10 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
     let n = normalize(in.world_normal);
 
-    // 태양(단일 DirectionalLight — daynight) · 밤엔 색·세기가 낮아진다.
-    // ⚠️ 패킹 계약(light.rs:1733): rgb=색×illuminance · a=illuminance.
-    // 강도를 분리해 순수 색(노을 틴트)만 쓰고, 강도는 낮 태양(15000 lux,
-    // daynight.rs illuminance) 기준 정규화 — 곱셈 직행 시 15000배 노출로
-    // 캐릭터가 새하얘진다(2026-10-22 하얀 캐릭터 사고).
+    // 태양(단일 DirectionalLight) · 밤엔 색·세기가 낮아진다(게임 daynight
+    // 패킹 계약 호환 — 뷰어는 정적 광원이라 사실상 상수).
+    // ⚠️ 패킹 계약: rgb=색×illuminance · a=illuminance. 강도를 분리해 순수
+    // 색만 쓰고, 강도는 낮 태양(15000 lux) 기준 정규화.
     var sun_dir = vec3<f32>(0.35, 0.8, 0.45);
     var sun_col = vec3<f32>(1.0);
     var sun_gain = 1.0;
@@ -36,22 +38,31 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         sun_gain = clamp(e / 15000.0, 0.0, 1.25);
     }
 
-    // 반구 램프 — 위(하늘빛)·아래(땅빛) 미세 보정으로 정면보다 입체감
+    // 반구 램프 — 위(하늘빛)·아래(땅빛) 미세 보정
     let hemi = n.y * 0.5 + 0.5;
     let nd = dot(n, sun_dir) * 0.5 + 0.5;
-    // 2단 밴드(부드러운 계단 — 핸드페인트 느낌): 어두움→중간→밝음
-    let t = smoothstep(0.28, 0.47, nd) * 0.55 + smoothstep(0.52, 0.72, nd) * 0.45;
+    // 소프트 스튜디오 램프 — 밴드 없는 넓은 S-커브(§7 gentle shading).
+    // 레퍼런스 렌더는 계단 없이 부드럽게 감소하는 휘도 gradient다.
+    let t = smoothstep(0.16, 0.84, nd);
 
-    // 웜 라이트 / 쿨 섀도 — 레퍼런스 좌상단 웜키 광원 감각. 강도 정규화 게인
-    // (낮 1.0 · 밤 ≈0.37)으로 daynight 감광 전파. ⚠️ 섀도 스케일러는 lit와
-    // 같은 lit_f에서 파생 — 별도 상수식이면 밤(gain 0.1)에 섀도(0.60)가
-    // 리트(0.37)보다 밝아져 밴드가 뒤집힌다(2026-10-23 '카툰→3D처럼' 보고).
+    // 웜 라이트 / 쿨 섀도 — 좌상단 웜키 감각 유지, 섀도는 들어올려 대비
+    // 완화(§7 'no harsh hard-edged shadows'). lit_f는 daynight 감광 전파
+    // (낮 1.0 · 밤 ≈0.37 — 섀도 스케일러도 같은 lit_f에서 파생).
     let lit_f = 0.30 + 0.70 * sun_gain;
-    let lit_c = albedo * vec3<f32>(1.06, 1.00, 0.90) * sun_col * lit_f * 0.95;
-    let sha_c = albedo * vec3<f32>(0.66, 0.70, 0.86) * lit_f * 0.92;
+    let lit_c = albedo * vec3<f32>(1.06, 1.00, 0.90) * sun_col * lit_f * 0.97;
+    let sha_c = albedo * vec3<f32>(0.78, 0.80, 0.90) * lit_f * 0.94;
     var col = mix(sha_c, lit_c, t);
-    // 중간 밴드 하이라이트 — 테두리진 카툰보다 붓질감
-    col += albedo * 0.06 * (hemi - 0.5);
+    // 중간 톤 하이라이트 — 붓질감 보정(소량 유지)
+    col += albedo * 0.05 * (hemi - 0.5);
+
+    // 부드러운 광택(§7 satin hair·rubbery boots) — 넓은 로브의 저강도
+    // Blinn 스펙큘러. PBR 정합이 아니라 장난감 같은 매끈함의 인상용.
+    let v = normalize(view.world_position - in.world_position.xyz);
+    let h = normalize(sun_dir + v);
+    let nh = max(dot(n, h), 0.0);
+    col += albedo * sun_col * pow(nh, 26.0) * 0.11 * lit_f;
+    // 위에서 살짝 비치는 브로드 스펙(라이트가 크고 부드러운 인상) — 저주파 성분
+    col += albedo * sun_col * pow(nh, 6.0) * 0.05 * lit_f;
 
     // 앰비언트(야간 최소 가시성) — 패킹 동일(rgb=색×brightness · a=brightness,
     // 낮 280) 정규화 후 가산.
