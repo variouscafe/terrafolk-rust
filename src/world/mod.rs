@@ -109,8 +109,8 @@ impl Plugin for WorldPlugin {
         app.add_systems(Update, animal_anim::play_animal_idles);
         // 캐릭터 프레임워크(비율·접지·발바닥 수평) — 게임 무관 계층
         // (2026-10-24 P1, docs/character-module-redesign.md). 표면장=WorldData.
-        // 비율 룩 = REAL(2026-10-28 KayKit Farmer 전환 — 치비 통통 비율이
-        // 메시에 내장돼 본 스케일 변형 불필요, 사용자 결정. 이전 qchar
+        // 비율 룩 = REAL(folk 자체 리그 — 치비 통통 비율이
+        // 몸체에 내장돼 본 스케일 변형 불필요, 사용자 결정. 이전 qchar
         // CHIBI_REF head 2.20 시대 폐지 — fit도 raw=가시 1.72 직결).
         app.add_plugins(crate::character::CharacterPlugin::<data::WorldData>::new(
             crate::character::rig::REAL,

@@ -362,7 +362,7 @@ pub fn sync_agents(
         if reference {
             *ref_assigned = true;
         }
-        // KayKit 단일 모델 시대(2026-10-28) — 레퍼런스 봇도 동일 Farmer
+        // folk 단일 모델 시대 — 레퍼런스 봇도 동일 Villager
         // (차이는 착용 아이템뿐: 모자·초록 눈·포켓 소품).
         let path = crate::world::villager::model_path_for(&a.id, look.as_deref());
         let scene = assets.load(GltfAssetLabel::Scene(0).from_asset(path));
@@ -373,9 +373,9 @@ pub fn sync_agents(
             .height_at(a.x.floor() as i32, a.y.floor() as i32)
             .max(crate::world::ground::WATER_STAND_Y);
         let mut spawned_villager = commands.spawn((
-            // look 착용(qubase 헤어 GLB) 게이트오프(2026-10-28 KayKit 전환) —
-            // 헤드 본 오프셋이 qchar 치비 보정이라 KayKit REAL에서 어긋남.
-            // Farmer 텍스처에 머리색 내장. KayKit용 헤어 변형은 후속 과제.
+            // look 착용(qubase 헤어 GLB) 게이트오프(2026-10-28 전환) —
+            // 헤드 본 오프셋이 qchar 치비 보정이라 folk REAL에서 어긋남.
+            // folk 헤어 파트 변형은 후속 과제.
             crate::world::wear::Wears(Vec::new()),
             crate::world::villager::VillagerModel(gltf, look),
             crate::world::villager::Villager {

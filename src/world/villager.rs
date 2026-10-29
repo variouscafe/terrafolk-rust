@@ -1,4 +1,4 @@
-//! 주민 — Quaternius CC0 리깅 캐릭터(GLB) + 상태 애니메이션 + 배회 FSM.
+//! 주민 — folk 자체 리그 캐릭터(GLB) + 상태 애니메이션 + 배회 FSM.
 //! Phase 2에서 서버 agents 스키마 좌표로 구동된다(구조 동일).
 //! 스폰 → WorldInstanceReady 옵저버에서 오토펏(족장 지면 착지)·애니메이션
 //! 그래프(Walk/Idle/Interact/Wave 4클립) 연결. 이동 시 캐릭터가 이동 방향으로
@@ -13,9 +13,9 @@ use super::data::WorldData;
 
 const WALK_TIME: f32 = 0.85;
 /// 주민 fit 목표(미터) — 오토폿이 chibiify 전 raw AABB를 재므로 raw 기준치.
-/// 2026-10-28 KayKit 베이스 전환: **REAL 프로파일**(본 스케일 항등 — 네이티브
-/// 치비 비율 그대로, 사용자 결정)이라 raw=가시 → 1.72 직결. 이전 qchar
-/// CHIBI_REF 시대 1.94(비율 0.889 보정) 폐지.
+/// folk 자체 리그(2026-10-29 외부 도너 철퇴): **REAL 프로파일**(본 스케일 항등)
+/// — raw=가시 → 1.72 직결. 이전 qchar CHIBI_REF 시대 1.94(비율 0.889
+/// 보정) 폐지.
 pub const VILLAGER_H: f32 = 1.72;
 
 /// 모델 전방 보정 — Quaternius 리깅는 +Z 전방(실측 후 조정)
@@ -70,12 +70,11 @@ pub struct VillagerAnims {
 #[derive(Component)]
 pub struct VillagerModel(pub Handle<Gltf>, pub Option<String>);
 
-/// 캐릭터 베이스 — **folk Villager**(2026-10-29 전면 교체, 사용자 지시
-/// "기존 3D 캐릭터 완전 제거·새 구현"): 오픈소스 레포 tools/build_folk.py가
-/// KayKit 리그·애니 76종만 승계해 파라메트릭 로우폴리 몸체(바이블 §6
-/// 팔레트 플랫 존 — 리프그린 멜빵바지·아이보리 셔츠·머스터드 장화)를 새로
-/// 지은 GLB. 2.5D 카툰 렌더링(toon 램프)과 재질명 look 틴트가 정상 동작.
-/// KayKit GLB는 게임 assets에서 제거(리그 도너는 캐릭터 레포 tools 보관).
+/// 캐릭터 베이스 — **folk Villager**(2026-10-29 전면 교체 + 외부 도너 완전
+/// 철퇴): 오픈소스 레포 tools/build_folk.py가 리그·몸체·클립(Idle·Walk·
+/// Interact·Wave·Punch 절차 저작) 전부 자체 생성한 파라메트릭 로우폴리
+/// GLB(바이블 §6 팔레트 플랫 존 — 리프그린 멜빵바지·아이보리 셔츠·머스터드
+/// 장화). 2.5D 카툰 렌더링(toon 램프)과 재질명 look 틴트가 정상 동작.
 const MODELS_FOLK: [&str; 1] = ["models/folk/Villager.glb"];
 
 /// 라이브 에이전트용 — folk 단일 모델. look 다양성은 look_tint 재질
@@ -202,9 +201,8 @@ fn finish_villager_setup(
     let Some(gltf) = gltfs.get(&model.0) else {
         return false; // Gltf 아직 로딩 — 재시도로 흡수
     };
-    // 클립 검색 — 부분 매칭(KayKit 이름: Walking_A·Idle·Interact·
-    // Unarmed_Melee_Attack_Punch_A. qchar 접미 시대와 달리 형용사가 뒤에
-    // 붙어 contains로 확장, 2026-10-28).
+    // 클립 검색 — 부분 매칭(folk 절차 클립: Walk·Idle·Interact·Wave·Punch.
+    // 어형 변형 대비 contains).
     let find = |needle: &str| {
         gltf.named_animations
             .iter()
@@ -214,23 +212,21 @@ fn finish_villager_setup(
             })
             .map(|(_, h)| h.clone())
     };
-    let (Some(walk_h), Some(idle_h)) = (find("Walking_A"), find("Idle")) else {
+    let (Some(walk_h), Some(idle_h)) = (find("Walk"), find("Idle")) else {
         return false;
     };
     let mut graph = AnimationGraph::new();
     let walk_i = graph.add_clip(walk_h, 1.0, graph.root);
     let idle_i = graph.add_clip(idle_h, 1.0, graph.root);
-    // Interact·Wave(→KayKit Cheer 폴백)·Punch(→Unarmed_Punch) — 클립
-    // 부재 모델을 위해 Idle/Interact 인덱스 폴백 유지.
+    // Interact·Wave·Punch — 클립 부재 모델을 위한 Idle/Interact 인덱스
+    // 폴백 유지.
     let interact_i = find("Interact")
         .map(|h| graph.add_clip(h, 1.0, graph.root))
         .unwrap_or(idle_i);
     let wave_i = find("Wave")
-        .or_else(|| find("Cheer"))
         .map(|h| graph.add_clip(h, 1.0, graph.root))
         .unwrap_or(idle_i);
-    let punch_i = find("Punch_Left")
-        .or_else(|| find("Punch_A"))
+    let punch_i = find("Punch")
         .map(|h| graph.add_clip(h, 1.0, graph.root))
         .unwrap_or(interact_i);
     let graph_h = graphs.add(graph);
@@ -307,7 +303,7 @@ fn finish_villager_setup(
         IdleFidget::new(entity.to_bits() as u64),
     ));
     // 레퍼런스 봃 — 모자·초록 눈·포켓 소품 착용(crate wear_sync가 자손
-    // 조각 구성. 2026-10-28 KayKit 전환으로 재활성화 — qchar 시대 부착이
+    // 조각 구성. 2026-10-28 전환으로 재활성화 — qchar 시대 부착이
     // 0.2.5 '감자' 차단으로 끊겨 있었다).
     if reference {
         commands

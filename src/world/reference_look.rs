@@ -2,10 +2,10 @@
 //! (오픈소스 레포 docs/reference-analysis.md — 캐릭터 디자인 바이블
 //! 2026-10-28 판)를 완전 적용한다.
 //!
-//! 구성: KayKit Farmer 베이스(전 주민 — 팔레트는 텍스처에 내장) + **1명
+//! 구성: folk 파라메트릭 몸체 베이스(전 주민 — 팔레트는 파트 재질에 내장) + **1명
 //! 한정** 밀짚모자(테라코타 밴드)·큰 초록 눈·앞머리·멜빵 끈+버클·앞포켓
 //! 소품(crate wear 절차적 파트 — 좌표는 리그 로컬이라 프로파일 자동 전파).
-//! hide_face_prim·tint_for는 qchar 시대 훅(toonify 색 매칭) — KayKit
+//! hide_face_prim·tint_for는 qchar 시대 훅(toonify 색 매칭) — folk
 //! 재질 색엔 무매치라 무동작(함수 유지: toon.rs 호출부 계약).
 
 use bevy::prelude::*;
@@ -18,7 +18,7 @@ pub struct ReferenceVillager;
 /// 착용 + 얼굴 + 가슴 — folk 몸체(2026-10-29 교체) 시대: 멜빵·비브·포켓은
 /// build_folk.py 메시가 담당, 프림은 모자·얼굴·포켓 디테일만(뷰어 reference.rs 정본 동기)
 /// 상수(단일 룩 계약 — 2026-10-29 정본 동기: 0.3.5 상수 + 모자·앞머리
-/// 패싯). 좌표는 KayKit head/chest 본 로컬 bind 단위(실측
+/// 패싯). 좌표는 head/chest 본 로컬 bind 단위(실측
 /// 2026-10-28: head 본 원점 y=1.241·헤드 y[−0.08,+0.95]·폭 ±0.55·전방
 /// +Z. chest 본 원점 y=0.973·몸통 전면 z≈+0.37).
 pub fn items() -> WornItems {
@@ -283,8 +283,8 @@ pub fn items() -> WornItems {
     ])
 }
 
-/// 숨길 원본 헤드 프림(선형색 매칭) — qchar 시대 훅. KayKit 재질(아틀라스
-/// 텍스처, baseColorFactor 흰색)엔 무매치라 무동작(toon.rs 호출부 계약 유지).
+/// 숨길 원본 헤드 프림(선형색 매칭) — qchar 시대 훅. folk 재질(플랫
+/// baseColorFactor)엔 무매치라 무동작(toon.rs 호출부 계약 유지).
 pub fn hide_face_prim(src: LinearRgba) -> bool {
     let l = [src.red, src.green, src.blue];
     let close = |a: [f32; 3]| {
