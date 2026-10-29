@@ -67,9 +67,12 @@ pub fn spawn_sun(
     commands.spawn((
         Sun,
         DirectionalLight {
-            // 2026-10-19 아트 방향 — 그림자 맵 폐지, 캐릭터 발밑 블롭으로
-            // 대체(outfit.rs 인접 blob_shadow). 섀도 패스 절감.
-            shadow_maps_enabled: false,
+            // 페인티드 블롭 섀도 재점등(2026-10-30 지브리톤 4차 실험) —
+            // 가치대비 조형엔 그림자 덩어리가 필요하다. 2026-10-19 폐지는
+            // 주민 발밑 블롭 대체 + 섀도 패스 절감(당시 안드로이드 우선)이었
+            // 지만 웹 우선 전환·주민 철퇴로 전제가 바뀌었다. 성능 회귀 시
+            // 되돌림(커밋 히스토리 참조).
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::default(),
