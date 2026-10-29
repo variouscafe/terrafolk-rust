@@ -1992,7 +1992,7 @@ dependencies = [
 
 [[package]]
 name = "chibi-character"
-version = "0.3.6"
+version = "0.3.7"
 dependencies = [
  "bevy",
 ]
@@ -5219,7 +5219,7 @@ dependencies = [
 
 [[package]]
 name = "terrafolk_bevy"
-version = "0.8.57"
+version = "0.8.58"
 dependencies = [
  "bevy",
  "chibi-character",

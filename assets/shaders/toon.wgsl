@@ -41,16 +41,18 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // 반구 램프 — 위(하늘빛)·아래(땅빛) 미세 보정
     let hemi = n.y * 0.5 + 0.5;
     let nd = dot(n, sun_dir) * 0.5 + 0.5;
-    // 소프트 스튜디오 램프 — 밴드 없는 넓은 S-커브(§7 gentle shading).
-    // 레퍼런스 렌더는 계단 없이 부드럽게 감소하는 휘도 gradient다.
-    let t = smoothstep(0.16, 0.84, nd);
+    // 소프트 스튜디오 램프 — 밴드 없는 S-커브(§7 gentle shading). 2차(2026-10-29
+    // '좀더 로우폴리'): 폭 0.16~0.84 → 0.26~0.76으로 좁혀 패싯 면-면 휘도차를
+    // 증폭 — 플랫 노멀(GLB·착용 프림)의 polygonal plane이 더 읽힌다. 여전히
+    // 단일 smoothstep이라 계단 밴드는 없다.
+    let t = smoothstep(0.26, 0.76, nd);
 
     // 웜 라이트 / 쿨 섀도 — 좌상단 웜키 감각 유지, 섀도는 들어올려 대비
     // 완화(§7 'no harsh hard-edged shadows'). lit_f는 daynight 감광 전파
     // (낮 1.0 · 밤 ≈0.37 — 섀도 스케일러도 같은 lit_f에서 파생).
     let lit_f = 0.30 + 0.70 * sun_gain;
     let lit_c = albedo * vec3<f32>(1.06, 1.00, 0.90) * sun_col * lit_f * 0.97;
-    let sha_c = albedo * vec3<f32>(0.78, 0.80, 0.90) * lit_f * 0.94;
+    let sha_c = albedo * vec3<f32>(0.74, 0.77, 0.88) * lit_f * 0.94;
     var col = mix(sha_c, lit_c, t);
     // 중간 톤 하이라이트 — 붓질감 보정(소량 유지)
     col += albedo * 0.05 * (hemi - 0.5);
