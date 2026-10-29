@@ -151,8 +151,10 @@ pub fn items() -> WornItems {
             .tint(Color::srgb_u8(107, 50, 30))
             .faceted(),
     ];
-    // 가슴 — 멜빵 끈 2(사각 버클 포함)·앞포켓 패널·체커 패치·흙손·새싹·
-    // 셔츠 버튼 2·카라(바이블 §5.1~5.2 — 포켓 소품 3종은 정체성 필수).
+    // 가슴 — 카라·셔츠 버튼·체커 패치·흙손·새싹(바이블 §5.1~5.2 — 포켓
+    // 소품 3종은 정체성 필수). 멜빵·비브·버클은 folk 몸체 메시가 이미
+    // 담당(build_folk bib 파트) — 프림 중복 z-fight 방지로 싣지 않는다
+    // (2026-10-29 정리, 뷰어 folk_farmer_items와 동일 계약).
     // chest 본 로컬 bind 단위(chest 원점 y=0.973 · 몸통 전면 z≈+0.42).
     let chest = vec![        // 카라 — 목 밑 웜 아이보리 양단(안쪽으로 살짝 벌어진 V 인상).
         WearPart::new(WearPrim::Box {
@@ -183,20 +185,8 @@ pub fn items() -> WornItems {
         })
         .at(Vec3::new(0.0, -0.07, 0.42))
         .tint(Color::srgb_u8(122, 82, 48)),        // 가슴 세그먼트만 오버레이).
-        WearPart::new(WearPrim::Box {
-            w: 0.05,
-            h: 0.30,
-            d: 0.016,
-        })
-        .at(Vec3::new(-0.155, -0.09, 0.415))
-        .tint(Color::srgb_u8(102, 135, 70)),
-        WearPart::new(WearPrim::Box {
-            w: 0.05,
-            h: 0.30,
-            d: 0.016,
-        })
-        .at(Vec3::new(0.155, -0.09, 0.415))
-        .tint(Color::srgb_u8(102, 135, 70)),        // 체커 패치 — 오렌지 바탕 + 노랑 스트라이프 2(체커 인상).
+
+        // 체커 패치 — 오렌지 바탕 + 노랑 스트라이프 2(체커 인상).
         WearPart::new(WearPrim::Box {
             w: 0.105,
             h: 0.085,
@@ -245,41 +235,10 @@ pub fn items() -> WornItems {
             .scaled(Vec3::new(1.5, 0.5, 0.6))
             .tint(Color::srgb_u8(156, 203, 92)),
     ];
-    // 소매 커프 — 팔꿈치 아래 접힌 소매 단(§5.1 'wide rolled cuffs'). wrist
-    // 본 로컬(계약: +Y=원위·팔 축)에서 −Y(몸쪽) 0.07 — 원기둥 축이 팔에 정렬.
-    let cuff = vec![
-        WearPart::new(WearPrim::Cyl { r: 0.105, h: 0.075 })
-            .at(Vec3::new(0.0, -0.07, 0.0))
-            .tint(Color::srgb_u8(220, 201, 152))
-            .faceted(),
-    ];
-    // 다리 — 바지 롤드 커프(§5.2) + 장화 밑창(§5.4 '두꺼운 오치어오렌지
-    // 밑창 밴드, 명확히 분리'). lowerleg 본 로컬(계약: +Y=원위=하향, X/Z
-    // 수평 — 발목 +Y 0.149 bind 실측).
-    let leg = vec![
-        // 바지 커프 — 장화 상단 바로 위, 본체와 다른 톤(§5.2).
-        WearPart::new(WearPrim::Cyl { r: 0.155, h: 0.09 })
-            .at(Vec3::new(0.0, 0.10, 0.0))
-            .tint(Color::srgb_u8(86, 116, 58))
-            .faceted(),
-        // 밑창 — 발밑 평평한 오치어 밴드(발가락 +Z 전방).
-        WearPart::new(WearPrim::Box {
-            w: 0.17,
-            h: 0.05,
-            d: 0.30,
-        })
-        .at(Vec3::new(0.0, 0.205, 0.045))
-        .tint(Color::srgb_u8(185, 109, 37))
-        .faceted(),
-    ];
     WornItems(vec![
         (WearSlot::Hat, hat),
         (WearSlot::Face, face),
         (WearSlot::Chest, chest),
-        (WearSlot::HandLeft, cuff.clone()),
-        (WearSlot::HandRight, cuff),
-        (WearSlot::LegLeft, leg.clone()),
-        (WearSlot::LegRight, leg),
     ])
 }
 
