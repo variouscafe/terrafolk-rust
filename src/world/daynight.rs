@@ -255,10 +255,14 @@ pub fn apply_sky(
     // ── 컬러그레이딩 — 이미지 전체 화이트밸런스·채도(조명색과 독립적인 무드 층)
     if let Ok(mut g) = grading_q.single_mut() {
         let gg = &mut g.global;
-        // 노을 웜(빨강+) ↔ 밤·흐림 쿨(파랑-) — CIE xy 크로마시티 시프트
-        gg.temperature = dusk_w * 0.22 - night * 0.16 - cool * 0.10;
-        // 밤·흐림 탈포화(코지 팔레트 지키는 미세 범위), 노을 살짝 증포화
-        gg.post_saturation = (1.0 + dusk_w * 0.08 - night * 0.16 - gray * 0.14).clamp(0.6, 1.2);
+        // 노을 웜(빨강+) ↔ 밤·흐림 쿨(파랑-) — CIE xy 크로마시티 시프트.
+        // 낮 베이스라인 웜(+0.06) — 2026-10-29 레퍼런스(핸드페인트 코지)
+        // 정합: 웜키 광원 감각을 조명색과 독립적으로 전역 보정.
+        gg.temperature = dusk_w * 0.22 - night * 0.16 - cool * 0.10 + (1.0 - night) * 0.06;
+        // 밤·흐림 탈포화(코지 팔레트 지키는 미세 범위), 노을 살짝 증포화.
+        // 낮 베이스라인 증포화(+0.12) — 레퍼런스 붓질 채도 정합(2026-10-29).
+        gg.post_saturation = (1.0 + dusk_w * 0.08 - night * 0.16 - gray * 0.14 + (1.0 - night) * 0.12)
+            .clamp(0.6, 1.2);
         // 밤 노출 살짝 들어올림(+0.2 stop) — 어둠 속 실루엣만 남지 않게
         gg.exposure = night * 0.2;
     }

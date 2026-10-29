@@ -185,6 +185,19 @@ print('gz 래퍼 주입 완료 →', p)
 PYGZ
   rm "$R/dist/character/$CW"   # .gz만 탑재(원본은 로컬 대피 없이 제거 — 재빌드로 복구)
 fi
+
+# ⑤.6 /character2 — 여행자 리스타일 페이지(2026-10-29, 레퍼런스 정합).
+#    뷰어 wasm은 /character와 동일본(URL ?style=2가 부팅 룩을 traveler로
+#    교체)이라 **경량 리다이렉트 래퍼만** 탑재한다 — wasm 이중 탑재(약 35MiB
+#    dist 증가·업로드 시간 배가)를 피하는 구조. 캐시 무효화 불필요(정적 1파일).
+mkdir -p "$R/dist/character2"
+cat > "$R/dist/character2/index.html" <<'EOC2'
+<!doctype html><meta charset="utf-8"><title>Terrafolk character2</title>
+<style>body{margin:0;background:#20242b;color:#9aa3ad;font:14px system-ui;
+display:flex;align-items:center;justify-content:center;height:100vh}</style>
+<script>location.replace('../character/?style=2')</script>
+EOC2
+echo "→ /character2 리다이렉트 래퍼 탑재(→ /character/?style=2)"
 TMPD=$(mktemp -d)
 [ -d dist/wasm ] && mv dist/wasm "$TMPD/wasm_old"
 if [ "$ROUTE" = "gz" ] || [ "$ROUTE" = "r2" ]; then

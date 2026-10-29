@@ -169,9 +169,11 @@ fn build_water(
     (
         Mesh3d(meshes.add(mesh)),
         MeshMaterial3d(materials.add(WaterMaterial {
-            // 청록-하늘색 파레트(참조) — 커스텀 재질이라 값은 sRGB 감각(셰이더 그대로 출력)
-            deep: Vec4::new(0.16, 0.50, 0.66, 0.80),
-            shallow: Vec4::new(0.38, 0.76, 0.80, 0.80),
+            // 청록 2톤 파레트 — CLAUDE.md 그래픽 지향점 정합(2026-10-29
+            // 레퍼런스 리뷰): #2E9FC4(깊음)↔#4FC3D9(얕음)+포말 에지.
+            // 커스텀 재질이라 값은 sRGB 감각(셰이더 그대로 출력).
+            deep: Vec4::new(0.18, 0.62, 0.77, 0.80),
+            shallow: Vec4::new(0.31, 0.76, 0.85, 0.80),
             // x=스크롤 속도 · y=파형 스케일 · z=월드 크기
             params: Vec4::new(0.06, 3.2, size, 0.0),
             shore,
