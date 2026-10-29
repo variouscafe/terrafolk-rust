@@ -27,8 +27,6 @@ pub mod sky;
 pub mod splat;
 pub mod terrain;
 pub mod water;
-#[allow(dead_code)] // 바람 흔들림 효과 제거(2026-10-22 사용자 지시 — 성능) — 모듈은 보존
-pub mod wind;
 
 use bevy::pbr::MaterialPlugin;
 use bevy::prelude::*;

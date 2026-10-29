@@ -13,22 +13,10 @@ use bevy::prelude::*;
 
 /// 매 프레임 전 재질 스캔(멱등·저비용) — GLB 재질이 비동기 삽입되는 어떤
 /// 시점에도 추출(파이프라인 특수화) 전에 한 프레임 안에 가드된다.
-pub fn guard_blend_materials(
-    mut mats: ResMut<Assets<StandardMaterial>>,
-    wind_mats: Option<ResMut<Assets<crate::world::wind::WindMaterial>>>,
-) {
+pub fn guard_blend_materials(mut mats: ResMut<Assets<StandardMaterial>>) {
     for (_, m) in mats.iter_mut() {
         if m.alpha_mode == AlphaMode::Blend {
             m.alpha_mode = AlphaMode::Mask(0.5);
-        }
-    }
-    // 바람 전환 재질도 동일 가드 — 원본이 Blend면 복제본도 Blend로 흘러들어
-    // 확장 파이프라인(alpha_blend)을 요구할 수 있다.
-    if let Some(mut wind_mats) = wind_mats {
-        for (_, m) in wind_mats.iter_mut() {
-            if m.base.alpha_mode == AlphaMode::Blend {
-                m.base.alpha_mode = AlphaMode::Mask(0.5);
-            }
         }
     }
 }
