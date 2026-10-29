@@ -113,13 +113,15 @@ fn fbm(x: f32, y: f32, base_period: f32, seed: u32) -> f32 {
 /// 물 −2단 보존. 3×3 블러 2패스로 GID 경계 급변 완화(해안·절벽 경사 습득).
 fn synthesize_relief(terrain: &[u8], height: &mut [i8], n: usize) {
     const RELIEF_SEED: u32 = 0x51AE;
+    // 2026-10-30 지브리톤 5차 — 진폭 축소: 계단식 테라스(coastal_terrace)가
+    // 해안 릴리프의 주축이 되고, fbm 굴곡은 그 위의 미세 요철로만.
     let prof = |gid: u8| -> (f32, f32) {
         match TERRAINS[(gid - 1) as usize] {
             "rock" => (2.6, 4.6),
-            "forest" => (0.0, 1.9),
-            "grass" => (0.0, 2.2),
-            "dirt" => (0.0, 1.1),
-            "sand" => (0.0, 0.5),
+            "forest" => (0.0, 1.2),
+            "grass" => (0.0, 1.4),
+            "dirt" => (0.0, 0.8),
+            "sand" => (0.0, 0.3),
             _ => (0.0, 0.0),
         }
     };
@@ -136,6 +138,11 @@ fn synthesize_relief(terrain: &[u8], height: &mut [i8], n: usize) {
             hf[i] = base + e * amp;
         }
     }
+    // ── 계단식 해안 절벽(2026-10-30 정본 구도) — 물에서의 BFS 거리에 따라
+    // 지면을 단계 상승(2.5타일당 1단=3레벨 1.05m, 최대 4단). 해안 2타일은
+    // 평탄 해변 → 첫 절벽 단 → 마을이 앉는 테라스 무리. 블러 전 가산이라
+    // 단 경계가 스미어 페인티드 블롭이 된다. 시뮬 영향 0(투영 층).
+    coastal_terrace(terrain, &mut hf, n);
     // 3×3 블러 2패스 — 고지가 주변으로 스미는 자연 경사
     for _ in 0..2 {
         let src = hf.clone();
@@ -173,6 +180,43 @@ fn synthesize_relief(terrain: &[u8], height: &mut [i8], n: usize) {
             // 아래로 가라앉히면 주민이 물에 잠겨 유령처럼 보인다(2026-10-17 수정)
             height[i] = hf[i].max(0.0).round().clamp(0.0, 60.0) as i8;
         }
+    }
+}
+
+/// 계단식 해안 테라스 — 물 타일로부터의 4방향 BFS 거리(상한 12타일).
+fn coastal_terrace(terrain: &[u8], hf: &mut [f32], n: usize) {
+    use std::collections::VecDeque;
+    let mut dist = vec![u8::MAX; n * n];
+    let mut q: VecDeque<usize> = VecDeque::new();
+    for i in 0..n * n {
+        if terrain[i] == 1 {
+            dist[i] = 0;
+            q.push_back(i);
+        }
+    }
+    while let Some(i) = q.pop_front() {
+        if dist[i] >= 12 {
+            continue; // 전파 상한 — 내륙은 기존 릴리프에 맡긴다
+        }
+        let (x, y) = (i % n, i / n);
+        for (dx, dy) in [(0isize, -1), (0, 1), (-1, 0), (1, 0)] {
+            let (nx, ny) = (x as isize + dx, y as isize + dy);
+            if nx < 0 || ny < 0 || nx >= n as isize || ny >= n as isize {
+                continue;
+            }
+            let j = ny as usize * n + nx as usize;
+            if terrain[j] != 1 && dist[j] == u8::MAX {
+                dist[j] = dist[i] + 1;
+                q.push_back(j);
+            }
+        }
+    }
+    for i in 0..n * n {
+        if terrain[i] == 1 || dist[i] == u8::MAX {
+            continue;
+        }
+        let step = ((dist[i] as f32) / 2.5).floor().min(4.0);
+        hf[i] += step * 3.0;
     }
 }
 
