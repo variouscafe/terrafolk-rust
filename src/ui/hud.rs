@@ -7,7 +7,7 @@ use super::theme::{self, UiTheme};
 use crate::net::{NetState, NetStatus};
 use crate::world::daynight::DayTime;
 use crate::world::precip::WeatherState;
-use crate::world::villager::Villager;
+use crate::world::agent::Villager;
 
 /// HUD 플러그인 — 웹·네이티브 공용(2026-10-25 DOM→bevy_ui 통일 2호).
 /// 정보바(제목·시계·해시계·날씨·인구·링크)는 단일 구현. ☰ 메뉴 버튼은

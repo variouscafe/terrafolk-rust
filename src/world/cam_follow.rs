@@ -7,7 +7,7 @@ use bevy::prelude::*;
 
 use super::camera_rig::CameraRig;
 use super::pick::Selection;
-use super::villager::Villager;
+use super::agent::Villager;
 
 /// 초당 수렴 속도(지수 스무딩) — 카메라 리그 줌 스무딩과 비슷한 체감
 const FOLLOW_SMOOTH: f32 = 3.0;
@@ -25,6 +25,7 @@ pub struct ChatFocus {
 }
 
 #[allow(clippy::too_many_arguments)] // Bevy 시스템 파라미터 — 입력·선택·카메라를 한 프레임 안에서 순서 보정
+#[cfg_attr(target_arch = "wasm32", allow(unused_variables))] // 웹은 DOM UI가 타이핑 처리 — chat Res 미참조
 pub fn follow_camera(
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -32,7 +33,6 @@ pub fn follow_camera(
     touches: Res<Touches>,
     mut rig: ResMut<CameraRig>,
     mut follow: ResMut<CamFollow>,
-    focus: Res<super::look_edit::LookFocus>,
     chat: Res<ChatFocus>,
     sel: Res<Selection>,
     q: Query<&Transform, With<Villager>>,
@@ -51,11 +51,6 @@ pub fn follow_camera(
     }
     if !follow.active {
         return;
-    }
-    // 외형 편집 포커스(look_edit) — 편집기가 열려 있으면 줌을 고정하고 수동
-    // 팬 해제를 억제한다(미리보기 캐릭터가 화면을 떠나지 않게).
-    if focus.active {
-        rig.zoom_goal = super::look_edit::EDIT_ZOOM;
     }
     // 수동 팬 해제 — 키보드·드래그 시작·터치 시작.
     // 채팅 입력 타이핑(winit keydown=window 스코프)은 해제 아님
@@ -78,7 +73,6 @@ pub fn follow_camera(
     let typing = false;
     if !changed
         && !typing
-        && !focus.active
         && (pan_key
             || mouse.just_pressed(MouseButton::Left)
             || touches.iter_just_pressed().next().is_some())

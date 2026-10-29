@@ -93,18 +93,10 @@ fn view_offset(zoom: f32) -> Vec3 {
 /// pan_offset+look_at 수식과 동일(줌인 픽셀 동일 게이트). 곡률 구간은 평면
 /// 앵커를 워프한 국소 접면에 카메라를 띄운다(거리는 cam_dist→행성 궤도로
 /// 보간 — factor→0에서 연속).
-fn camera_pose(
-    rig: &CameraRig,
-    focus: &super::look_edit::LookFocus,
-    world: &super::data::WorldData,
-) -> (Vec3, Vec3, Vec3) {
+fn camera_pose(rig: &CameraRig, world: &super::data::WorldData) -> (Vec3, Vec3, Vec3) {
     let target = Vec3::new(rig.target.x, 0.0, rig.target.y);
-    // 편집 미리보기(look_edit) — 카메라 앵커를 -z(먼 쪽)로 옮겨 타깃을 화면
-    // 위쪽에 고정(하단 시트·우측 패널과 공존). 0.24 = 화면 상단 ~30% 지점.
-    let mut anchor = target;
-    if focus.active {
-        anchor.z -= VIEW_H * rig.zoom * 0.24;
-    }
+    // 편집 미리보기 앵커 시프트는 캐릭터 철퇴(2026-10-29)와 함께 제거.
+    let anchor = target;
     match super::globe::WarpFrame::active(world, rig.zoom) {
         None => (anchor + view_offset(rig.zoom), target, Vec3::Y),
         Some(frame) => {
@@ -129,7 +121,7 @@ pub fn spawn_camera(mut commands: Commands, world: Res<super::data::WorldData>, 
         rig.zoom = ZOOM_MAX;
         rig.zoom_goal = ZOOM_MAX;
     }
-    let (pos, look, up) = camera_pose(&rig, &super::look_edit::LookFocus::default(), &world);
+    let (pos, look, up) = camera_pose(&rig, &world);
     let mut tr = Transform::from_translation(pos);
     tr.look_at(look, up);
     commands.spawn((
@@ -159,7 +151,6 @@ pub fn camera_control(
     touches: Res<Touches>,
     window: Single<&Window>,
     mut rig: ResMut<CameraRig>,
-    focus: Res<super::look_edit::LookFocus>,
     mut input: ResMut<PointerInput>,
     world: Res<WorldData>,
     ui_hover: Res<crate::platform::UiHover>,
@@ -221,7 +212,7 @@ pub fn camera_control(
 
     // ── 4) 이번 프레임 적용될 카메라(줌 반영·팬 적용 전) — 그랩 광선 기준.
     //    그랩 팬 델타는 카메라 평행이동 불변이므로 팬 전 좌표로 계산해도 정확하다.
-    let gt_next = camera_at(gt, camera_pose(&rig, &focus, &world).0);
+    let gt_next = camera_at(gt, camera_pose(&rig, &world).0);
     // 곡률 프레임 — 지면 광선 판정(그랩·핀치·줌 앵커)이 구면 교차로 전환.
     let gframe = super::globe::WarpFrame::active(&world, rig.zoom);
 
@@ -292,7 +283,7 @@ pub fn camera_control(
         rig.zoom = PORTRAIT_INIT_ZOOM;
         rig.zoom_goal = PORTRAIT_INIT_ZOOM;
     }
-    let (pos, look, up) = camera_pose(&rig, &focus, &world);
+    let (pos, look, up) = camera_pose(&rig, &world);
     tr.translation = pos;
     tr.look_at(look, up);
     // far — 곡률 구간에서 라이브 256맵 궤도 거리 대응해 넓힌다. 평면=420

@@ -280,17 +280,8 @@
       return;
     }
     tf.ui.sendChat(sel, text, locale());
-    // 즉발 연출 지시(던져봐·점프 등) — 클라이언트 물리로 수행(wasm 브리지).
-    // debug 트레이스: 브리지 호출 가시성(무음 스킵 진단).
-    try {
-      var tfb = window.terrafolk;
-      if (tfb && tfb.chatAction) {
-        tfb.chatAction(sel, text);
-        console.debug('[action-bridge] chatAction →', sel, text.slice(0, 40));
-      } else {
-        console.warn('[action-bridge] chatAction 미등록 — wasm 브리지 확인');
-      }
-    } catch (e) { console.warn('[action-bridge] 오류', e); }
+    // 즉발 연출 지시 브리지(던져봐·점프 → 클라이언트 물리)는 캐릭터 시스템
+    // 철퇴(2026-10-29)로 폐지 — 채팅은 전부 방을 통해 브레인으로 간다.
     var row = { agent_id: sel, speaker: 'me', text: text, lang: locale(),
       mine: true, pending: true, ts: new Date().toISOString() };
     rows.push(row);

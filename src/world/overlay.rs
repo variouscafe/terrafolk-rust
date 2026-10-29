@@ -12,7 +12,7 @@ use bevy::prelude::*;
 use super::camera_input::PointerInput;
 use super::camera_rig::CameraRig;
 use super::camera_rig::{CAM_PITCH_DEG, VIEW_H};
-use super::villager::Villager;
+use super::agent::Villager;
 use crate::net::apply::LiveAgentTag;
 use crate::net::resources::LiveResourceTag;
 

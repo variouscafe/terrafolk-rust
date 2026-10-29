@@ -10,7 +10,7 @@ use super::i18n;
 use super::theme::{self, UiTheme};
 use crate::net::apply::LiveAgentTag;
 use crate::net::feed::{EventLog, ToastQ};
-use crate::world::villager::Villager;
+use crate::world::agent::Villager;
 
 const TOAST_LIFE: f32 = 6.0;
 const TOAST_FADE: f32 = 0.5;

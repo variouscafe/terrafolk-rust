@@ -186,22 +186,17 @@ pub fn draw_demo_props(buf: &mut [u8], size: usize, world: &WorldData) {
         match p.kind {
             PropKind::TreeBroadleaf
             | PropKind::TreePine
-            | PropKind::TreePalm
             | PropKind::TreeSapling => px(buf, size, x, y, TREE),
             PropKind::TreeDead => px(buf, size, x, y, TREE_DEAD),
             PropKind::GoldVein => px(buf, size, x, y, GOLD),
             PropKind::BerryBush => px(buf, size, x, y, PLANT),
             PropKind::Boulder => px(buf, size, x, y, TERRAIN[4]),
-            PropKind::Hut | PropKind::Tent => rect_fill(buf, size, x, y, 2, 2, HUT_DONE),
+            PropKind::Hut => rect_fill(buf, size, x, y, 2, 2, HUT_DONE),
             PropKind::StorageHut => rect_fill(buf, size, x, y, 3, 3, HUT_DONE),
-            PropKind::Windbreak => px(buf, size, x, y, HUT_WIP),
-            PropKind::Campfire => rect_fill(buf, size, x, y, 2, 2, CAMP_LIT),
             PropKind::Grave => px(buf, size, x, y, GRAVE),
-            PropKind::Stash => px(buf, size, x, y, STASH),
             PropKind::Relic => px(buf, size, x, y, RELIC),
             PropKind::FlowerClump
             | PropKind::GrassClump
-            | PropKind::WoodLog
             | PropKind::ClayPot
             | PropKind::AnimalBoar
             | PropKind::AnimalDeer

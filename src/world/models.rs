@@ -38,17 +38,6 @@ impl PropKind {
                 target_h: 8.0,
                 variants: &[],
             },
-            PropKind::TreePalm => ModelSpec {
-                path: "models/PalmTrees.glb",
-                target_h: 6.2,
-                variants: &[
-                    "PalmTree_1",
-                    "PalmTree_2",
-                    "PalmTree_3",
-                    "PalmTree_4",
-                    "PalmTree_5",
-                ],
-            },
             PropKind::TreeSapling => ModelSpec {
                 path: "models/qnature/fern-0.glb",
                 target_h: 1.4,
@@ -95,41 +84,16 @@ impl PropKind {
                 target_h: 3.4,
                 variants: &[],
             },
-            PropKind::Tent => ModelSpec {
-                path: "models/Tent.glb",
-                target_h: 2.5,
-                variants: &[],
-            },
-            PropKind::Campfire => ModelSpec {
-                path: "models/Bonfire.glb",
-                target_h: 1.15,
-                variants: &[],
-            },
-            PropKind::Windbreak => ModelSpec {
-                path: "models/Fence.glb",
-                target_h: 1.05,
-                variants: &[],
-            },
             PropKind::Grave => ModelSpec {
                 path: "models/Grave.glb",
                 target_h: 1.3,
                 variants: &[],
             },
-            PropKind::Stash => ModelSpec {
-                path: "models/CubeCrate.glb",
-                target_h: 1.0,
-                variants: &[],
-            },
             PropKind::Relic => ModelSpec {
-                // 임시 룩 — 자연 바위(RockLarge)와 구별되는 상자. 발명 GLB 보유
-                // 시엔 DynProp로 대체된다(net/resources.rs §17.86).
-                path: "models/CubeCrate.glb",
+                // 임시 룩 — 절출 항아리(Kit 철퇴 2026-10-29 전의 Crate 대체).
+                // 발명 GLB 보유 시엔 DynProp로 대체된다(net/resources.rs §17.86).
+                path: "models/clay_pot.glb",
                 target_h: 1.1,
-                variants: &[],
-            },
-            PropKind::WoodLog => ModelSpec {
-                path: "models/WoodLog.glb",
-                target_h: 0.9,
                 variants: &[],
             },
             // 동물 — Poly by Google CC-BY(stylized flat) · Kenta Imai(niwatori)
@@ -187,13 +151,6 @@ pub struct PropRoot {
     pub variants: &'static [&'static str],
 }
 
-#[derive(Component)]
-pub struct CampfireGlow;
-
-/// 발광 불꽃 메시(블룸 소스 — PointLight만으론 화면에 번짐이 생기지 않음).
-#[derive(Component)]
-pub struct CampfireFlame;
-
 pub(crate) fn pos_hash(x: usize, y: usize, salt: u64) -> u64 {
     let mut h = (x as u64).wrapping_mul(0x9E3779B97F4A7C15)
         ^ (y as u64).wrapping_mul(0xC2B2AE3D27D4EB4F)
@@ -231,8 +188,8 @@ pub fn spawn_one_prop(
     commands: &mut Commands,
     world: &WorldData,
     assets: &AssetServer,
-    meshes: &mut Assets<Mesh>,
-    mats: &mut Assets<StandardMaterial>,
+    _meshes: &mut Assets<Mesh>,
+    _mats: &mut Assets<StandardMaterial>,
     scene_cache: &mut HashMap<&'static str, Handle<bevy::world_serialization::WorldAsset>>,
     p: &super::data::PropSpec,
 ) {
@@ -258,84 +215,5 @@ pub fn spawn_one_prop(
         },
         Transform::from_translation(Vec3::new(p.x as f32 + 0.5, ground, p.y as f32 + 0.5)),
     ));
-    if p.kind == PropKind::Campfire {
-        spawn_campfire_fire(
-            commands,
-            meshes,
-            mats,
-            p.x as f32 + 0.5,
-            p.y as f32 + 0.5,
-            ground,
-        );
-    }
 }
 
-/// 모닥불 연출 스폰 — 발광 불꽃(emissive ×5, 블룸 소스) + 포인트 라이트.
-/// 데모(spawn_one_prop)·라이브(net::apply::sync_resources) 공통 경로.
-/// 반환: (불꽃, 라이트) 엔티티 — 라이브는 여기에 동기화 태그를 붙인다.
-/// 재질은 모닥불별 개별(위상 오프셋 플리커 — flicker_campfires 참조).
-pub fn spawn_campfire_fire(
-    commands: &mut Commands,
-    meshes: &mut Assets<Mesh>,
-    mats: &mut Assets<StandardMaterial>,
-    x: f32,
-    z: f32,
-    ground: f32,
-) -> (Entity, Entity) {
-    let flame = commands
-        .spawn((
-            CampfireFlame,
-            Mesh3d(meshes.add(Mesh::from(bevy::math::primitives::Sphere::new(0.20)))),
-            MeshMaterial3d(mats.add(StandardMaterial {
-                base_color: Color::BLACK,
-                emissive: FLAME_COLOR * 5.0,
-                ..default()
-            })),
-            Transform::from_translation(Vec3::new(x, ground + 0.55, z)),
-        ))
-        .id();
-    let glow = commands
-        .spawn((
-            CampfireGlow,
-            PointLight {
-                color: Color::srgb(1.0, 0.66, 0.32),
-                intensity: 120_000.0,
-                range: 9.0,
-                shadow_maps_enabled: false,
-                ..default()
-            },
-            Transform::from_translation(Vec3::new(x, ground + 1.0, z)),
-        ))
-        .id();
-    (flame, glow)
-}
-
-/// 메시 POSITION 속성에서 AABB(GPU 미추출 독립 — final_aabb는 추출 후에만 존재).
-pub fn flicker_campfires(
-    time: Res<Time>,
-    mut lights: Query<(&Transform, &mut PointLight), With<CampfireGlow>>,
-    mut flames: Query<(&Transform, &MeshMaterial3d<StandardMaterial>), With<CampfireFlame>>,
-    mut mats: ResMut<Assets<StandardMaterial>>,
-) {
-    let t = time.elapsed_secs();
-    for (tr, mut light) in &mut lights {
-        light.intensity = 120_000.0 * flick(t, tr);
-    }
-    for (tr, mat) in &mut flames {
-        if let Some(mut m) = mats.get_mut(&mat.0) {
-            m.emissive = FLAME_COLOR * 5.0 * flick(t, tr);
-        }
-    }
-}
-
-
-/// 불꽃 발광색(선형 sRGB — 배수로 HDR>1 만들어 블룸 유발).
-const FLAME_COLOR: LinearRgba = LinearRgba::new(1.0, 0.42, 0.10, 1.0);
-
-/// 플리커 계수 — 모닥불 좌표로 위상 오프셋(전체 동시 점멸 방지).
-fn flick(t: f32, tr: &Transform) -> f32 {
-    let ph = tr.translation.x * 3.1 + tr.translation.z * 1.7;
-    0.82 + 0.13 * (t * 9.0 + ph).sin()
-        + 0.05 * (t * 23.0 + ph + 1.7).sin()
-        + 0.04 * (t * 5.0 + ph * 2.0 + 4.1).cos()
-}

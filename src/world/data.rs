@@ -20,7 +20,6 @@ pub struct PropSpec {
 pub enum PropKind {
     TreeBroadleaf,
     TreePine,
-    TreePalm,
     TreeSapling,
     TreeDead,
     BerryBush,
@@ -30,13 +29,8 @@ pub enum PropKind {
     GrassClump,
     Hut,
     StorageHut,
-    Tent,
-    Campfire,
-    Windbreak,
     Grave,
-    Stash,
     Relic,
-    WoodLog,
     // meshgen 산출(assetgen 스프라이트→절출 GLB — 발명품 3D 경로 1단계)
     ClayPot,
     // 동물(라이브 전용 — resources kind='animal', Poly by Google CC-BY)
@@ -190,17 +184,6 @@ pub struct WorldData {
     pub size: usize,
     /// 데모(절차) 지형 여부 — false면 라이브(mapJson) 지형
     pub demo: bool,
-}
-
-/// 캐릭터 프레임워크 접지 인터페이스 구현(2026-10-24 P1) — 이 게임의
-/// 표면장은 WorldData 그 자체. 물 상면 클램프는 ground.rs 상수와 동일값.
-impl crate::character::SurfaceField for WorldData {
-    fn surface_height(&self, x: f32, z: f32) -> f32 {
-        WorldData::surface_height(self, x, z)
-    }
-    fn stand_min_y(&self) -> f32 {
-        super::ground::WATER_STAND_Y
-    }
 }
 
 impl WorldData {
@@ -386,25 +369,17 @@ impl WorldData {
                     props.push(p(PropKind::GoldVein, x, y));
                 } else if (t == "rock" && r < 0.15) || (t == "dirt" && r < 0.02) {
                     props.push(p(PropKind::TreeDead, x, y));
-                } else if t == "sand" && r < 0.018 {
-                    props.push(p(PropKind::TreePalm, x, y));
                 } else if t == "sand" && r < 0.028 {
                     props.push(p(PropKind::GrassClump, x, y));
                 }
             }
         }
-        // 중앙 촌락 씬 — 오두막·모닥불·짐·묘비·유물·울타리·텐트(히어로 구도)
+        // 중앙 촌락 씬 — 오두막·묘비·유물(히어로 구도). 텐트·바람막이·
+        // 모닥불·짐·장작은 Kit 자산 철퇴(2026-10-29)로 제거.
         let cc = c as usize;
         for (kind, ox, oy) in [
             (PropKind::Hut, cc - 3, cc - 2),
             (PropKind::StorageHut, cc + 2, cc + 1),
-            (PropKind::Tent, cc - 6, cc - 1),
-            (PropKind::Windbreak, cc - 5, cc + 2),
-            (PropKind::Windbreak, cc - 4, cc + 2),
-            (PropKind::Windbreak, cc - 3, cc + 2),
-            (PropKind::Campfire, cc, cc),
-            (PropKind::Stash, cc + 1, cc - 1),
-            (PropKind::WoodLog, cc - 1, cc + 1),
             (PropKind::Grave, cc + 4, cc - 3),
             (PropKind::Relic, cc - 1, cc + 4),
             (PropKind::FlowerClump, cc - 2, cc + 1),

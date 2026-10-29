@@ -13,7 +13,7 @@ use super::data::PropKind;
 use super::models::PropRoot;
 use super::prop_fit::Fitted;
 use super::pick::Selection;
-use super::villager::Villager;
+use super::agent::Villager;
 
 /// 은닉 대상 종 — 시야를 가리는 큰 식물과 건물. 모닥불·유물 등 소형은 유지.
 fn occludes(kind: PropKind) -> bool {
@@ -21,7 +21,6 @@ fn occludes(kind: PropKind) -> bool {
         kind,
         PropKind::TreeBroadleaf
             | PropKind::TreePine
-            | PropKind::TreePalm
             | PropKind::TreeSapling
             | PropKind::TreeDead
             | PropKind::BerryBush
@@ -29,7 +28,6 @@ fn occludes(kind: PropKind) -> bool {
             | PropKind::FlowerClump
             | PropKind::Hut
             | PropKind::StorageHut
-            | PropKind::Tent
     )
 }
 

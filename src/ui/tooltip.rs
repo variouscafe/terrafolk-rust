@@ -13,7 +13,7 @@ use crate::net::agent_hud::AgentHud;
 use crate::net::apply::LiveAgentTag;
 use crate::net::visual_map::{ResState, bld_size};
 use crate::world::pick::{GroundTap, Selection};
-use crate::world::villager::Villager;
+use crate::world::agent::Villager;
 
 /// 탭 툴팁 노출 시간(FE 터치 고정 2.5s).
 const TAP_SECS: f32 = 2.5;

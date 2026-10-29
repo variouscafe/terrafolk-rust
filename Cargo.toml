@@ -1,6 +1,6 @@
 [package]
 name = "terrafolk_bevy"
-version = "0.8.65"
+version = "0.8.66"
 publish = false
 edition = "2024"
 exclude = ["dist", "build", "assets", "credits"]
@@ -63,10 +63,6 @@ bevy = { version = "0.19.1", default-features = false, features = [
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-
-# 캐릭터 프레임워크 — 오픈소스 레포(../3d-chibi-character) 직접 소비.
-# 개선→게임 적용 단일 루프. sibling 클론 전제(README·CLAUDE.md 참조).
-chibi-character = { path = "../3d-chibi-character/crates/chibi-character" }
 
 # keep the following in sync with Bevy's dependencies (main.rs 창 아이콘)
 winit = { version = "0.30", default-features = false }

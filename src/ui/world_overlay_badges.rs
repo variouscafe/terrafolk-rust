@@ -9,7 +9,7 @@ use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use super::world_overlay::{AnchorCol, BubbleNode, Slot, SlotMark, NAME_CREAM, NAME_GOLD};
 use crate::net::agent_hud::AgentHud;
 use crate::world::pick::Selection;
-use crate::world::villager::Villager;
+use crate::world::agent::Villager;
 
 /// 링 캔버스 재그리기 상태(양자화 굵기 — 1/10 단위).
 #[derive(Component)]

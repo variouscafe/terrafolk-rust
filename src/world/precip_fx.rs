@@ -16,7 +16,7 @@ use bevy::prelude::*;
 
 use super::camera_rig::CameraRig;
 use super::data::{Rng, WorldData};
-use super::ground::WATER_STAND_Y;
+use super::agent::WATER_STAND_Y;
 use super::overlay::view_box;
 use super::precip::WeatherState;
 use super::propsfx::CAM_FACE;

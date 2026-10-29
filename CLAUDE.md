@@ -17,16 +17,11 @@ https://assets.suseona.com/c3946b40-dd41-4311-861e-4cf86cf2f0a6/e2521c15-799c-40
 - **광원 = 우상단 웜키(림) + 쿨 앰비언트** — 그림자는 경계 뭉개진 페인티드
   블롭(구 레퍼런스의 좌상단 광원 규칙은 폐지).
 - **구도 = 원근 카메라·계단식 해안 절벽 위 조밀 스택 마을**.
-- 캐릭터 = **~5두신 청소년**(파란 재킷+러스트 오렌지 백팩) — 현행 치비 농부
-  (아래 구 기준)과 비율·의상이 다르다. 주민 룩 재조정(비율·의상 팔레트)은
-  이 이미지 캐릭터로 수렴하는 별도 과제.
+- 캐릭터 = **~5두신 청소년**(파란 재킷+러스트 오렌지 백팩) — 캐릭터
+  시스템은 2026-10-29 전면 철퇴(아래 '캐릭터 시스템 철퇴')로 현재 몸체가
+  없다. 새 캐릭터는 이 이미지 캐릭터(비율·의상 팔레트)를 기준으로 처음부터
+  설계·제작한다(구 치비 농부 레퍼런스·바이블은 철퇴와 함께 폐기).
 
-구 레퍼런스는 역사 보존(충돌 시 새 레퍼런스 우선): 2026-10-19 팜심 아이소
-(1a4ab00f…png — 맵 스토리북 1차의 근거) · 2026-10-28 농부 소년
-(55f97588…jpg — 현행 치비 농부 바이블). 상세 캐릭터 스펙(비율표·팔레트
-14색·QC)은 [[chibi-character]] `docs/reference-analysis.md`(캐릭터 디자인
-바이블)이 정본. 캐릭터 베이스는 **folk 파라메트릭 몸체**(2026-10-29 KayKit
-완전 철퇴 — 자체 리그·절차 클립, 크레이트 레포 tools/build_folk.py).
 신규 에셋은
 별도 프로젝트 **에셋 제너레이터 서비스**(워크스페이스 `assetgen/` →
 https://assetgen.pages.dev)가 이 기준으로 생성한다(2026-10-19 결정 — 이 repo가
@@ -51,13 +46,16 @@ llmserver에서 `https://llm-asset.suseona.com`(cloudflared 터널)로 동작하
 
 ## 역할 분담
 
-- **캐릭터 프레임워크 = 오픈소스 레포 이관(2026-10-27)**: `src/character/`는
-  **`../3d-chibi-character`(github variouscafe/3d-chibi-character, private)**의
-  `crates/chibi-character`로 이관됐고 이 게임은 path 의존으로 직접 소비한다
-  (src/character.rs 셤이 import 경로 보존). **클론 전제: 이 repo 빌드엔 sibling로
-  `../3d-chibi-character`가 필요** (fresh clone 시 함께 클론할 것). 캐릭터 기능
-  추가는 그 레포에서 먼저(순수성 게이트 tools/check-purity.sh) → 게임 적용.
-  뷰어(chibi-viewer)·검증 파이프라인(viewer_shot.cjs)도 그쪽 소관.
+- **캐릭터 시스템 전면 철퇴(2026-10-29, 사용자 지시)**: KayKit 잔재
+  정화를 위해 캐릭터 코드·레퍼런스·캐릭터 키트를 모두 제거했다 —
+  `src/character`(셤)·world의 villager/wear/look/outfit/toon/outline 등
+  14모듈, Kit GLB(KayKit 마을세트·Villagers, Kenney 캐릭터·aid, qubase,
+  lpc, folk) 51파일, 관련 툴·E2E 게이트. 주민은 **데이터 엔티티**
+  (`world/agent.rs` — 명·상태·활동·이동 보간)로만 존재하고 UI(목록·채팅·
+  미니맵·선택·외형 편집 데이터)는 그대로 동작한다. 구 프레임워크 레포
+  `../3d-chibi-character`는 GitHub에 보존(archive)후 워크스페이스에서
+  삭제 — 이 repo 빌드는 이제 sibling 없이 자립한다. 새 캐릭터 시스템은
+  해안 마을 레퍼런스 캐릭터로 **처음부터 재설계**가 별도 과제.
 - **이 repo = client 담당**: Rust/Bevy 클라이언트 — **웹 3D(terrafolk-3d.pages.dev,
   루트 terrafolk_bevy)가 우선 타겟**(2026-10-21 전환 — 사용자 지시). 안드로이드
   앱은 후순위 유지(빌드 레시피·adb 검증 루프는 유효) — 웹과 충돌하면 **웹을
@@ -73,28 +71,12 @@ llmserver에서 `https://llm-asset.suseona.com`(cloudflared 터널)로 동작하
   쓴다): 렌더 에러 정책(로그 남기고 생존), 스왑체인 포맷 진단, 부팅 프로브
   (창·카메라·가시 메시 — 파란/검은 화면 3분법), 인앱 스크린샷(안드로이드
   쓰기 가능 경로 자동 해석 + adb pull 회수). `PlatformPlugin` 하나로 구성.
-- **`src/character/` = 게임 무관 캐릭터 프레임워크**(2026-10-24 지정 —
-  `docs/character-module-redesign.md` 참조, 이행 진행 중): 리그 디스크립터·
-  비율(치비)·접지(표면장+FootLift+그림자)·다리 IK·행동→모션 매핑·도구
-  부착·애님 상태머신·**공간 중력(fall.rs — SpaceGravity 리소스가 세계
-  단위 소유, 이 게임=지구 9.81·Fall 적분기·절벽 이력현상)**·**지시 행동
-  (action.rs — ActiveAction 상태머신: 토스 캐치·전방 투척 반발·점프·
-  둘이서 캐치볼 탄도 해)**. 게임 측은 `CharacterTag`·표면장·activity 코드만
-  제공한다. 기존 chibi.rs·ground.rs·foot_lock.rs·wear 앵커는 이 모듈로
-  흡수 중 — **캐릭터 기능 추가는 character/에 게임 무관 형태로 먼저**.
-- **`src/world/` = 이 게임 콘텐츠**(지형·주민·후처리 카메라 등). 플랫폼
-  가드가 필요하면 platform으로, 재질 가드처럼 게임 고유면 world에 둔다.
-  캐릭터의 게임 고유 부분(주민 AI·넷 동기·선택)만 world에 둔다.
-- **채팅 지시 → 물리 행동(2026-10-24~25)**: 웹 채팅 원문이 ui.js에서
-  `tf.chatAction(agentId, text)` 브리지로 들어와 `world/chat_action.rs`가
-  한국어 어간표로 파싱(던졌다/던져/멀리/점프/캐치볼…) → 대상 주민에
-  `ActiveAction` 부착(수면·수행 중은 명시 거부). **시나리오 추가 = 파서
-  표 1행 + ActionKind 변체**. 게이트 `tools/e2e/action_chat.cjs`
-  (헤디드, 깨어 있는 앵커 우선 픽 — 이동 주민은 앵커 위치 재판독 필수).
+- **`src/world/` = 이 게임 콘텐츠**(지형·주민 데이터·후처리 카메라 등).
+  플랫폼 가드가 필요하면 platform으로, 재질 가드처럼 게임 고유면 world에
+  둔다. 주민은 현재 `world/agent.rs` 데이터 컴포넌트만 존재(캐릭터 철퇴).
 - **아키텍처 게이트(chartcraft 벤치마크, 2026-10-24)**: 계층 의존 방향
-  (platform·character ← world만 허용)은 관례가 아니라 점진적으로 빌드
-  게이트로 강제한다(cargo xtask layers 패턴). 채택 관행 8종 전체 목록은
-  `docs/character-module-redesign.md` §6.
+  (platform ← world만 허용)은 관례가 아니라 빌드 게이트로 강제한다
+  (`tools/check-layers.sh` — cargo xtask layers 패턴).
 - **UI 이중 구현 금지**: 안드로이드·iOS·PC는 **bevy_ui 단일 구현**으로
   공유한다(플랫폼별 분기 금지 — 해상도·세이프에어리어만 반응형 대응).
   웹만 기존 DOM UI(tf-*.js)를 유지한다. 신규 화면은 native UI 모듈에
@@ -149,11 +131,14 @@ crates/ws-link·colyseus-lite 밴딩)로 옮겼다. 이 repo에는 proto2d 흔�
 금지 레시피는 그쪽 README.md·CLAUDE.md가 단일 기준. ws-link·colyseus-lite는
 양쪽이 계보 공유 — 한쪽 수정 시 반대쪽 반영 검토.
 
-/character 테스트 페이지(2026-10-28): https://terrafolk-3d.pages.dev/character —
-캐릭터 오픈소스(sibling 3d-chibi-character) 뷰어 wasm을 deploy-3d-r2.sh ⑤.5가
-dist/character/에 탑재. 주민 보행은 절차적 게이트(gait — 월드 고정 착지·
-미끄럼 0, 상세는 그 레포 CLAUDE.md '보행 아키텍처')로 구동 — 발 관련 본 쓰기
-시스템의 PostUpdate 등록 계약 동반.
+**캐릭터 시스템 철퇴(2026-10-29, 사용자 지시)**: "kaykit 잔재" 정화를 위해
+코드·레퍼런스·캐릭터 키트를 전부 제거했다(위 '역할 분담' 항 참조). 이제
+이 repo 빌드에 sibling 클론이 필요 없다. 구 /character·/character2 뷰어
+페이지 탑재 단계(deploy ⑤.5·⑤.6)도 폐지 — 기존 배포본은 Pages에 남지만
+재배포 시 사라진다. 웹 채팅의 물리 행동 브리지(tf.chatAction)·외형 편집
+3D 미리보기(tf.setLocalLook·setLookFocus)도 이 철퇴로 폐지(JS 호출부는
+가드돼 있어 no-op). 주민 관전 UI(목록·선택·follow·채팅·미니맵 점)는
+데이터 엔티티 기반으로 계속 동작.
 
 **3D 웹 배포(terrafolk-3d.pages.dev, 2026-10-21)**: 루트 3D 클라이언트
 (bevy 0.20.0)의 웹 판 — `./tools/deploy-3d-r2.sh` 원스텝. **Pages 직행
@@ -163,8 +148,9 @@ dist/character/에 탑재. 주민 보행은 절차적 게이트(gait — 월드 
 dist 그대로 직행, 초과면 `.wasm.gz` 탑재 + index.html `<body>` 최상단에
 DecompressionStream fetch 래퍼 주입(스트리밍 해제→컴파일, 로컬 raw 폴백).
 구 R2+glue 레시피는 `TF_DEPLOY_R2=1` 비상 폴백으로 잔존(r2.dev는 엣지
-캐시 부재·레이트리밋 — 실측 2026-10-23). `assets/models` GLB 64종 필수(PR #69로
-복구 — `cc2895d^`에서 `git checkout`으로 되돌릴 수 있음).
+캐시 부재·레이트리밋 — 실측 2026-10-23). `assets/models` GLB는 Kit 철퇴
+(2026-10-29)로 축소됐다 — 현행 세트는 tools/check-assets.sh가 정본
+(참조↔실재 정합 게이트).
 DOM UI 패널 모듈(2026-10-22, 500줄 규칙): `tf-civ.js`(문명)·
 `tf-chars.js`(캐릭터)·`tf-reslog.js`(자원·기록)가 **tf-ui.js보다 먼저**
 로드(create 팩토리를 tf-ui 모듈 스코프가 소비). 패널 분리 시 누락 클로저
@@ -190,14 +176,10 @@ tf-api CORS 허용목록(../terrafolk `backend/src/terrafolk_api/config.py`)
   무음 실패→인라인·Plane3d 분할 0·θ>π 이중 피복 z-fight)은 검토서 참조.
   게이트 `tools/e2e/root3d_globe.cjs`(?tfdbg=globe 부팅 + 줌 복귀 회귀).
 
-**외형 편집 3D 반영(2026-10-23, PR #78)**: 레거시 lookJson parts(피부·머리색·눈·옷색)가
-  3D 주민 재질 틴트로 반영된다 — `world/look_tint.rs`(LPC 팔레트·모델×재질 슬롯표,
-  악세서리 미염색) + toonify 색 매칭 역추적(Gltf named_materials) + look 변경 재스폰.
-  검증 게이트 `?tfdbg=looktest`(주민별 진한 팔레트 순환). **지오메트리 축도
-  1차 완료(2026-10-23)**: 헤어 GLB qubase 2종(#86, 경량화 c2a139d 2048→512
-  텍스처 6.6→1.1MB)·수염 7종(#90)·안경 4종(#91·#93) 부착 + 봇 기본 외형
-  uuid 분배(#92). 남은 것: 헤어 스타일 N종 확장(LPC 카드 각도 문제 유보),
-  handlebar 수염(실루엣 3px 미생성).
+**외형 편집(데이터 축)**: lookJson 편집·저장(웹 tf-ui.js loadMine·lookSave /
+  네이티브 ui/look.rs + net/look_sync.rs)은 서버 계약 그대로 동작한다. 3D
+  틴트·지오메트리 반영(look_tint·qubase 헤어 부착)은 캐릭터 철퇴(2026-10-29)로
+  제거 — 새 캐릭터 시스템이 look 파트를 다시 소비한다.
 
 **하얀 맵 사고 정정(2026-10-21)**: 단색 지형의 주원인은 bevy 버전이 아니라
 **cc2895d가 지운 `assets/tiles/terrain_atlas.*`·`assets/shaders/` 4종 부재**

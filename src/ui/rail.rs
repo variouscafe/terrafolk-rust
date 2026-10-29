@@ -11,7 +11,7 @@ use super::theme::{self, UiTheme};
 use crate::net::apply::LiveAgentTag;
 use crate::net::feed::{ChatLog, PollStore};
 use crate::world::pick::Selection;
-use crate::world::villager::Villager;
+use crate::world::agent::Villager;
 
 #[derive(Component)]
 pub struct RailRoot;

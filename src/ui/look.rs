@@ -1,7 +1,6 @@
 //! 외형 편집 팝업 — 웹 LookEditor(tf-ui.js)의 네이티브 포트(docs/parity-3d.md
 //! 유일 격차 해소). 옵션 데이터는 look_data.rs(정본 생성), 저장 계약은
 //! lookSave 그대로: 옷 탭은 parts의 옷 키 삭제 + wears 3슬롯 명시, 그 외
-//! 탭은 parts + 기존 wears. 선택 즉시 LocalLooks 낙관적 재스폰(look_edit)
 //! + PATCH 저장(net::look_sync).
 
 use bevy::prelude::*;
@@ -127,6 +126,9 @@ impl EditorData {
         self.inventory.get(item).is_some_and(|n| *n > 0.0)
     }
     /// 소지 파생 옷 패치(effectiveWearPatch 포트) — 미리보기 fullParts용.
+    /// 3D 미리보기 철퇴(2026-10-29)로 lib 빌드에선 무사용 — 웹 fullParts
+    /// 계약·단위 테스트 보존(새 캐릭터 시스템이 재소비).
+    #[allow(dead_code)]
     fn wear_patch(&self) -> Vec<(String, String)> {
         let mut patch = Vec::new();
         for slot in ["top", "bottom", "feet"] {
@@ -178,6 +180,7 @@ impl EditorData {
         patch
     }
     /// 미리보기 parts — 편집 parts + 소지 파생 옷(웹 fullParts).
+    #[allow(dead_code)]
     fn full_parts_json(&self) -> String {
         let mut m = self.parts.clone();
         for (k, v) in self.wear_patch() {
@@ -361,13 +364,11 @@ pub fn on_sel_look_click(
     store: Res<LookStore>,
     mut editor: ResMut<LookEditor>,
     mut state: ResMut<UiState>,
-    bridge: Res<crate::world::look_edit::LookEditBridge>,
 ) {
     let Some(id) = sel.id.as_deref() else { return };
     let Some(m) = store.find(id) else { return };
     editor.data = Some(EditorData::from_me(&m));
     state.popup = Some(Popup::Look);
-    bridge.push_focus(true);
 }
 
 /// 색 점 선택 — parts 갱신 + 낙관적 재스폰 + 저장.
@@ -375,7 +376,6 @@ pub(super) fn on_swatch_click(
     trigger: On<Pointer<Click>>,
     dots: Query<&LookSwatch>,
     mut editor: ResMut<LookEditor>,
-    bridge: Res<crate::world::look_edit::LookEditBridge>,
     store: Res<LookStore>,
 ) {
     let Ok(dot) = dots.get(trigger.entity) else {
@@ -385,7 +385,7 @@ pub(super) fn on_swatch_click(
         return;
     };
     d.parts.insert(dot.0.to_owned(), dot.1.clone());
-    apply_change(d, &bridge, &store);
+    apply_change(d, &store);
 }
 
 /// ◀▶ 슬라이드 — 행 대상 목록에서 순환(잠긴 옵션 스킵 — 웹과 동일).
@@ -393,7 +393,6 @@ pub(super) fn on_slide_click(
     trigger: On<Pointer<Click>>,
     navs: Query<&LookSlide>,
     mut editor: ResMut<LookEditor>,
-    bridge: Res<crate::world::look_edit::LookEditBridge>,
     store: Res<LookStore>,
 ) {
     let Ok(nav) = navs.get(trigger.entity) else {
@@ -434,7 +433,7 @@ pub(super) fn on_slide_click(
             break;
         }
     }
-    apply_change(d, &bridge, &store);
+    apply_change(d, &store);
 }
 
 /// 착용 옵션 — (키, 잠김). 웹 wearOptions: auto + 카탈로그(미소지 잠금) + 발명.
@@ -463,13 +462,8 @@ pub(super) fn part_options<'a>(d: &'a EditorData, key: &str) -> Vec<&'a str> {
 }
 
 /// 선택 변경 공통 처리 — 낙관적 look push + 저장 적재.
-fn apply_change(
-    d: &EditorData,
-    bridge: &crate::world::look_edit::LookEditBridge,
-    store: &LookStore,
-) {
-    let parts = d.full_parts_json();
-    bridge.push_look(&d.agent_id, &parts);
+fn apply_change(d: &EditorData, store: &LookStore) {
+    // 3D 미리보기는 캐릭터 철퇴(2026-10-29)로 제거 — 저장만 수행.
     store.enqueue_save(&d.agent_id, d.save_body(d.tab == Tab::Clothes));
 }
 
@@ -486,7 +480,6 @@ pub fn refresh(
     mut q_status: Query<&mut Text, (With<LookStatus>, Without<LookRows>)>,
     mut q_title: Query<&mut Text, (With<LookTitle>, Without<LookStatus>, Without<LookRows>)>,
     mut sig: ResMut<LookUiSig>,
-    bridge: Res<crate::world::look_edit::LookEditBridge>,
 ) {
     let open = state.popup == Some(Popup::Look) && editor.data.is_some();
     if let Ok(mut v) = q_root.single_mut() {
@@ -498,7 +491,6 @@ pub fn refresh(
     }
     // 종료 에지 — 편집 상태·포커스 해제(look 오버라이드는 서버 수렴 시 apply 제거).
     if !open && !sig.0.is_empty() {
-        bridge.push_focus(false);
         editor.data = None;
         sig.0.clear();
     }

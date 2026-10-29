@@ -5,6 +5,7 @@
 use bevy::prelude::*;
 
 /// 캐시 루트 — 진단 스크린샷(shot_path)과 동일한 플랫폼 쓰기 경로 규칙.
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))] // wasm은 JS fetch 경로 — 네이티브 발명 스레드 전용
 pub(crate) fn cache_dir() -> std::path::PathBuf {
     let dir = crate::platform::diagnostics::shot_path()
         .parent()
@@ -31,6 +32,7 @@ pub fn register_source(app: &mut App) {
 }
 
 /// URL → 캐시 경로(파일 있으면 Some).
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 pub(crate) fn cached_path(url: &str) -> Option<std::path::PathBuf> {
     let p = cache_dir().join(file_name(url));
     p.is_file().then_some(p)

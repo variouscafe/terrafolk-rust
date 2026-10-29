@@ -33,7 +33,6 @@ pub fn is_wind_target(kind: PropKind) -> bool {
         kind,
         PropKind::TreeBroadleaf
             | PropKind::TreePine
-            | PropKind::TreePalm
             | PropKind::TreeSapling
             | PropKind::TreeDead
             | PropKind::BerryBush

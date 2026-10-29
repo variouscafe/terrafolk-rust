@@ -10,7 +10,7 @@ use bevy::math::primitives::Annulus;
 use bevy::prelude::*;
 
 use crate::net::apply::LiveAgentTag;
-use crate::world::villager::Villager;
+use crate::world::agent::Villager;
 
 /// 마우스 클릭 판정 임계(논리 px) — 이 이상 이동하면 팬 드래그
 const CLICK_PX: f32 = 6.0;
@@ -124,6 +124,7 @@ pub fn drain_select(
 
 /// 클릭/탭 픽킹 — 광선-몸통중심 최단 거리. 빈 땅 클릭·Escape는 해제.
 #[allow(clippy::too_many_arguments)] // Bevy 시스템 파라미터 — 입력·카메라·월드를 한 프레임 안에서 순서 보정
+#[cfg_attr(target_arch = "wasm32", allow(unused_variables, unused_mut))] // ground_tap 소비자(툴팁)는 네이티브 UI
 pub fn pick_agent(
     // 줌·월드 크기(곡률 판정용) — bevy 시스템 파라미터 한도(16) 준수로 1개로 묶음
     mut globe_src: ParamSet<(
@@ -271,7 +272,6 @@ pub fn follow_selection(
     q: Query<&Transform, With<Villager>>,
     q_tags: Query<(Entity, &LiveAgentTag), With<Villager>>,
     mut ring: Query<(&mut Transform, &mut Visibility), (With<SelectionRing>, Without<Villager>)>,
-    focus: Res<super::look_edit::LookFocus>,
 ) {
     let Ok((mut tr, mut vis)) = ring.single_mut() else {
         // 진단 — 링 엔티티 수 이상(0·복수)이면 매 프레임 조용히 무시된다
@@ -308,11 +308,7 @@ pub fn follow_selection(
             // 줌 배율에 반비례 확대(클램프 0.8~1.5). ⚠️ 상한 1.5: 원근 카메라
             // 줌 인(편집 미리보기 0.34)에서 2.5배 링이 치비 키만 해져 발밑에서
             // 화면 하단까지 늘어져 보였다(2026-10-23 모바일 캡처 보고).
-            let mut zoom_fit = (1.0 / rig.zoom.max(0.15)).clamp(0.8, 1.5);
-            // 편집 포커스 중 — 링이 프리뷰를 방해하지 않게 축소
-            if focus.active {
-                zoom_fit *= 0.55;
-            }
+            let zoom_fit = (1.0 / rig.zoom.max(0.15)).clamp(0.8, 1.5);
             tr.scale = Vec3::splat(pulse * zoom_fit);
             *vis = Visibility::Visible;
             // 진단 — 링 표시 최초 1회(선택마다): 위치·스케일·줌

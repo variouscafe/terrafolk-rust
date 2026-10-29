@@ -14,7 +14,7 @@ use crate::net::apply::LiveAgentTag;
 use crate::net::feed::ChatLog;
 use crate::world::camera_rig::CameraRig;
 use crate::world::pick::Selection;
-use crate::world::villager::Villager;
+use crate::world::agent::Villager;
 
 /// 주민 상단 앵커 높이(m) — overlay.rs ANCHOR_H와 동일값(네이티브 재정의).
 const ANCHOR_H: f32 = 1.85;

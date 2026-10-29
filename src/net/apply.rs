@@ -2,7 +2,6 @@
 //! 데모 WorldData를 라이브 지형으로 교체(평면 — 실 맵은 절벽 없음)하고
 //! 서버 id 단위로 자원/주민 엔티티를 생성·갱신·제거한다.
 
-use bevy::gltf::GltfAssetLabel;
 use bevy::prelude::*;
 
 use super::resources::{LiveResourceTag, cleared_tiles};
@@ -29,7 +28,7 @@ pub fn prime_live_world(
     q_villagers: Query<
         Entity,
         (
-            With<crate::world::villager::Villager>,
+            With<crate::world::agent::Villager>,
             Without<LiveAgentTag>,
         ),
     >,
@@ -213,20 +212,15 @@ pub fn sync_agents(
     mut commands: Commands,
     net: Res<NetState>,
     world: Res<WorldData>,
-    assets: Res<AssetServer>,
     time: Res<Time>,
     mut q_live: Query<(
         Entity,
         &LiveAgentTag,
         &Transform,
-        &mut crate::world::villager::Villager,
+        &mut crate::world::agent::Villager,
         Option<&mut AgentGrace>,
     )>,
-    q_model: Query<&crate::world::villager::VillagerModel, With<LiveAgentTag>>,
-    mut local_looks: ResMut<crate::world::look_edit::LocalLooks>,
     mut first_log: Local<u32>,
-    // 레퍼런스 파머 1명 배정 플래그(첫 스폰 봇 — 세션 지속, 2026-10-27).
-    mut ref_assigned: Local<bool>,
 ) {
     if net.status != NetStatus::Connected {
         return;
@@ -269,39 +263,12 @@ pub fn sync_agents(
         if let Some(mut g) = grace {
             g.0 = 0.0;
         }
-        // 외형 변경(§17.32 lookJson 패치) — 편집기 저장 직후 반영: look이
-        // 바뀌면 재스폰(모델 성별 전환·look_tint 재적용). 다음 프레임
-        // spawn_missing이 새 look으로 살린다(2026-10-23 외형 3D 반영).
-        // 편집 미리보기(look_edit) — 오버라이드가 서버 정본보다 우선하고,
-        // 서버 프레임이 오버라이드와 같아지면(저장 수렴) 오버라이드를 제거해
-        // 이후 서버 정본으로 환원한다.
-        let look_of = match (a.look.as_deref(), local_looks.0.get(&a.id)) {
-            (Some(base), Some(ov_parts)) => {
-                // 수렴 — 서버 정본 parts가 오버라이드와 같아지면(편집 저장 확정)
-                // 오버라이드를 제거해 이후 정본만 믿는다.
-                if crate::world::look_edit::parts_equal(base, ov_parts) {
-                    local_looks.0.remove(&a.id);
-                    a.look.clone()
-                } else {
-                    crate::world::look_edit::merged_look(base, ov_parts)
-                        .or_else(|| a.look.clone())
-                }
-            }
-            (_, Some(_)) => a.look.clone(), // 정본 부재(스폰 전) — 오버라이드 대기
-            _ => a.look.clone(),
-        };
-        if let (Ok(vm), Some(look)) = (q_model.get(e), look_of.as_deref()) {
-            if vm.1.as_deref() != Some(look) {
-                commands.entity(e).despawn();
-                continue;
-            }
-        }
         let target = Vec3::new(
             a.x,
             // 착지 클램프 — 물 타일 위에서도 수면(-0.18) 아래로 잠기지 않게
             world
                 .height_at(a.x.floor() as i32, a.y.floor() as i32)
-                .max(crate::world::ground::WATER_STAND_Y),
+                .max(crate::world::agent::WATER_STAND_Y),
             a.y,
         );
         v.to = target;
@@ -334,75 +301,26 @@ pub fn sync_agents(
         if super::dbg_gate::off("no_villagers") {
             continue; // 진단 게이트
         }
-        let mut look = match (a.look.as_deref(), local_looks.0.get(&a.id)) {
-            (Some(base), Some(ov_parts)) => crate::world::look_edit::merged_look(base, ov_parts)
-                .or_else(|| a.look.clone()),
-            _ => a.look.clone(),
-        };
-        // 외형 틴트 시각 검증 게이트 — ?tfdbg=looktest: 주민마다 진한 팔레트를
-        // 강제 주입(블론드·브론즈·블루눈·옷색)해 3D 반영을 컷 한 장으로 판정.
-        if super::dbg_gate::on("looktest") {
-            const TESTS: [(&str, &str, &str, &str, &str, &str); 5] = [
-                ("black", "blonde", "blue", "red", "navy", "black"),
-                ("bronze", "raven", "green", "teal", "charcoal", "brown"),
-                ("olive", "chestnut", "brown", "orange", "blue", "walnut"),
-                ("light", "dark_gray", "gray", "lavender", "forest", "leather"),
-                ("amber", "ash", "blue", "yellow", "maroon", "slate"),
-            ];
-            let idx = spawned % TESTS.len();
-            let (sk, hc, ey, tp, bt, ft) = TESTS[idx];
-            let sex = if idx % 2 == 0 { "F" } else { "M" };
-            look = Some(format!(
-                "{{\"sex\":\"{sex}\",\"parts\":{{\"skin\":\"{sk}\",\"hairColor\":\"{hc}\",\"eye\":\"{ey}\",\"topColor\":\"{tp}\",\"bottomColor\":\"{bt}\",\"feetColor\":\"{ft}\"}}}}"
-            ));
-        }
-        // 레퍼런스 파머 — 첫 스폰 주민 1명(종류 무관: 라이브 섬이 user 종류
-        //뿐인 세션이 있어 bot 한정은 미할당 결함이었다, 2026-10-27).
-        let reference = !*ref_assigned;
-        if reference {
-            *ref_assigned = true;
-        }
-        // folk 단일 모델 시대 — 레퍼런스 봇도 동일 Villager
-        // (차이는 착용 아이템뿐: 모자·초록 눈·포켓 소품).
-        let path = crate::world::villager::model_path_for(&a.id, look.as_deref());
-        let scene = assets.load(GltfAssetLabel::Scene(0).from_asset(path));
-        let gltf = assets.load(path);
-        // 착지 클램프 — 서버가 물 타일에 세워도(§17.80 취수) 몸이 불투명
-        // 수면 아래로 잠기지 않게 발을 수면(-0.18) 위로 못 박는다.
+        // 캐릭터 비주얼 철퇴(2026-10-29 사용자 지시) — 주민은 데이터
+        // 엔티티로만 스폰한다(명·상태·활동 + 이동 보간). 새 캐릭터
+        // 시스템이 이 자리에 몸체를 다시 붙인다.
+        // 착지 클램프 — 서버가 물 타일에 세워도(§17.80 취수) 엔티티가
+        // 불투명 수면 아래로 잠기지 않게 발을 상면 위로 못 박는다.
         let ground = world
             .height_at(a.x.floor() as i32, a.y.floor() as i32)
-            .max(crate::world::ground::WATER_STAND_Y);
-        let mut spawned_villager = commands.spawn((
-            // look 착용(qubase 헤어 GLB) 게이트오프(2026-10-28 전환) —
-            // 헤드 본 오프셋이 qchar 치비 보정이라 folk REAL에서 어긋남.
-            // folk 헤어 파트 변형은 후속 과제.
-            crate::world::wear::Wears(Vec::new()),
-            crate::world::villager::VillagerModel(gltf, look),
-            crate::world::villager::Villager {
-                from: Vec3::new(a.x, ground, a.y),
+            .max(crate::world::agent::WATER_STAND_Y);
+        commands.spawn((
+            crate::world::agent::Villager {
                 to: Vec3::new(a.x, ground, a.y),
-                t: 0.0,
                 moving: false,
-                idle: 0.0,
-                target_h: crate::world::villager::VILLAGER_H,
                 name: a.name.clone(),
                 status: a.status.clone(),
                 act: a.act_type.clone().unwrap_or_default(),
             },
             LiveAgentTag(a.id.clone()),
             super::agent_hud::AgentHud::default(),
-            bevy::world_serialization::WorldAssetRoot(scene),
             Transform::from_translation(Vec3::new(a.x, ground, a.y)),
-            // 스폰 직후 PBR 프레임 노출 방지(2026-10-23 '3D 질감→카툰 덮임'
-            // 보고) — toonify가 자손 툰 스왑을 완료한 프레임에 표시된다.
-            Visibility::Hidden,
         ));
-        if reference {
-            // 레퍼런스 파머 — 착용(villager finish)·틴트·얼굴 개조(toonify) 훅.
-            spawned_villager.insert(crate::world::reference_look::ReferenceVillager);
-            info!("[net] 레퍼런스 파머 배정: {} ({})", a.name, a.id);
-        }
-        spawned_villager.observe(crate::world::villager::villager_ready);
         spawned += 1;
     }
     if spawned > 0 {
@@ -411,17 +329,15 @@ pub fn sync_agents(
 }
 
 /// 라이브 주민 이동 — 서버 목적지로 등속 이동 + 이동 방향 회전.
-/// **y는 쓰지 않는다**(2026-10-23 재설계) — 예전엔 목적지 타일 중심
-/// 고도에 FootLift를 뺀 값으로 고정해 발밑 표면과 단차만큼 발이 뜨거나
-/// 박혔다. 루트 y의 단일 소유자는 world::ground(매 프레임 발밑 위치의
-/// 연속 표면고도 − FootLift)다.
+/// **y는 쓰지 않는다** — 루트 y는 스폰 시 표면 고도로 고정(캐릭터 철퇴
+/// 2026-10-29 이후 접지 스냅 시스템 부재, 몸체가 없어 단차 무의미).
 pub fn live_move(
     time: Res<Time>,
     mut q: Query<(
         &LiveAgentTag,
         &mut Transform,
-        &mut crate::world::villager::Villager,
-    ), Without<crate::character::ActionLock>>,
+        &mut crate::world::agent::Villager,
+    )>,
 ) {
     const SPEED: f32 = 1.2; // 타일/초(서버 배회 속도 근사)
     for (_, mut tr, mut v) in &mut q {
@@ -439,8 +355,9 @@ pub fn live_move(
         } else {
             tr.translation += d / dist * step;
             // 이동 방향 회전 — 지수 감쇠 스무딩(하드 스냅은 방향 전환마다
-            // 몸이 뚝 끊긴다 — 이징 디테일 2026-10-26, character::turn_yaw).
-            crate::character::action::turn_yaw(&mut tr, d.x.atan2(d.z), time.delta_secs());
+            // 뚝 끊긴다 — 이징 디테일 2026-10-26).
+            let want = Quat::from_rotation_y(d.x.atan2(d.z));
+            tr.rotation = tr.rotation.slerp(want, (time.delta_secs() * 12.0).clamp(0.0, 1.0));
         }
     }
 }

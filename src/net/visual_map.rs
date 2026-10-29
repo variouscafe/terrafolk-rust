@@ -6,6 +6,7 @@ use crate::world::data::PropKind;
 /// 자원 stateJson 최소 파싱 — 동물 {alive}·건축 {stage,type,w,h,progress}·
 /// 나무 {maturity}(§17.75 다중 타일·성장 단계).
 #[derive(Default, serde::Deserialize)]
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))] // owner·owner_name 소비자(툴팁)는 네이티브 UI
 pub(crate) struct ResState {
     #[serde(default)]
     pub(crate) alive: Option<bool>,
@@ -103,10 +104,7 @@ pub(crate) fn live_visual(kind: &str, species: &str, state: &ResState) -> Option
             }
             let bld_type = state.bld_type.as_deref().unwrap_or("HUT");
             let (k, h) = match bld_type {
-                "WINDBREAK" => (
-                    PropKind::Windbreak,
-                    crate::world::models::prop_model(PropKind::Windbreak).0,
-                ),
+                // WINDBREAK(바람막이) — Kit 자산 철퇴(2026-10-29)로 비표시.
                 "LONGHOUSE" => (PropKind::Hut, 4.2 * 1.5),
                 "WAREHOUSE" => (
                     PropKind::StorageHut,
@@ -153,8 +151,6 @@ pub(crate) fn live_prop(kind: &str, species: &str) -> Option<PropKind> {
         }),
         "plant" => Some(PropKind::BerryBush),
         "gold_vein" => Some(PropKind::GoldVein),
-        "campfire" => Some(PropKind::Campfire),
-        "stash" => Some(PropKind::Stash),
         "grave" => Some(PropKind::Grave),
         "relic" => Some(PropKind::Relic),
         _ => None,

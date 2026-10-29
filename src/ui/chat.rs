@@ -231,7 +231,7 @@ pub fn chat_input(
 /// 개발 스위치 — UI 입력 없이 송신→서버 방송→수신 경로 전체를 로그로 검증).
 pub fn auto_greet(
     time: Res<Time>,
-    villagers: Query<(Entity, &crate::world::villager::Villager, Option<&crate::net::apply::LiveAgentTag>)>,
+    villagers: Query<(Entity, &crate::world::agent::Villager, Option<&crate::net::apply::LiveAgentTag>)>,
     mut sel: ResMut<Selection>,
     mut done: Local<bool>,
 ) {

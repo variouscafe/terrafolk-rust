@@ -10,7 +10,7 @@ use crate::net::agent_hud::AgentHud;
 use crate::net::apply::LiveAgentTag;
 use crate::world::cam_follow::CamFollow;
 use crate::world::pick::Selection;
-use crate::world::villager::Villager;
+use crate::world::agent::Villager;
 
 #[derive(Component)]
 pub struct CharsPopupRoot;

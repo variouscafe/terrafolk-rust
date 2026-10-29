@@ -188,10 +188,7 @@ pub fn sync_resources(
                 ) {
                     animals += 1;
                 }
-                if matches!(
-                    p.kind,
-                    PropKind::Hut | PropKind::StorageHut | PropKind::Tent
-                ) {
+                if matches!(p.kind, PropKind::Hut | PropKind::StorageHut) {
                     buildings += 1;
                 }
             }
@@ -305,31 +302,6 @@ pub fn sync_resources(
                 commands
                     .entity(site)
                     .insert((LiveResourceTag(r.id), LiveResMeta(sig)));
-                // 재료 더미 — 부지 준비 단계의 장작(FE SITE_PREPARED 재료 표현)
-                let log_h = crate::world::models::prop_model(PropKind::WoodLog).0 * 0.9;
-                let pile = commands
-                    .spawn((
-                        crate::world::models::PropRoot {
-                            kind: PropKind::WoodLog,
-                            target_h: log_h,
-                            ground_y: ground,
-                            rot_y: (r.id % 360) as f32 / 360.0 * std::f32::consts::TAU,
-                            scale_jitter: 1.0,
-                            variants: crate::world::models::prop_model(PropKind::WoodLog).1,
-                        },
-                        bevy::world_serialization::WorldAssetRoot(
-                            crate::world::models::prop_scene(PropKind::WoodLog, &assets),
-                        ),
-                        Transform::from_translation(Vec3::new(
-                            r.x as f32 + 0.35,
-                            ground,
-                            r.y as f32 + 0.35,
-                        )),
-                    ))
-                    .id();
-                commands
-                    .entity(pile)
-                    .insert((LiveResourceTag(r.id), LiveResMeta(sig)));
             } else if let Some((kind, target_h)) = live_visual(&r.kind, &r.species, &st) {
                 // 발명품 3D 모델 우선(§17.86 확장) — relic 부지의 species가
                 // 모델 보유 발명명과 일치하면 원격 GLB(DynProp)로 스폰.
@@ -404,7 +376,6 @@ pub fn sync_resources(
             kind,
             PropKind::TreeBroadleaf
                 | PropKind::TreePine
-                | PropKind::TreePalm
                 | PropKind::TreeSapling
                 | PropKind::BerryBush
         ) && cleared.contains(&(r.x as i32, r.y as i32))
@@ -453,24 +424,6 @@ pub fn sync_resources(
             );
             commands
                 .entity(spark)
-                .insert((LiveResourceTag(r.id), LiveResMeta(sig)));
-        }
-        // 모닥불 — 발광 불꽃·라이트는 PropRoot와 별도 엔티티(데모 경로와 공통 헬퍼).
-        // 동일 동기화 태그+서명 부여로 제거·상태변화 시 모델과 함께 철거·재생성.
-        if kind == crate::world::data::PropKind::Campfire {
-            let (flame, glow) = crate::world::models::spawn_campfire_fire(
-                &mut commands,
-                &mut meshes,
-                &mut std_mats,
-                r.x as f32 + 0.5,
-                r.y as f32 + 0.5,
-                ground,
-            );
-            commands
-                .entity(flame)
-                .insert((LiveResourceTag(r.id), LiveResMeta(sig)));
-            commands
-                .entity(glow)
                 .insert((LiveResourceTag(r.id), LiveResMeta(sig)));
         }
     }

@@ -23,7 +23,7 @@ use crate::world::camera_rig::CameraRig;
 use crate::world::data::WorldData;
 use crate::world::overlay::{PanBridge, view_box};
 use crate::world::pick::Selection;
-use crate::world::villager::Villager;
+use crate::world::agent::Villager;
 
 /// 미니맵 플러그인 — 웹(wasm)·네이티브 양측에서 등록(lib.rs). UiPlugin과
 /// 별개로 자체 테마 확보(ensure_theme)하므로 플러그인 추가 순서와 무관하게
