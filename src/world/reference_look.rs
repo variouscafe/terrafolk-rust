@@ -42,6 +42,22 @@ pub fn items() -> WornItems {
             .scaled(Vec3::new(1.0, 0.78, 1.0))
             .tint(Color::srgb_u8(217, 173, 82))
             .faceted(),
+        // 밴드 상·하 트림 — 어두운 테라코타 얇은 링(§4 '위아래 경계 식별
+        // 가능해야' — 3차 디테일 2026-10-29).
+        WearPart::new(WearPrim::Cyl { r: 0.34, h: 0.022 })
+            .at(Vec3::new(0.0, 0.972, HAT_Z))
+            .tint(Color::srgb_u8(154, 79, 32))
+            .faceted(),
+        WearPart::new(WearPrim::Cyl { r: 0.34, h: 0.022 })
+            .at(Vec3::new(0.0, 0.828, HAT_Z))
+            .tint(Color::srgb_u8(154, 79, 32))
+            .faceted(),
+        // 브림 이면 — 챙 밑 어두운 올리브 립(§4 '밑면은 어두운 올리브브라운'
+        // — 정면에서 밑면 그림자 라인으로 읽힌다).
+        WearPart::new(WearPrim::Cyl { r: 0.985, h: 0.025 })
+            .at(Vec3::new(0.0, 0.832, HAT_Z))
+            .tint(Color::srgb_u8(110, 96, 58))
+            .faceted(),
     ];
     let face = vec![
         // 눈 — 크고 둥근 세로 타원 홍채(바이블 §3.2 최강 정체성). 크고 둥근 세로 타원(0.3.2 원복값).
@@ -94,6 +110,28 @@ pub fn items() -> WornItems {
             .at(Vec3::new(0.0, 0.17, 0.50))
             .scaled(Vec3::new(1.5, 0.42, 0.4))
             .tint(Color::srgb_u8(122, 74, 58)),
+        // 코 — 작고 둥근 버튼(§3.1 '웜 오렌지살구 톤, 짧고 둥근 삼각형'
+        // — 동글동글한 평면 얼굴에 입체 디테일).
+        WearPart::new(WearPrim::Sph { r: 0.055 })
+            .at(Vec3::new(0.0, 0.29, 0.505))
+            .scaled(Vec3::new(0.85, 0.75, 0.7))
+            .tint(Color::srgb_u8(215, 120, 69)),
+        // 귀 2 — 머리 폭(±0.55)에서 살짝 돌출(§3.1 '양옆으로 약간 돌출,
+        // 둥금'). 속귀는 더 깊은 오렌지 점.
+        WearPart::new(WearPrim::Sph { r: 0.105 })
+            .at(Vec3::new(-0.54, 0.36, 0.03))
+            .scaled(Vec3::new(0.45, 1.0, 0.85))
+            .tint(Color::srgb_u8(230, 169, 114)),
+        WearPart::new(WearPrim::Sph { r: 0.105 })
+            .at(Vec3::new(0.54, 0.36, 0.03))
+            .scaled(Vec3::new(0.45, 1.0, 0.85))
+            .tint(Color::srgb_u8(230, 169, 114)),
+        WearPart::new(WearPrim::Sph { r: 0.038 })
+            .at(Vec3::new(-0.565, 0.36, 0.055))
+            .tint(Color::srgb_u8(215, 120, 69)),
+        WearPart::new(WearPrim::Sph { r: 0.038 })
+            .at(Vec3::new(0.565, 0.36, 0.055))
+            .tint(Color::srgb_u8(215, 120, 69)),
         // 앞머리 — 브림 아래 굵고 각진 뭉치 3개(바이블 §3.3: 중앙 길게
         // 아래로, 양옆 크게 갈라짐. 사실적 가닥 금지 — 조각 뭉치).
         WearPart::new(WearPrim::Sph { r: 0.10 })
@@ -177,6 +215,14 @@ pub fn items() -> WornItems {
         })
         .at(Vec3::new(0.155, -0.185, 0.425))
         .tint(Color::srgb_u8(181, 138, 67)),
+        // 포켓 상단 시임 — 어두운 그린 얇은 라인(포켓 입구 — 3차 디테일).
+        WearPart::new(WearPrim::Box {
+            w: 0.36,
+            h: 0.016,
+            d: 0.012,
+        })
+        .at(Vec3::new(0.0, -0.244, 0.428))
+        .tint(Color::srgb_u8(85, 115, 55)),
         // 앞포켓 — 본체보다 살짝 어두운 그린 패널.
         WearPart::new(WearPrim::Box {
             w: 0.36,
@@ -236,10 +282,41 @@ pub fn items() -> WornItems {
             .scaled(Vec3::new(1.5, 0.5, 0.6))
             .tint(Color::srgb_u8(156, 203, 92)),
     ];
+    // 소매 커프 — 팔꿈치 아래 접힌 소매 단(§5.1 'wide rolled cuffs'). wrist
+    // 본 로컬(계약: +Y=원위·팔 축)에서 −Y(몸쪽) 0.07 — 원기둥 축이 팔에 정렬.
+    let cuff = vec![
+        WearPart::new(WearPrim::Cyl { r: 0.105, h: 0.075 })
+            .at(Vec3::new(0.0, -0.07, 0.0))
+            .tint(Color::srgb_u8(220, 201, 152))
+            .faceted(),
+    ];
+    // 다리 — 바지 롤드 커프(§5.2) + 장화 밑창(§5.4 '두꺼운 오치어오렌지
+    // 밑창 밴드, 명확히 분리'). lowerleg 본 로컬(계약: +Y=원위=하향, X/Z
+    // 수평 — 발목 +Y 0.149 bind 실측).
+    let leg = vec![
+        // 바지 커프 — 장화 상단 바로 위, 본체와 다른 톤(§5.2).
+        WearPart::new(WearPrim::Cyl { r: 0.155, h: 0.09 })
+            .at(Vec3::new(0.0, 0.10, 0.0))
+            .tint(Color::srgb_u8(86, 116, 58))
+            .faceted(),
+        // 밑창 — 발밑 평평한 오치어 밴드(발가락 +Z 전방).
+        WearPart::new(WearPrim::Box {
+            w: 0.17,
+            h: 0.05,
+            d: 0.30,
+        })
+        .at(Vec3::new(0.0, 0.205, 0.045))
+        .tint(Color::srgb_u8(185, 109, 37))
+        .faceted(),
+    ];
     WornItems(vec![
         (WearSlot::Hat, hat),
         (WearSlot::Face, face),
         (WearSlot::Chest, chest),
+        (WearSlot::HandLeft, cuff.clone()),
+        (WearSlot::HandRight, cuff),
+        (WearSlot::LegLeft, leg.clone()),
+        (WearSlot::LegRight, leg),
     ])
 }
 
