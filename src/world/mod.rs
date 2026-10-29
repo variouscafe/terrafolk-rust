@@ -35,6 +35,10 @@ pub struct WorldPlugin;
 
 impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
+        // 섀도 맵 1024 — 정본 '경계 뭉개진 페인티드 블롭' 그림자(2026-10-30
+        // 6차). 기본 Gaussian 9탭 필터에 맵을 거칠게 두면 가장자리가
+        // 스무디해져 붓으로 찍은 듯한 덩어리가 된다(고해상도는 사진적 경계).
+        app.insert_resource(bevy::light::DirectionalLightShadowMap { size: 1024 });
         app.add_plugins(bevy::pbr::MaterialPlugin::<water::WaterMaterial>::default());
         app.init_asset::<water::WaterMaterial>();
         app.add_plugins(MaterialPlugin::<splat::TerrainMaterial>::default());
