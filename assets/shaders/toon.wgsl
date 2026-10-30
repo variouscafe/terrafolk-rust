@@ -65,12 +65,14 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let amb_c = lights.ambient_color.rgb / ab;
     col += albedo * amb_c * clamp(ab / 280.0, 0.0, 1.0) * 0.55;
 
-    // 수동 원근 안개 — terrain_splat.wgsl과 동일 수식·상수(화면 정합).
+    // 수동 원근 안개 — terrain_splat.wgsl과 동일 축·상수이나 계수는 낮게:
+    // 카드 나무(베이크 명암 스프라이트)는 안개에 잠기면 청록 실루엣으로
+    // 가라앉는다(폰 세로 프레임 실측 2026-10-30) — 원거리에서도 색 식별 유지.
     let view_dir = vec3<f32>(-0.5792, -0.5736, -0.5792);
     let axis = dot(in.world_position.xyz - view.world_position, view_dir) - 140.0;
     let fog_f = smoothstep(42.0, 125.0, axis);
     let fog_col = vec3<f32>(0.72, 0.81, 0.92);
-    col = mix(col, fog_col, fog_f * 0.75);
+    col = mix(col, fog_col, fog_f * 0.62);
 
     return vec4<f32>(col, alpha);
 }
