@@ -118,16 +118,10 @@ fn fragment(
     var out: FragmentOutput;
     out.color = apply_pbr_lighting(pbr_input);
     out.color = main_pass_post_lighting_processing(pbr_input, out.color);
-    // ── 카툰 루마 밴딩(2026-10-30 7차) — PBR의 부드러운 광역 그라디언트를
-    //    띠로 눌러 셀 애니 감광(카툰을 보는 듯한 지면). 색조 불변: 루마만
-    //    5밴드 양자화해 원본 대비 비율로 재적용, 혼합 0.55 — 포스터화 첩벽
-    //    느낌 없이 붓터치 띠만 남는다. 섀도맵(6차)·안개는 그 위에 그대로.
-    {
-        let c0 = out.color.rgb;
-        let l0 = max(dot(c0, vec3<f32>(0.3, 0.59, 0.11)), 1e-4);
-        let lq = floor(l0 * 5.0 + 0.5) / 5.0;
-        out.color = vec4<f32>(mix(c0, c0 * (lq / l0), 0.55), out.color.a);
-    }
+    // 7차 지형 루마 밴딩은 철회(2026-10-30 사용자 보고 '테두리 선 이상') —
+    // 연한 경사에서 등고선형 밴드 윤곽이 둘렌다. 정본 '가치대비 조형'은
+    // 형태 간 명암 대비지 형태 내부 그라데이션 포스터화가 아니다. 지형은
+    // 부드러운 PBR(6차) + 페인티드 블롭 섀도가 정답.
     // 수동 원근 안개 — 카메라 DistanceFog는 WebGL2 유니폼 한도로 불가.
     // 정사영 리그는 거리가 고정(camera_rig CAM_DIST=140)이라 절대거리로 쓰면 전면이
     // 안개에 묻힌다. 뷰축거리−카메라거리(=타깃에서의 이격)로 공기 원근을 건다.
