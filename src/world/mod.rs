@@ -23,9 +23,11 @@ pub mod precip;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod precip_fx;
 pub mod propsfx;
+pub mod birds;
 pub mod sky;
 pub mod splat;
 pub mod terrain;
+pub mod texture_mips;
 pub mod toon_props;
 pub mod water;
 
@@ -71,7 +73,7 @@ impl Plugin for WorldPlugin {
                 (
                     camera_rig::spawn_camera,
                     daynight::spawn_sun,
-                    sky::spawn_birds,
+                    birds::spawn_birds,
                     pick::spawn_ring,
                     pick::register_bridge,
                     overlay::register_pan_bridge,
@@ -94,6 +96,10 @@ impl Plugin for WorldPlugin {
         // 소품 툰화 — 지붕 잠금이 PBR 재질을 먼저 정리하고 스왑(같은 규칙을
         // 스왑 경로도 적용하지만 순서 보장이 이중 안전).
         app.add_plugins(toon_props::plugin);
+        // 페인티드 하늘 돔(10차) — apply_sky가 유니폼 원천(SkyParams)을 쓴다.
+        app.add_plugins(sky::plugin);
+        // CPU 밉 체인(10차) — 밉 바이어스 디테일 억제·축소 앨리어싱 감소.
+        app.add_plugins(texture_mips::plugin);
         app.add_systems(
             Update,
             (
@@ -111,7 +117,7 @@ impl Plugin for WorldPlugin {
                     overlay::hover_res, // §17.78 자원 호버 툴팁 — 미등록으로 죽어있었다(리뷰 #3)
                     propsfx::bob_relics,
                     propsfx::spark_veins,
-                    sky::sky_update,
+                    birds::update_birds,
                     globe::sync_globe_uniforms, // 카메라 이후 병렬 그룹에서 유니폼 반영
                 ),
                 (pick::drain_select, pick::pick_agent, pick::follow_selection).chain(),

@@ -156,6 +156,7 @@ pub fn apply_sky(
     mut grading_q: Query<&mut ColorGrading, With<Camera3d>>,
     mut ambient: ResMut<GlobalAmbientLight>,
     mut clear: ResMut<ClearColor>,
+    mut sky_p: ResMut<super::sky::SkyParams>,
 ) {
     let h = day.hour;
     // 일출~일몰 정규화(서버 계절 반영 — 겨울 짧은 낮)
@@ -244,6 +245,17 @@ pub fn apply_sky(
     sky = lerp3(sky, [0.74, 0.79, 0.9], cool);
 
     clear.0 = Color::srgb(sky[0], sky[1], sky[2]);
+
+    // ── 페인티드 하늘 돔 유니폼(10차) — 천정은 살짝 깊게, 지평선은 웜하게
+    //    눌러 원근 깊이. 구름은 낮에 만개, 밤·흐림·노을에 소멸.
+    sky_p.top = Vec3::new(sky[0] * 0.94, sky[1] * 0.98, sky[2] * 1.02);
+    sky_p.horizon = Vec3::new(sky[0] * 1.08, sky[1] * 1.02, sky[2] * 0.94);
+    {
+        let (e, a) = (elev.to_radians(), azimuth.to_radians());
+        sky_p.sun_dir =
+            Vec3::new(a.cos() * e.cos(), e.sin().max(0.06), a.sin() * e.cos()).normalize_or_zero();
+    }
+    sky_p.cloud = (1.0 - night) * (1.0 - gray * 0.55) * (1.0 - dusk_w * 0.3) * 0.85;
     ambient.brightness = (110.0 + (1.0 - night) * 170.0) * (0.55 + 0.45 * dim);
     // 쿨 앰비언트 — 웜키와의 색온도 대비(가치대비 조형). 구 낮 웜앰비언트는
     // 명암을 평탄화했다(정본: 웜키+쿨 앰비언트).
@@ -266,6 +278,11 @@ pub fn apply_sky(
             .clamp(0.6, 1.2);
         // 밤 노출 살짝 들어올림(+0.2 stop) — 어둠 속 실루엣만 남지 않게
         gg.exposure = night * 0.2;
+        // 하이키(10차) — 물감의 그림자는 어두워도 밝다: 섀도 섹션 ASC-CDL
+        // lift(+o 항)로 블랙을 들어올리고 contrast를 눌러 명암을 압축한다
+        // (정본 일러스트 하이키 감각). global 대여 종료 후 섹션 접근.
+        g.shadows.lift = (1.0 - night) * 0.045 + night * 0.02;
+        g.shadows.contrast = 1.0 - (1.0 - night) * 0.10;
     }
 }
 

@@ -1,143 +1,118 @@
-//! 하늘 생명 — 새 떼 원 유영(FE ambient.ts 포트, 시각 연출만).
-//! 무리 3개×5마리가 마을 상공(고도 9~13m)을 원 유영하며 서풍으로 표류한다.
-//! 새벽부터 낮에만 활동(밤 소멸), 겨울엔 절반이 휴면(남하) — FE 계절 규칙.
-//! 새는 절대각 카메라를 향한 작은 실루엣 쿼드, 날개짓은 세로 스케일 펄스.
+//! 페인티드 하늘 돔(2026-10-30 10차) — 지브리풍 카툰 하늘. 천정→지평선
+//! 그라디언트 + fbm 클럼프 구름 뭉치(물 포말 뭉치 기법 계승 — 큰 덩어리
+//! 실루엣 + 내부 2톤). 카메라를 따라다니는 반지름 390 돔(내부면 렌더 —
+//! 컬링 끔·깊기 기록 없음), ClearColor는 돔 하단 밖 폴백으로 잔존.
+//! 밤엔 구름 소멸(별·달 메시가 돔 위에 그려짐 — 돔은 깊기를 안 쓰므로
+//! 가까운 메시가 항상 이긴다).
 
-use bevy::math::primitives::Circle;
+use bevy::pbr::{MaterialPipeline, MaterialPipelineKey};
 use bevy::prelude::*;
+use bevy::render::render_resource::AsBindGroup;
 
-use super::data::WorldData;
-use super::daynight::DayTime;
-
-/// 새 무리 — 중심 표류·원 유영 파라미터.
-#[derive(Component)]
-pub struct BirdFlock {
-    pub center: Vec2,
-    /// 표류 속도(서풍 → +x 방향, FE 구름그림자와 같은 바람)
-    pub drift: Vec2,
-    pub radius: f32,
-    /// 원 유영 각속도(rad/s)
-    pub speed: f32,
-    pub phase: f32,
-    pub count: usize,
+/// 하늘 유니폼 원천 — daynight::apply_sky가 시각·날씨로 매 프레임 갱신.
+#[derive(Resource, Debug, Clone)]
+pub struct SkyParams {
+    pub top: Vec3,
+    pub horizon: Vec3,
+    pub sun_dir: Vec3,
+    /// 구름 양(0=맑음 · 1=만개)
+    pub cloud: f32,
 }
 
-/// 개별 새 — 무리 루트의 자식. flap 위상.
-#[derive(Component)]
-pub struct Bird {
-    pub orbit_phase: f32,
-    pub height: f32,
-    pub flap: f32,
-    pub size: f32,
+impl Default for SkyParams {
+    fn default() -> Self {
+        Self {
+            top: Vec3::new(0.72, 0.82, 0.88),
+            horizon: Vec3::new(0.86, 0.88, 0.84),
+            sun_dir: Vec3::new(0.35, 0.8, 0.45).normalize_or_zero(),
+            cloud: 0.8,
+        }
+    }
 }
 
-const BIRD_COLOR: Color = Color::srgb(0.16, 0.18, 0.22);
-/// 부저각 카메라 방향(요 45°·피치 35°) — 쿼드가 카메라를 향한다.
-const CAM_FACE: Vec3 = Vec3::new(0.579, 0.574, 0.579);
+/// 돔 재질 — 유니폼 3개(top/horizon/sun, WebGL2 프래그먼트 UBO 한도 내).
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
+pub struct SkyMaterial {
+    /// rgb=천정색 · a=구름 양
+    #[uniform(0)]
+    pub top: Vec4,
+    /// rgb=지평선색 · a=예비
+    #[uniform(1)]
+    pub horizon: Vec4,
+    /// xyz=태양 방향(단위벡터) · w=예비
+    #[uniform(2)]
+    pub sun: Vec4,
+}
 
-pub fn spawn_birds(
+impl Material for SkyMaterial {
+    fn fragment_shader() -> bevy::shader::ShaderRef {
+        "shaders/sky.wgsl".into()
+    }
+    fn specialize(
+        _pipeline: &MaterialPipeline,
+        descriptor: &mut bevy::render::render_resource::RenderPipelineDescriptor,
+        _layout: &bevy::mesh::MeshVertexBufferLayoutRef,
+        _key: MaterialPipelineKey<Self>,
+    ) -> Result<(), bevy::render::render_resource::SpecializedMeshPipelineError> {
+        // 내부에서 보는 돔 — 백페이스 컬링 끔. 깊이 기록 없음(항상 배경).
+        descriptor.primitive.cull_mode = None;
+        if let Some(ds) = descriptor.depth_stencil.as_mut() {
+            ds.depth_write_enabled = Some(false);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Component)]
+struct SkyDome(Handle<SkyMaterial>);
+
+const DOME_R: f32 = 390.0; // 카메라 far 420 안 — 항상 전경 너머
+
+fn sky_setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut mats: ResMut<Assets<StandardMaterial>>,
-    world: Res<WorldData>,
+    mut mats: ResMut<Assets<SkyMaterial>>,
+    params: Res<SkyParams>,
 ) {
     if crate::net::dbg_gate::off("no_sky") {
-        return; // 진단 게이트 — 새 떼 스폰 스킵
+        return;
     }
-    let mesh = meshes.add(Mesh::from(Circle::new(0.16)));
-    let mat = mats.add(StandardMaterial {
-        base_color: BIRD_COLOR,
-        unlit: true,
-        ..default()
+    let mat = mats.add(SkyMaterial {
+        top: params.top.extend(params.cloud),
+        horizon: params.horizon.extend(0.0),
+        sun: params.sun_dir.extend(0.0),
     });
-    // 결정론 분포 — 무리 3개(봄~가을 전부, 겨울엔 sky_update가 절반 숨김)
-    let seeds = [
-        (0.22f32, 0.30f32, 7.5f32, 0.55f32),
-        (0.68, 0.62, 9.0, -0.42),
-        (0.45, 0.82, 8.0, 0.38),
-    ];
-    for (fx, fy, radius, speed) in seeds {
-        let center = Vec2::new(fx, fy) * world.size as f32;
-        let flock = commands
-            .spawn((
-                BirdFlock {
-                    center,
-                    drift: Vec2::new(0.35, 0.08),
-                    radius,
-                    speed,
-                    phase: fx * std::f32::consts::TAU,
-                    count: 5,
-                },
-                Transform::default(),
-                Visibility::default(),
-            ))
-            .with_children(|c| {
-                for i in 0..5usize {
-                    c.spawn((
-                        Bird {
-                            orbit_phase: i as f32 / 5.0 * std::f32::consts::TAU,
-                            height: 9.0 + (i % 3) as f32 * 1.4,
-                            flap: 0.6 + i as f32 * 0.37,
-                            size: 0.8 + (i % 2) as f32 * 0.3,
-                        },
-                        Mesh3d(mesh.clone()),
-                        MeshMaterial3d(mat.clone()),
-                        Transform::default(),
-                    ));
-                }
-            })
-            .id();
-        let _ = flock;
+    commands.spawn((
+        Mesh3d(meshes.add(Sphere::new(DOME_R))),
+        MeshMaterial3d(mat.clone()),
+        SkyDome(mat),
+        Transform::default(),
+    ));
+}
+
+/// 유니폼 전파 + 카메라 추적(스카이박스 계약 — 돔 중심 = 카메라 위치).
+fn sky_update(
+    params: Res<SkyParams>,
+    cams: Query<&GlobalTransform, With<Camera3d>>,
+    mut domes: Query<(&mut Transform, &SkyDome)>,
+    mut mats: ResMut<Assets<SkyMaterial>>,
+) {
+    if let Ok((_, dome)) = domes.single() {
+        if let Some(mut m) = mats.get_mut(&dome.0) {
+            m.top = params.top.extend(params.cloud);
+            m.horizon = params.horizon.extend(0.0);
+            m.sun = params.sun_dir.extend(0.0);
+        }
+    }
+    if let (Ok(cam), Ok((mut t, _))) = (cams.single(), domes.single_mut()) {
+        t.translation = cam.translation();
     }
 }
 
-/// 새 유영 갱신 — 무리 중심 표류(월드 순환) + 원 궤도 + 날개짓 스케일 펄스.
-/// 밤(night_factor > 0.6)엔 숨김, 겨울엔 무리 절반 휴면(FE 남하 규칙).
-/// 글로브 곡률 구간(factor>0.05)에서도 숨김 — 새는 높이 9~12에서 나는데
-/// 구면 워프가 지형만 표면에 붙이므로 궤도 뷰에서 행성과 분리된 부유 점무리로
-/// 보인다("하늘의 가발" 보고 2026-10-25 — view_box 숨김과 동일 임계).
-pub fn sky_update(
-    time: Res<Time>,
-    day: Res<DayTime>,
-    world: Res<WorldData>,
-    rig: Res<super::camera_rig::CameraRig>,
-    mut flocks: Query<(&mut BirdFlock, &mut Visibility, &Children)>,
-    mut birds: Query<(&Bird, &mut Transform), Without<BirdFlock>>,
-) {
-    let t = time.elapsed_secs();
-    let size = world.size as f32;
-    let night = day.night_factor;
-    let winter = day.season == "winter";
-    let globe = super::globe::factor_for(rig.zoom) > 0.05;
-    for (i, (mut flock, mut vis, children)) in flocks.iter_mut().enumerate() {
-        // 표류 — 서풍(+x). 월드 밖으로 나가면 반대편에서 재등장(순환 바람)
-        let drift = flock.drift * time.delta_secs();
-        flock.center += drift;
-        if flock.center.x > size + 12.0 {
-            flock.center.x = -12.0;
-        }
-        if flock.center.y > size + 12.0 {
-            flock.center.y = -12.0;
-        }
-        *vis = if night > 0.6 || globe || (winter && i % 2 == 1) {
-            Visibility::Hidden
-        } else {
-            Visibility::Visible
-        };
-        for child in children.iter() {
-            let Ok((bird, mut tr)) = birds.get_mut(child) else {
-                continue;
-            };
-            let ang = flock.phase + t * flock.speed + bird.orbit_phase;
-            let x = flock.center.x + ang.cos() * flock.radius;
-            let z = flock.center.y + ang.sin() * flock.radius * 0.7;
-            // 날개짓 — 세로 스케일 0.45↔1.15(8~10Hz 체감), 활공 구간(사인 양수)엔 접힘
-            let flap = (t * 9.0 + bird.flap * std::f32::consts::TAU).sin();
-            let sy = 0.8 + flap * 0.35;
-            let pos = Vec3::new(x, bird.height + ang.sin() * 0.4, z);
-            tr.translation = pos;
-            tr.scale = Vec3::new(bird.size, bird.size * sy.max(0.35), bird.size);
-            tr.look_at(pos + CAM_FACE * 10.0, Vec3::Y);
-        }
-    }
+pub fn plugin(app: &mut App) {
+    app.init_resource::<SkyParams>()
+        .init_asset::<SkyMaterial>()
+        .add_plugins(bevy::pbr::MaterialPlugin::<SkyMaterial>::default())
+        .add_systems(Startup, sky_setup)
+        .add_systems(Update, sky_update);
 }

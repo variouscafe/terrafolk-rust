@@ -15,7 +15,9 @@
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    let base = textureSample(t_base, s_base, in.uv);
+    // 10차 디테일 억제 — 밉 바이어스(LOD 2)로 텍스처 고주파를 뭉개 색면화.
+    // 페인트엔 사진 디테일이 없다(지브리 배경 = 낮은 공간주파수).
+    let base = textureSampleLevel(t_base, s_base, in.uv, 2.0);
     var albedo = base.rgb * tint.rgb;
     let alpha = base.a * tint.a;
 

@@ -235,6 +235,9 @@ pub fn update_minimap(
             Some(h) => {
                 if let Some(mut img) = images.get_mut(h) {
                     img.data = Some(pixels.clone());
+                    // CPU 재편집 이미지 = 1레벨 — texture_mips가 붙인 체인과
+                    // 카운트가 어긋나면 GPU 업로드가 패닉한다.
+                    img.texture_descriptor.mip_level_count = 1;
                     // 크기 변화(데모→라이브 맵 교체)까지 반영
                     img.texture_descriptor.size = Extent3d {
                         width: size as u32,
@@ -300,6 +303,8 @@ pub fn update_minimap(
         && let Some(mut img) = images.get_mut(h)
     {
         img.data = Some(buf);
+        // CPU 재편집 = 1레벨(밉 체인 카운트 정합 — 위 주석 참조)
+        img.texture_descriptor.mip_level_count = 1;
     }
 
     // 상태 칩 — 라이브=초록 '라이브', 끊김·재접속=빨강(라벨과 색은 상태 1:1).

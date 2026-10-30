@@ -101,6 +101,8 @@ pub fn update_badges(
                     Some(h) => {
                         if let Some(mut img) = images.get_mut(h) {
                             img.data = Some(ring_buf(hud.act_progress));
+                            // CPU 재편집 = 1레벨(밉 체인 카운트 정합 — texture_mips 참조)
+                            img.texture_descriptor.mip_level_count = 1;
                         }
                     }
                     None => {

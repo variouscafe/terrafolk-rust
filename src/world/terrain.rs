@@ -216,6 +216,8 @@ fn build_terrain(
         base: StandardMaterial {
             perceptual_roughness: 1.0,
             metallic: 0.0,
+            // 10차 완전 매트화 — 스펙큘러 하이라이트 제거(페인트엔 광택 없음)
+            reflectance: 0.0,
             cull_mode: None, // 와인딩 방어 — 정적 지형
             ..default()
         },

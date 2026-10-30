@@ -119,6 +119,14 @@ pub fn toonify_props(
                         ),
                         None => (None, bevy::color::LinearRgba::WHITE),
                     };
+                    // toon LOD 2 바이어스가 걸리려면 체인 필요 — 스왑 시점에
+                    // 해당 텍스처만 생성(전역 스캔 금지 — 나무 알파 컷아웃
+                    // 가장자리 붓터치 사고, 10.1).
+                    if let Some(t) = &tex {
+                        if let Some(mut img) = images.get_mut(t) {
+                            super::texture_mips::ensure_mips(&mut img);
+                        }
+                    }
                     let base = tex.unwrap_or_else(|| white_fallback(&mut images, &mut white));
                     toon_mats.add(ToonMaterial {
                         base,

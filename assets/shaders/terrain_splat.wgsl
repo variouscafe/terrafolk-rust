@@ -72,31 +72,39 @@ fn fragment(
     //    페인티드 패치 느낌(무아웃라인·가치대비 조형). 순수 채널 게인은
     //    전역 그레이딩(채도 +0.12)과 프레이밍별 조도 편차에 휘둘려 목표에서
     //    이탈했다(실측 2회 교차 검증).
-    let g_l = dot(textureSample(t_grass, s_grass, uv).rgb, vec3<f32>(0.3, 0.59, 0.11));
+    // ── 10차 디테일 억제 — 밉 바이어스 고 LOD 샘플로 사진급 고주파(잎사귀·
+    //    모래알)를 큰 색면으로 뭉갠다. '3D 느낌'의 주범인 질감 디테일 제거 —
+    //    지브리 배경은 붓터치 단위의 낮은 공간주파수. 유기 레이어(풀·숲·
+    //    모래, 512px/타일 ≈ 174px/m)는 붓터치 스케일(LOD 5 ≈ 18cm/px),
+    //    암석·흙은 절벽 구조가 살도록 약하게(LOD 3).
+    let g = textureSampleLevel(t_grass, s_grass, uv, 5.0).rgb;
+    let g_l = dot(g, vec3<f32>(0.3, 0.59, 0.11));
     let grass_c = mix(
-        textureSample(t_grass, s_grass, uv).rgb * vec3<f32>(0.88, 0.94, 1.15),
+        g * vec3<f32>(0.88, 0.94, 1.15),
         vec3<f32>(g_l) * vec3<f32>(0.95, 1.02, 0.80), 0.55);
-    let f_l = dot(textureSample(t_forest, s_forest, uv).rgb, vec3<f32>(0.3, 0.59, 0.11));
+    let f = textureSampleLevel(t_forest, s_forest, uv, 5.0).rgb;
+    let f_l = dot(f, vec3<f32>(0.3, 0.59, 0.11));
     let forest_c = mix(
-        textureSample(t_forest, s_forest, uv).rgb * vec3<f32>(0.82, 0.86, 1.05),
+        f * vec3<f32>(0.82, 0.86, 1.05),
         vec3<f32>(f_l) * vec3<f32>(0.80, 0.92, 0.72), 0.65);
-    let s_l = dot(textureSample(t_sand, s_sand, uv).rgb, vec3<f32>(0.3, 0.59, 0.11));
+    let s_t = textureSampleLevel(t_sand, s_sand, uv, 5.0).rgb;
+    let s_l = dot(s_t, vec3<f32>(0.3, 0.59, 0.11));
     let sand_c = mix(
-        textureSample(t_sand, s_sand, uv).rgb * vec3<f32>(1.05, 0.96, 0.86),
+        s_t * vec3<f32>(1.05, 0.96, 0.86),
         vec3<f32>(s_l) * vec3<f32>(1.12, 0.99, 0.80), 0.50);
+    let rock_c = textureSampleLevel(t_rock, s_rock, uv, 3.0).rgb;
+    let dirt_c = textureSampleLevel(t_dirt, s_dirt, uv, 3.0).rgb;
     var col = w.x * grass_c
             + w.y * forest_c
             + w.z * sand_c
-            + w2.x * textureSample(t_rock, s_rock, uv).rgb
-            + w2.y * textureSample(t_dirt, s_dirt, uv).rgb;
+            + w2.x * rock_c
+            + w2.y * dirt_c;
 
     // ── 경사 절벽 — 급경사(노멀.y 낮음)에 암석+흙 줄무늬 혼합·살짝 어둡게(AO감).
     //    유니폼 없이 상수 임계(WebGL2 12유니폼 한도 준수).
     let nrm = normalize(in.world_normal);
     let slope = smoothstep(0.90, 0.62, nrm.y); // 0=평지, 1=가파름
     if slope > 0.001 {
-        let rock_c = textureSample(t_rock, s_rock, uv).rgb;
-        let dirt_c = textureSample(t_dirt, s_dirt, uv).rgb;
         col = mix(col, rock_c, slope * 0.88);
         col = mix(col, dirt_c, slope * slope * 0.30);
         col *= 1.0 - slope * 0.10;
