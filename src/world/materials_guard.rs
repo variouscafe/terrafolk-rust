@@ -29,19 +29,25 @@ pub fn guard_blend_materials(mut mats: ResMut<Assets<StandardMaterial>>) {
 /// 제외 — 지붕 파랑(루마 0.455)만 매치.
 pub fn lock_roof_palette(mut mats: ResMut<Assets<StandardMaterial>>) {
     for (_, m) in mats.iter_mut() {
-        let c = m.base_color.to_linear();
-        let (r, g, b) = (c.red, c.green, c.blue);
-        let luma = r * 0.3 + g * 0.59 + b * 0.11;
-        if b > r + 0.06 && b > g + 0.03 && (0.38..0.70).contains(&luma) {
-            // CottageHouses 테라코타 변형(선형 0.72, 0.36, 0.26)과 동일값 —
-            // 마을 지붕 전체가 한 팔레트로 읽히게.
-            m.base_color = LinearRgba {
-                red: 0.72,
-                green: 0.36,
-                blue: 0.26,
-                alpha: c.alpha,
-            }
-            .into();
+        m.base_color = lock_roof_color(m.base_color.to_linear()).into();
+    }
+}
+
+/// 지붕 잠금 규칙(단색) — PBR 스캔 경로와 툰 스왑 경로(toon_props)가 같은
+/// 규칙을 쓴다: 스왑이 먼저 재질을 소비해도 파란 지붕은 테라코타로.
+pub fn lock_roof_color(c: LinearRgba) -> LinearRgba {
+    let (r, g, b) = (c.red, c.green, c.blue);
+    let luma = r * 0.3 + g * 0.59 + b * 0.11;
+    if b > r + 0.06 && b > g + 0.03 && (0.38..0.70).contains(&luma) {
+        // CottageHouses 테라코타 변형(선형 0.72, 0.36, 0.26)과 동일값 —
+        // 마을 지붕 전체가 한 팔레트로 읽히게.
+        LinearRgba {
+            red: 0.72,
+            green: 0.36,
+            blue: 0.26,
+            alpha: c.alpha,
         }
+    } else {
+        c
     }
 }

@@ -26,6 +26,7 @@ pub mod propsfx;
 pub mod sky;
 pub mod splat;
 pub mod terrain;
+pub mod toon_props;
 pub mod water;
 
 use bevy::pbr::MaterialPlugin;
@@ -90,6 +91,9 @@ impl Plugin for WorldPlugin {
         app.add_systems(Update, animal_anim::play_animal_idles);
         app.add_systems(Update, materials_guard::guard_blend_materials);
         app.add_systems(Update, materials_guard::lock_roof_palette);
+        // 소품 툰화 — 지붕 잠금이 PBR 재질을 먼저 정리하고 스왑(같은 규칙을
+        // 스왑 경로도 적용하지만 순서 보장이 이중 안전).
+        app.add_plugins(toon_props::plugin);
         app.add_systems(
             Update,
             (
