@@ -123,6 +123,23 @@ localhost 오리진 — 8095/8096은 CORS 400). 인증 액션은 배포 사이�
 localStorage `readAuth` 토큰을 로컬 탭에 복사. proto2d는 별도 레포로
 분리돼 있으며(위 proto2d 절 참조) 이 repo 소관이 아니다.
 
+**터널 테스트 루프(2026-10-30, 사용자 지시 — 테스트 시 배포 금지)**: 그래픽
+반복 작업은 **Cloudflare Pages 배포 없이** 로컬 dist를 사용자 확인 URL로
+노출한다 — `dist/`를 로컬 3000번대에 서빙(`python3 -m http.server 3000
+--bind 127.0.0.1`)하고 리버스 터널 `ssh -N -f -p 315 -o ExitOnForwardFailure
+=yes root@221.143.21.29 -R 0.0.0.0:3000:localhost:3000` → 사용자는
+**http://221.143.21.29:3000** 에서 확인. 포트는 3000~3020(업스트림 방화벽이
+**3000만** 외부 개방 — 3001+는 서버 내부에선 열려도 외부에서 안 열림, 실측
+2026-10-30). tf-api CORS에는 `http://221.143.21.29:3000~3020`을 등록했다
+(aiserver `~/terrafolk/backend/.env` CORS_ORIGINS — 코드 기본값 아님).
+백엔드 재시작 레시피: launchd가 아니라 terin 소유 uvicorn 프로세스 —
+`cd ~/terrafolk/backend && pkill -f "uvicorn terrafolk_api"; sleep 2;
+PYTHONPATH=src nohup .venv/bin/uvicorn terrafolk_api.main:app --host 0.0.0.0
+--port 8892 --workers 1 >> ~/terrafolk/logs/backend.log 2>&1 &`(PYTHONPATH
+누락 시 ModuleNotFoundError, 로그 경로는 ~/terrafolk/logs 절대경로). 캡처
+검증도 터널 URL로 직접(오리진이 CORS 목록에 있음) — 프라임 신호는
+**body.tf-loading 클래스 해제**(root3d_smoke 계약, `waitForFunction`).
+
 **proto2d 완전 분리(2026-10-28)**: proto2d는 개발 종료(2026-10-27, 사용자
 지시)로 sibling 레포 **`../terrafolk-2d-rust-proto`**(github
 variouscafe/terrafolk-2d-rust-proto — 코드·tools·notes 전부 이관,

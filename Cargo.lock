@@ -5212,7 +5212,7 @@ dependencies = [
 
 [[package]]
 name = "terrafolk_bevy"
-version = "0.8.72"
+version = "0.8.73"
 dependencies = [
  "bevy",
  "colyseus-lite",

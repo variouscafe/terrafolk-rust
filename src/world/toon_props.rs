@@ -1,13 +1,18 @@
-//! 맵 소품 툰화(2026-10-30 7차) — 나무·건물·동물·유물 등 GLB 소품의
+//! 맵 소품 툰화(2026-10-30 7차) — 건물·동물·유물 등 GLB 소품의
 //! StandardMaterial을 3밴드 셀 램프(toon.wgsl)로 교체한다. 지형 루마
 //! 밴딩(terrain_splat.wgsl)과 짝을 이뤄 화면 전체를 '카툰을 보는 듯한'
 //! 감광으로 통일한다. 구 주민 toonify(villager toon)의 스왑 패턴 계승 —
 //! 씬 자손 순회 후 메시 단위 멱등 스왑(ToonSwapped 마커).
 //!
+//! **나무·초본은 제외**(2026-10-30 사용자 보고 '나무에 선 추가됨') — 잎
+//! 덩어리의 셀 램프 경계가 윤곽선으로 읽힌다. 유기 형태는 지형과 동일하게
+//! 매끈한 PBR + 페인티드 블롭 섀도(8차 원칙: 가치대비는 형태 간 대비).
+//!
 //! 섀도 수신은 포기(구 캐릭터와 동일 계약) — 커스텀 프래그먼트는 bevy
 //! 섀도 샘플링에 묶이지 않는다. 투사(cast)는 뎁스 패스가 재질 무관이라
 //! 유지되고, 지면 그림자(6차 페인티드 블롭)가 장면의 그림자 축을 담당한다.
 
+use super::data::PropKind;
 use bevy::asset::AssetId;
 use bevy::pbr::StandardMaterial;
 use bevy::platform::collections::HashMap;
@@ -63,7 +68,10 @@ fn white_fallback(
 #[allow(clippy::type_complexity)] // Bevy 시스템 파라미터 — 씬 순회·재질 캐시
 pub fn toonify_props(
     mut commands: Commands,
-    roots: Query<Entity, Or<(With<super::models::PropRoot>, With<super::prop_fit::DynProp>)>>,
+    roots: Query<
+        (Entity, Option<&super::models::PropRoot>),
+        Or<(With<super::models::PropRoot>, With<super::prop_fit::DynProp>)>,
+    >,
     children: Query<&Children>,
     std_mats: Res<Assets<StandardMaterial>>,
     mut toon_mats: ResMut<Assets<ToonMaterial>>,
@@ -76,7 +84,23 @@ pub fn toonify_props(
     if roots.is_empty() {
         return;
     }
-    for root in roots.iter() {
+    for (root, pr) in roots.iter() {
+        // 나무·초본(유기 형태)은 스왑 제외 — 셀 램프 경계가 잎 덩어리에
+        // 윤곽선으로 읽힌다(모듈 doc 참조). 매끈한 PBR + 블롭 섀도 유지.
+        if let Some(pr) = pr {
+            if matches!(
+                pr.kind,
+                PropKind::TreeBroadleaf
+                    | PropKind::TreePine
+                    | PropKind::TreeSapling
+                    | PropKind::TreeDead
+                    | PropKind::BerryBush
+                    | PropKind::GrassClump
+                    | PropKind::FlowerClump
+            ) {
+                continue;
+            }
+        }
         let mut stack = vec![root];
         while let Some(e) = stack.pop() {
             let Ok(kids) = children.get(e) else {
