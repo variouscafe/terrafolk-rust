@@ -7,6 +7,9 @@
 //! **나무·초본은 제외**(2026-10-30 사용자 보고 '나무에 선 추가됨') — 잎
 //! 덩어리의 셀 램프 경계가 윤곽선으로 읽힌다. 유기 형태는 지형과 동일하게
 //! 매끈한 PBR + 페인티드 블롭 섀도(8차 원칙: 가치대비는 형태 간 대비).
+//! **단, 카드 나무(절출 스프라이트 GLB — 2단계 리페인트)는 예외적 포함**:
+//! 스프라이트에 명암이 베이크돼 있어 PBR 조명이 이중 감산(실측 명도
+//! 0.28로 침강) — 평면 카드엔 지오메트리 밴딩이 없어 9차 사고 재발 없음.
 //!
 //! 섀도 수신은 포기(구 캐릭터와 동일 계약) — 커스텀 프래그먼트는 bevy
 //! 섀도 샘플링에 묶이지 않는다. 투사(cast)는 뎁스 패스가 재질 무관이라
@@ -85,19 +88,12 @@ pub fn toonify_props(
         return;
     }
     for (root, pr) in roots.iter() {
-        // 나무·초본(유기 형태)은 스왑 제외 — 셀 램프 경계가 잎 덩어리에
-        // 윤곽선으로 읽힌다(모듈 doc 참조). 매끈한 PBR + 블롭 섀도 유지.
+        // 초본(잔디·꽃 덤불 류)은 스왑 제외 — 셀 램프 경계가 잎 덩어리에
+        // 윤곽선으로 읽힌다(모듈 doc 참조). 나무 4종은 카드 리페인트 이후
+        // 예외적 포함(베이크 명암 + PBR 이중 감산 방지 — doc 참조).
+        // TreeDead는 여전 Quaternius 3D — 제외 유지.
         if let Some(pr) = pr {
-            if matches!(
-                pr.kind,
-                PropKind::TreeBroadleaf
-                    | PropKind::TreePine
-                    | PropKind::TreeSapling
-                    | PropKind::TreeDead
-                    | PropKind::BerryBush
-                    | PropKind::GrassClump
-                    | PropKind::FlowerClump
-            ) {
+            if matches!(pr.kind, PropKind::TreeDead | PropKind::GrassClump | PropKind::FlowerClump) {
                 continue;
             }
         }

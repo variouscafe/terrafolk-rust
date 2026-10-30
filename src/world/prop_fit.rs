@@ -215,10 +215,20 @@ pub fn fit_props(
         }
         s = clamped;
         let root_y = prop.ground_y - mn.y * s;
+        // 카드 나무(절출 스프라이트 GLB — 2026-10-30 2단계 리페인트)는
+        // 법선 +Z가 곧 카메라 정면(카메라 요 0° 고정). 결정론 회전을 그대로
+        // 쓰면 종잇장 옆면·빗면이 보인다 — 요 0 고정.
+        let card_tree = matches!(
+            prop.kind,
+            super::data::PropKind::TreeBroadleaf
+                | super::data::PropKind::TreePine
+                | super::data::PropKind::TreeSapling
+                | super::data::PropKind::BerryBush
+        );
         commands.entity(root_e).insert(FitTransform {
             root_y,
             scale: s,
-            rot_y: prop.rot_y,
+            rot_y: if card_tree { 0.0 } else { prop.rot_y },
         });
     }
 }
