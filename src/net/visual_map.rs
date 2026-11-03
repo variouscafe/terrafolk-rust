@@ -19,6 +19,10 @@ pub(crate) struct ResState {
     pub(crate) h: Option<u16>,
     #[serde(default)]
     pub(crate) progress: Option<f32>,
+    /// 현재 단계 누적 작업량(게임분) — 서버는 progress를 안 보내므로
+    /// hut_progress()가 stage·work·w·h로 클라 계산한다.
+    #[serde(default)]
+    pub(crate) work: Option<f32>,
     #[serde(default)]
     pub(crate) maturity: Option<u8>,
     // ---- 툴팁 표시 전용(§17.42·§17.78) — 렌더링에는 관여 않는다 ----
@@ -53,6 +57,57 @@ pub(crate) struct ResState {
 /// 숲 속 공사 발판 소음이 될 뿐이라 따르지 않는다).
 pub(crate) fn is_den(st: &ResState) -> bool {
     st.stage.is_none() && st.bld_type.is_none() && st.w.is_none() && st.alive.is_some()
+}
+
+/// hut 완공 판정 — 스테이지 없는 레거시 완공 행도 완공 취급(§17.92 필터·
+/// 발판/완공 분기 공용).
+pub(crate) fn hut_completed(st: &ResState) -> bool {
+    st.stage.as_deref().unwrap_or("COMPLETED") == "COMPLETED"
+}
+
+/// 공사 진행률(0..1) — terrafolk-web hutProgress(resources.ts:184-202)와
+/// 동일식. 단계별 소요 게임분 × 부지 규모 계수로 요구량을 정규화하고
+/// (완료단계 누적 + 현재단계 work) / 전체. 서버가 progress를 직송하는
+/// 미래에는 그 값이 우선한다.
+const STAGE_DUR: [(&str, f32); 5] = [
+    ("SITE_PREPARED", 30.0),
+    ("FOUNDATION_READY", 60.0),
+    ("FRAME_READY", 60.0),
+    ("ENCLOSURE_READY", 90.0),
+    ("COMPLETED", 30.0),
+];
+
+pub(crate) fn hut_progress(st: &ResState) -> f32 {
+    if let Some(p) = st.progress.filter(|p| *p > 0.0) {
+        return p.clamp(0.0, 1.0);
+    }
+    if hut_completed(st) {
+        return 1.0;
+    }
+    let Some(stage) = st.stage.as_deref() else {
+        return 1.0;
+    };
+    let (w, h) = (st.w.unwrap_or(2) as f32, st.h.unwrap_or(2) as f32);
+    let scale = (w * h / 4.0).max(0.25);
+    let reqs: Vec<f32> = STAGE_DUR
+        .iter()
+        .map(|&(_, d)| (d * scale).round().max(1.0))
+        .collect();
+    let total: f32 = reqs.iter().sum();
+    let mut done = 0.0;
+    let mut cur_req = None;
+    for (i, &(name, _)) in STAGE_DUR.iter().enumerate() {
+        if name == stage {
+            cur_req = Some(reqs[i]);
+            break;
+        }
+        done += reqs[i];
+    }
+    let Some(cur_req) = cur_req else {
+        return 0.0; // 미지 단계 — 0으로 두고 다음 스냅숏 계약 갱신을 기다린다
+    };
+    let work = st.work.unwrap_or(0.0);
+    ((done + work.min(cur_req)) / total).clamp(0.0, 1.0)
 }
 
 /// 발판 크기 — state.w/h 우선, 레거시 스냅숏은 타입 기본값(FE BLD_SEED_SIZE).

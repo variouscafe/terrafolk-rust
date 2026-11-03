@@ -37,6 +37,10 @@ pub struct NetState {
     pub status: NetStatus,
     /// 최신 프레임(파싱 완료본)
     pub frame: Option<LiveFrame>,
+    /// 모닥불 이벤트 큐(§17.25) — 프레임에서 추출해 sync_resources가
+    /// 1회 소비(drain). 프레임은 매초 덮어쓰이므로 여기로 옮겨야 중복
+    /// 스폰가 없다.
+    pub pending_campfires: Vec<CampfireEvent>,
 }
 
 impl Default for NetState {
@@ -44,6 +48,7 @@ impl Default for NetState {
         NetState {
             status: NetStatus::Idle,
             frame: None,
+            pending_campfires: Vec::new(),
         }
     }
 }
@@ -58,10 +63,8 @@ pub struct LiveAgent {
     #[allow(dead_code)]
     pub facing: String,
     pub status: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, alias = "actType", skip_serializing_if = "Option::is_none")]
     pub act_type: Option<String>,
-    #[serde(rename = "actType", skip_serializing_if = "Option::is_none")]
-    pub _act_type_r: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub look: Option<String>,
     /// 행동 진행률 0..1(머리 위 링) — 룸 스키마 actProgress.
@@ -85,6 +88,10 @@ pub struct LiveAgent {
     /// 인벤토리 JSON {item: qty}.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub inv_json: Option<String>,
+    /// 내 집 hut 자원 id(§17.92 집주소 필터의 원천 — 죽은 주민의 유령
+    /// 완공 hut 렌더 제거. 룸 스키마 homeId).
+    #[serde(default, alias = "homeId", skip_serializing_if = "Option::is_none")]
+    pub home_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -97,6 +104,19 @@ pub struct LiveResource {
     pub y: u16,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<String>,
+}
+
+/// 모닥불 이벤트(§17.25) — 'event' 룸 메시지가 다음 sink 프레임에 편승해
+/// 들어온다. id는 자원 id, remove=true면 소멸(x/y는 refuel엔 없다).
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct CampfireEvent {
+    pub id: u32,
+    #[serde(default)]
+    pub x: Option<u16>,
+    #[serde(default)]
+    pub y: Option<u16>,
+    #[serde(default)]
+    pub remove: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -119,6 +139,9 @@ pub struct LiveFrame {
     pub map: Option<String>,
     pub agents: Vec<LiveAgent>,
     pub resources: Vec<LiveResource>,
+    /// 모닥불 이벤트(§17.25) — drain_frames가 NetState 큐로 옮겨 1회 소비.
+    #[serde(default)]
+    pub campfires: Vec<CampfireEvent>,
     /// 발명 레지스트리 원문(inventionsJson) — 문명 요약(시대·발명 수) 원천.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub inventions: Option<String>,
@@ -266,13 +289,16 @@ pub fn drain_frames(queue: Res<FrameQueue>, phase: Res<NetLinkPhase>, mut net: R
         return;
     };
     match serde_json::from_str::<LiveFrame>(&last) {
-        Ok(frame) => {
+        Ok(mut frame) => {
             if net.status != NetStatus::Connected {
                 net.status = NetStatus::Connected;
                 info!("[net] 라이브 프레임 수신 개시");
             }
             // 원자값도 CONNECTED로 — update_link_phase 폴링과 단일 상태 유지.
             phase.0.store(PHASE_CONNECTED, Ordering::Relaxed);
+            // 모닥불 이벤트(§17.25)는 프레임에 편승 도착 — 큐로 옮겨
+            // sync_resources가 정확히 1회 소비하게 한다.
+            net.pending_campfires.append(&mut frame.campfires);
             net.frame = Some(frame);
         }
         Err(e) => warn!("[net] 프레임 파싱 실패: {e}"),

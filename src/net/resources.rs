@@ -97,7 +97,7 @@ pub struct RoamTo(pub Vec3);
 #[allow(clippy::type_complexity)] // 동기 루프 쿼리 — 배위·발판 메타까지 읽는 6튜플
 pub fn sync_resources(
     mut commands: Commands,
-    net: Res<NetState>,
+    mut net: ResMut<NetState>,
     world: Res<WorldData>,
     assets: Res<AssetServer>,
     ready: Option<Res<super::inventions::ReadyModels>>,
@@ -117,19 +117,77 @@ pub fn sync_resources(
     mut cleared_cache: Local<(u64, std::collections::HashSet<(i32, i32)>)>,
     // 스폰 영구 스킵 id 캐시 — 아래 루프의 skip_cache.insert 참조(주석 상세).
     mut skip_cache: Local<std::collections::HashSet<u32>>,
+    // 모닥불 동적 상태(§17.25) — 이벤트로 태어난/꺼진 불의 id 집합. 프레임
+    // 행과 병합해 스냅숏 스폰 경로(발판·불꽃·flicker)를 그대로 재사용한다.
+    mut camp_live: Local<std::collections::HashMap<u32, (u16, u16)>>,
+    mut camp_dead: Local<std::collections::HashSet<u32>>,
 ) {
     if net.status != NetStatus::Connected {
         return;
     }
+    // 모닥불 이벤트 소비 — 프레임 대여 전에(net 가변 대여 충돌 방지).
+    for ev in std::mem::take(&mut net.pending_campfires) {
+        if ev.remove.unwrap_or(false) {
+            camp_dead.insert(ev.id);
+            camp_live.remove(&ev.id);
+        } else if let (Some(x), Some(y)) = (ev.x, ev.y) {
+            camp_dead.remove(&ev.id);
+            camp_live.insert(ev.id, (x, y));
+        } else {
+            camp_dead.remove(&ev.id); // refuel 등 — 이미 있으면 무해 통과
+        }
+    }
     let Some(frame) = net.frame.as_ref() else {
         return;
+    };
+    // 병합 행 — 서버 프레임(꺼진 불 제외) + 이벤트 태생 불(서버 행에 없을 때만).
+    // 참조 모음이라 프레임당 문자열 복제가 없다.
+    let camp_synth: Vec<super::LiveResource> = camp_live
+        .iter()
+        .filter(|(id, _)| {
+            !camp_dead.contains(*id)
+                && !frame
+                    .resources
+                    .iter()
+                    .any(|r| r.id == **id && r.kind == "campfire")
+        })
+        .map(|(id, (x, y))| super::LiveResource {
+            id: *id,
+            kind: "campfire".to_owned(),
+            species: String::new(),
+            x: *x,
+            y: *y,
+            state: None,
+        })
+        .collect();
+    let rows: Vec<&super::LiveResource> = frame
+        .resources
+        .iter()
+        .filter(|r| !(r.kind == "campfire" && camp_dead.contains(&r.id)))
+        .chain(camp_synth.iter())
+        .collect();
+
+    // §17.92 집주소 필터 — 살아 있는 주민의 homeId 집합. 죽은 주민의 유령
+    // 완공 hut(terrafolk-web 실측 48채)을 렌더·나무 청소 반경 모두에서
+    // 제외한다. 프레임마다 재판정(입주·사망으로 가시성이 역전되면 그 프레임에
+    // 반영 — skip_cache의 영구 스킵과 다른 계약). owner 필드 기반 필터는
+    // 상속 유령 93채 사고로 terrafolk-web에서 폐기 — 집주소가 정답.
+    let home_ids: std::collections::HashSet<String> = frame
+        .agents
+        .iter()
+        .filter_map(|a| a.home_id.clone())
+        .collect();
+    let ghost_hut = |r: &super::LiveResource, st: &ResState| {
+        r.kind == "hut"
+            && super::visual_map::hut_completed(st)
+            && !home_ids.contains(&r.id.to_string())
     };
 
     // 갱신·제거 — 서명이 바뀌면 despawn(다음 프레임 새 시각으로 재스폰).
     // 동물 좌표 이동(§17.64 배회)은 서명과 무관 — RoamTo 목적지만 갱신하고,
     // 공사 진행률은 SiteMeta에 흘려 발판을 재스폰 없이 바만 움직인다.
     for (e, tag, meta, _, roam, site) in &mut q_live {
-        let Some(r) = frame.resources.iter().find(|r| r.id == tag.0) else {
+        let Some(r) = rows.iter().find(|r| r.id == tag.0).copied() else {
             commands.entity(e).despawn();
             continue;
         };
@@ -138,6 +196,11 @@ pub fn sync_resources(
             .as_deref()
             .and_then(|s| serde_json::from_str(s).ok())
             .unwrap_or_default();
+        // §17.92 — 거주자가 사라(죽거나 이사) 완공 hut은 즉시 철거.
+        if ghost_hut(r, &st) {
+            commands.entity(e).despawn();
+            continue;
+        }
         // hut은 스폰 경로가 언제나 res_sig(r, true)로 서명한다(공사 발판·완공
         // GLB 모두 실체 있음). 갱신 루프가 live_visual(is_some=false for 공사
         // 중)으로 서명하면 매 프레임 불일치 → despawn/respawn 폭풍이 된다.
@@ -162,7 +225,7 @@ pub fn sync_resources(
                 if r.kind == "hut"
                     && let Some(mut m) = site
                 {
-                    m.progress = st.progress.unwrap_or(0.0).clamp(0.0, 1.0);
+                    m.progress = super::visual_map::hut_progress(&st);
                 }
             }
             _ => commands.entity(e).despawn(),
@@ -171,6 +234,44 @@ pub fn sync_resources(
 
     // 신규 스폰
     *first_log += 1;
+    // 진단 게이트 ?tfdbg=hutprobe — §17.92 유령 스킵·공사 진행률 데이터 흐름
+    // 실측(2.5s 주기. 판정: 유령>0이면 필터 동작, 샘플에 w>0·%>0이면
+    // work 기반 진행률 계산 동작).
+    if super::dbg_gate::on("hutprobe") && *first_log % 150 == 0 {
+        let (mut rows, mut done, mut ghost) = (0usize, 0usize, 0usize);
+        let mut samples: Vec<String> = Vec::new();
+        for r in &frame.resources {
+            if r.kind != "hut" {
+                continue;
+            }
+            let st: ResState = r
+                .state
+                .as_deref()
+                .and_then(|s| serde_json::from_str(s).ok())
+                .unwrap_or_default();
+            if super::visual_map::is_den(&st) {
+                continue;
+            }
+            rows += 1;
+            if ghost_hut(r, &st) {
+                ghost += 1;
+            } else if super::visual_map::hut_completed(&st) {
+                done += 1;
+            } else if samples.len() < 3 {
+                samples.push(format!(
+                    "{}:{} w{:.0} {:.0}%",
+                    r.id,
+                    st.stage.as_deref().unwrap_or("?"),
+                    st.work.unwrap_or(0.0),
+                    super::visual_map::hut_progress(&st) * 100.0
+                ));
+            }
+        }
+        info!(
+            "[net] hutprobe hut 행 {rows} · 완공(거주) {done} · 유령 스킵 {ghost} · 공사 {} · 샘플 {samples:?}",
+            rows - done - ghost
+        );
+    }
     if *first_log == 2 {
         let mut total = 0;
         let mut animals = 0;
@@ -201,19 +302,39 @@ pub fn sync_resources(
     // 구조물 청소 반경 집합(3×3) — 나무·덤불이 구조물을 뒤덮는 것 방지.
     // 서버가 같은 타일·인접 타일에 나무와 오두막을 함께 두는 데이터에서도 건물이
     // 이긴다. 나무 GLB가 가장 늦게 로딩되므로 기본 뷰의 집이 숲에 묻히지 않는다.
-    // 서명(구조물 좌표 폴드)이 바뀔 때만 확장 집합을 재계산 — 프레임당 할당 제거.
+    // 서명(구조물 좌표 폴드 + §17.92 거주지 집합)이 바뀔 때만 확장 집합을
+    // 재계산 — 프레임당 할당 제거. 거주지 변화(입주·사망)도 유령 여부를
+    // 바꾸므로 서명에 포함한다.
+    let homes_sig = home_ids.iter().fold(home_ids.len() as u64, |a, s| {
+        s.bytes()
+            .fold(a.rotate_left(5), |b, c| b ^ (c as u64).wrapping_mul(1099511628211))
+    });
     let sig = frame
         .resources
         .iter()
         .filter(|r| is_structure(r))
-        .fold(frame.resources.len() as u64, |a, r| {
+        .fold(frame.resources.len() as u64 ^ homes_sig, |a, r| {
             a.rotate_left(5) ^ (r.x as u64).wrapping_mul(31) ^ (r.y as u64).wrapping_mul(97)
         });
     if cleared_cache.0 != sig {
         let structural: std::collections::HashSet<(u16, u16)> = frame
             .resources
             .iter()
-            .filter(|r| is_structure(r))
+            .filter(|r| {
+                if !is_structure(r) {
+                    return false;
+                }
+                // §17.92 — 유령 hut은 보이지도 않으니 나무도 밀어내지 않는다.
+                if r.kind == "hut" {
+                    let st_c: ResState = r
+                        .state
+                        .as_deref()
+                        .and_then(|s| serde_json::from_str(s).ok())
+                        .unwrap_or_default();
+                    return !ghost_hut(r, &st_c);
+                }
+                true
+            })
             .map(|r| (r.x, r.y))
             .collect();
         cleared_cache.1 = cleared_tiles(&structural);
@@ -235,9 +356,22 @@ pub fn sync_resources(
     // 수십 초 묶는다(2026-10-17 프리즈). 64/프레임 분산 — 잔여분은 다음 프레임
     // 호출에서 자동 이어진다(태그 없음 = 신규 판정).
     let mut budget: usize = 64;
-    for r in &frame.resources {
+    for r in &rows {
         if live_ids.contains(&r.id) || skip_cache.contains(&r.id) {
             continue;
+        }
+        // §17.92 유령 완공 hut — 예산 밖에서 판정(스폰 스킵은 skip_cache에
+        // 넣지 않는다 — 입주로 살아날 수 있어 매 프레임 재평가). 유령이
+        // 스폰 예산을 소비하면 프론티어가 유령에 갇힌다(2026-10-26 사고).
+        if r.kind == "hut" {
+            let st_g: ResState = r
+                .state
+                .as_deref()
+                .and_then(|s| serde_json::from_str(s).ok())
+                .unwrap_or_default();
+            if ghost_hut(r, &st_g) {
+                continue;
+            }
         }
         if budget == 0 {
             break;

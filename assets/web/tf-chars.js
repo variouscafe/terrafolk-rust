@@ -9,6 +9,19 @@
         svg = ctx.svg, ICONS = ctx.ICONS, I = ctx.I, DATA = ctx.DATA,
         chipIconHtml = ctx.chipIconHtml, schedule = ctx.schedule,
         slots = ctx.slots;
+
+    // 행동 라벨 — actType 한국어(i18n act.*) + 진행률 %. terrafolk-web
+    // CharsPanel ACT_KO 조합과 동일 계약(2026-11-04 패리티). actProgress는
+    // 룸 스키마 0..1(서버 산출 — 클라 재계산 없음).
+    function actLabel(a) {
+      var act = a.actType || a.status || '';
+      if (!act) return '';
+      var label = tOr('act.' + act, act);
+      if (a.actType && typeof a.actProgress === 'number' && a.actProgress > 0) {
+        label += ' ' + Math.round(a.actProgress * 100) + '%';
+      }
+      return label;
+    }
   function charsHtml() {
     var isUser = S.scope && S.scope.kind === 'user';
     var agents = Object.keys(S.live).map(function (k) { return S.live[k]; });
@@ -59,13 +72,13 @@
     }
 
     var residents = agents.map(function (a) {
-      var act = a.actType || a.status;
+      var act = actLabel(a);
       return '<li><button class="tf-resident' + (S.selected === a.id ? ' on' : '') +
         '" data-act="select" data-id="' + esc(a.id) + '">' +
         '<div class="tf-resident-row">' +
           '<span class="tf-resident-name">' + esc(a.name) +
             (a.mine ? '<span class="tf-mine-badge">' + esc(t('mine.badge')) + '</span>' : '') + '</span>' +
-          '<span class="tf-resident-act">' + (act ? esc(tOr('act.' + act, act)) : '') + '</span>' +
+          '<span class="tf-resident-act">' + (act ? esc(act) : '') + '</span>' +
         '</div>' +
         (a.goalText ? '<div class="tf-resident-goal">' + esc(mt(a.goalText)) + '</div>' : '') +
         '</button></li>';
@@ -281,7 +294,7 @@
   function heroHtml(a, stale, portrait) {
     var inv = heroInvHtml(a);
     var badge = heroBadgeHtml(a);
-    var act = a.actType || a.status || '';
+    var act = actLabel(a);
     return '<aside class="tf-hero' + (stale ? ' stale' : '') + '" role="region" aria-label="' + esc(tOr('hero.card', '주민 카드')) + '">' +
       '<div class="tf-hero-frame">' +
         '<div class="tf-hero-ground"></div>' +
@@ -297,7 +310,7 @@
         '</header>' +
         '<div class="tf-hero-act">' +
           '<span class="tf-hero-act-kind"' + (act ? '' : ' style="display:none"') + '>' +
-            (act ? esc(tOr('act.' + act, act)) : '') + '</span>' +
+            (act ? esc(act) : '') + '</span>' +
           '<span class="tf-hero-goal"' + (a.goalText ? '' : ' style="display:none"') + '>' +
             (a.goalText ? esc(mt(a.goalText)) : '') + '</span>' +
         '</div>' +
@@ -379,10 +392,10 @@
       d.badge.innerHTML = badge;
       d.badge.style.display = badge ? '' : 'none';
     }
-    var act = a.actType || a.status || '';
+    var act = actLabel(a);
     if (d.actText !== act) {
       d.actText = act;
-      d.actKind.textContent = act ? tOr('act.' + act, act) : '';
+      d.actKind.textContent = act;
       d.actKind.style.display = act ? '' : 'none';
     }
     var goal = a.goalText || '';

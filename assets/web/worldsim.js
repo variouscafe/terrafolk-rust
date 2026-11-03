@@ -20,6 +20,8 @@
   // change·online)가 alive=false를 보고 재접속해 룸이 2개 열리는 경합 방지.
   let connecting = false;
   let lastMap = null; // mapJson은 fullStateOnly — 최초 1회만 오므로 캐시
+  let lastInventions = null; // inventionsJson 원문 캐시 — Rust sink용(§17.30)
+  let pendingCampfires = []; // §17.25 모닥불 이벤트 — 다음 sink 프레임에 편승
   const names = {}; // agent id → 표시명(채팅 스피커)
   const agentsInfo = {}; // agent id → {name, actType, status} — ui.js 헤더 칩·행 판정
   const chatRowListeners = []; // ui.js — 대화 로그 패널 수신기
@@ -140,6 +142,7 @@
         status: a.status, actType: a.actType,
         actProgress: a.actProgress != null ? a.actProgress : 0,
         look: a.lookJson,
+        homeId: a.homeId != null ? a.homeId : null,
         // UI 상세(팝업용) — Rust LiveAgent는 미지정 필드를 무시한다
         needs: { hunger: a.hunger, thirst: a.thirst, fatigue: a.fatigue, warmth: a.warmth },
         goalText: a.goalText || '', goalKey: a.goalKey || '',
@@ -163,14 +166,36 @@
     try {
       inventions = st.inventionsJson ? JSON.parse(st.inventionsJson) : [];
     } catch (e) { /* inventionsJson 파싱 실패 — 빈 목록 */ }
+    if (st.inventionsJson) lastInventions = st.inventionsJson;
     if (sink) {
       try {
+        // Rust LiveAgent 계약 = snake_case 평면 키(src/net/mod.rs). DOM
+        // feed.frame(camelCase·needs 중첩)과 투영을 분리해 한쪽 계약이
+        // 다른 쪽을 오염시키지 않게 한다(2026-11-03 패리티 수리).
+        const sinkAgents = agents.map(function (a) {
+          return {
+            id: a.id, name: a.name, kind: a.kind,
+            x: a.x, y: a.y, facing: a.facing, status: a.status,
+            act_type: a.actType || null,
+            act_progress: a.actProgress,
+            goal_text: a.goalText || null, goal_key: a.goalKey || null,
+            hunger: a.needs.hunger, thirst: a.needs.thirst,
+            fatigue: a.needs.fatigue, warmth: a.needs.warmth,
+            inv_json: a.inventory || null, look: a.look || null,
+            // homeId는 룸 스키마에서 숫자일 수 있다 — Rust Option<String>
+            // 계약이므로 여기서 문자열로 정규화(숫자 그대로면 프레임
+            // 역직렬화 전체가 실패한다).
+            home_id: a.homeId != null ? String(a.homeId) : null,
+          };
+        });
         sink(JSON.stringify({
           tick: st.tick, day: st.day, hour: st.hour, minute: st.minute,
           season: st.season, weather: st.weather,
           sunrise: st.sunrise, sunset: st.sunset,
           map: lastMap,
-          agents: agents, resources: resources,
+          agents: sinkAgents, resources: resources,
+          inventions: lastInventions,
+          campfires: pendingCampfires.splice(0),
         }));
       } catch (e) { console.error('[worldsim] sink 오류', e); }
     }
@@ -298,8 +323,13 @@
         if (window.TF_UI) window.TF_UI.feed.chat(m);
       });
       // 이벤트 — 하이라이트 토스트(tf-world-ui.js)·기록 팝업이 소비.
+      // 모닥불(§17.25)은 Rust 3D 씬으로도 — sink 프레임에 편승한다(스폰·
+      // 소멸 payload {id, kind:'campfire', x?, y?, remove?}).
       room.onMessage('event', function (e) {
         if (window.TF_UI) window.TF_UI.feed.event(e);
+        if (e && e.payload && e.payload.kind === 'campfire') {
+          pendingCampfires.push(e.payload);
+        }
       });
       room.onLeave(function () {
         console.warn('[worldsim] 퇴장 — 재접속');

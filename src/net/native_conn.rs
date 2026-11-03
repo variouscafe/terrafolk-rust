@@ -336,7 +336,6 @@ fn build_frame(state: &SchemaState, with_map: bool) -> Option<LiveFrame> {
                     .unwrap_or("idle")
                     .to_owned(),
                 act_type: av("actType").and_then(ColyValue::as_str).map(str::to_owned),
-                _act_type_r: None,
                 look: av("lookJson")
                     .and_then(ColyValue::as_str)
                     .map(str::to_owned),
@@ -352,6 +351,7 @@ fn build_frame(state: &SchemaState, with_map: bool) -> Option<LiveFrame> {
                 fatigue: av("fatigue").and_then(ColyValue::as_f64).map(|v| v as f32),
                 warmth: av("warmth").and_then(ColyValue::as_f64).map(|v| v as f32),
                 inv_json: av("invJson").and_then(ColyValue::as_str).map(str::to_owned),
+                home_id: av("homeId").and_then(ColyValue::as_str).map(str::to_owned),
             })
         })
         .collect();
@@ -376,6 +376,7 @@ fn build_frame(state: &SchemaState, with_map: bool) -> Option<LiveFrame> {
         })
         .collect();
     Some(LiveFrame {
+        campfires: Vec::new(),
         tick: numv("tick")? as u32,
         day: numv("day").unwrap_or(0.0) as u16,
         hour: numv("hour").unwrap_or(0.0) as u16,
