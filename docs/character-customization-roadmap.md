@@ -46,8 +46,8 @@
   순수성 게이트 tools/check-purity.sh + `/character` 뷰어(viewer_shot.cjs)로
   프리셋별 실루엣 확인.
 - ② 크레이트 버전 bump → 게임에 "캐릭터 크레이트 0.2.x 반영" 커밋
-  (0.8.46~0.8.50 패턴). ⚠️ 게임 main은 크레이트 **d31b629(0.2.5) 핀** —
-  새 커밋이 올라오면 게임 빌드 전 리비전 재확인(0.4.1 HEAD면 API 불일치).
+  (0.8.46~0.8.50 패턴). ⚠️ 게임 main은 크레이트 **main=09a46d9(0.2.6)** 페어
+  (2026-11-03 — folk 0.4.1 라인은 태그 archive/folk-0.4.1, API 불일치).
 - ③ lookJson 새 필드(예: `build`: "slim"|"normal"|"chubby"|"sturdy") —
   계약 문서(../terrafolk docs/data-contract.md §17.32) 보강 동반.
 - ④ `world/look_tint.rs` 재스폰 트리거에 build 포함(res_sig류 판정).

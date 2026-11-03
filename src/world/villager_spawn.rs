@@ -138,7 +138,11 @@ fn finish_villager_setup(
             })
             .map(|(_, h)| h.clone())
     };
-    let (Some(walk_h), Some(idle_h)) = (find("Walk"), find("Idle")) else {
+    // 대기 = Idle_Neutral 우선(곧은 다리 — 무릎 굽힘 ~2°). Quaternius `Idle`은
+    // 무릎 23~29° 굽힌 전투 대기 자세라 치비 단신 다리에서 쪼그린 듯 보였다
+    // (2026-11-03 FK 실측 — 3d-chibi-character 뷰어와 동일 선택).
+    let idle = find("Idle_Neutral").or_else(|| find("Idle"));
+    let (Some(walk_h), Some(idle_h)) = (find("Walk"), idle) else {
         return false;
     };
     let mut graph = AnimationGraph::new();
