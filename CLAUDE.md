@@ -50,6 +50,12 @@ llmserver에서 `https://llm-asset.suseona.com`(cloudflared 터널)로 동작하
   물론 기존 파일이 그 이상으로 자라면 기능 단위로 쪼갠다(예: `net::apply` →
   `net::resources`, `tf-world-ui.js` → `tf-ambience.js`·`tf-minimap.js`).
   JS는 로드 순서 계약(index.html 주석)을 지키면서 분리한다.
+- **500줄 분해 관례(2026-11-03 완료)**: 대형 파일은 역할 경계로 쪼갠다 —
+  `villager.rs`→`villager_spawn.rs`(스폰 파이프라인), `bld.rs`→
+  `bld_spawn.rs`(라이브 hut 스폰), `ui/chars.rs`→`chars_sel.rs`(선택
+  패널), `ui/look.rs`→`look_model.rs`(편집 도메인), `world/home.rs`
+  (내 집 마커) — 새 협력 모듈은 `TF_*.create(ctx)`·`pub(super)` 접근자
+  패턴을 따른다.
 - **컴포넌트화 우선**: 새 기능은 독립 모듈·컴포넌트로 만든다(bevy 컴포넌트·
   플러그인 단위, JS는 파일 단위) — 한 파일이 여러 기능을 담당하게 쓰지
   않는다. 리팩토링 시점: 기능 추가로 파일이 500줄을 넘거나 서로 다른
@@ -175,10 +181,21 @@ DecompressionStream fetch 래퍼 주입(스트리밍 해제→컴파일, 로컬 
 구 R2+glue 레시피는 `TF_DEPLOY_R2=1` 비상 폴백으로 잔존(r2.dev는 엣지
 캐시 부재·레이트리밋 — 실측 2026-10-23). `assets/models` GLB 64종 필수(PR #69로
 복구 — `cc2895d^`에서 `git checkout`으로 되돌릴 수 있음).
-DOM UI 패널 모듈(2026-10-22, 500줄 규칙): `tf-civ.js`(문명)·
-`tf-chars.js`(캐릭터)·`tf-reslog.js`(자원·기록)가 **tf-ui.js보다 먼저**
-로드(create 팩토리를 tf-ui 모듈 스코프가 소비). 패널 분리 시 누락 클로저
-심볼은 패널 오픈 시에만 발화 — **전 패널 오픈 스윕**으로 검증할 것. **웹(wasm)은
+DOM UI 패널 모듈(2026-10-22 분리·2026-11-03 4차 분해, 500줄 규칙):
+**전부 tf-ui.js보다 먼저 로드**(create(ctx) 팩토리를 tf-ui 모듈 스코프가
+조립). `tf-civ.js`(문명)·`tf-chars.js`(캐릭터+참여 폼 와이어)·
+`tf-reslog.js`(자원·기록+자원 판정 헬퍼)·`tf-set.js`(계정·설정)·
+`tf-credits.js`(크레딧)·`tf-rest.js`(REST 전부·공지 바·내 주민 id
+pushMine)·`tf-feed.js`(worldsim feed.* 수신·침전·유물 카드 pickAt)·
+`tf-lookedit.js`(외형 편집 UI·슬라이드). tf-ui.js(코어 ~500줄)는 상태
+S·렌더 슬롯·이벤트 위임만 소유. 패널 분리 시 누락 클로저 심볼은 패널
+오픈 시에만 발화 — **전 패널 오픈 스윕**으로 검증할 것(TF_UI.open()
+경유 스윕이 안정 — 메뉴 클릭은 재렌더 detach 경합). **자동 생성 파일
+(tf-data.js·i18n_data.rs·look_data.rs)은 500줄 규칙 적외** — 데이터
+원천 크기가 좌우한다. E2E 공용 라이브러리 `tools/e2e/lib.cjs`
+(PNG 디코더·휘도 통계·헤디드 런처·프라임 대기)와 코드젠 공용
+`tools/gen-lib.mjs`(extract) — 새 게이트·생성기는 여기서 재사용할 것.
+**웹(wasm)은
 데모 월드가 컴파일 아웃**(src/world/mod.rs — 라이브 접속→프라임 직행,
 로딩 해제=tf.uiPrime)이므로 **라이브 백엔드 없으면 지형이 안 뜬다**:
 tf-api CORS 허용목록(../terrafolk `backend/src/terrafolk_api/config.py`)

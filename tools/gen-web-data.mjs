@@ -22,6 +22,7 @@
 import { readFileSync, writeFileSync, cpSync, rmSync, existsSync, mkdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { extract } from './gen-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FE = join(HERE, '..', '..', 'terrafolk-2d-legacy');
@@ -29,37 +30,6 @@ const OUT = join(HERE, '..', 'assets', 'web', 'tf-data.js');
 const LPC_DST = join(HERE, '..', 'assets', 'lpc');
 const ICONS_DST = join(HERE, '..', 'assets', 'icons');
 
-/** 소스에서 `const NAME…= <리터럴>` 추출 — 중괄호/대괄호 균형(문자열 인식). */
-function extract(src, name) {
-  const re = new RegExp(`(?:export\\s+)?const\\s+${name}\\b[^=]*=`);
-  const m = re.exec(src);
-  if (!m) throw new Error(`원천에서 ${name}을(를) 찾을 수 없음`);
-  let i = m.index + m[0].length;
-  while (src[i] === ' ') i++;
-  const open = src[i];
-  const close = open === '{' ? '}' : ']';
-  let depth = 0, str = null, esc = false;
-  let j = i;
-  for (; j < src.length; j++) {
-    const c = src[j];
-    if (str) {
-      if (esc) esc = false;
-      else if (c === '\\') esc = true;
-      else if (c === str) str = null;
-      continue;
-    }
-    if (c === '"' || c === "'" || c === '`') { str = c; continue; }
-    if (c === open) depth++;
-    else if (c === close) {
-      depth--;
-      if (depth === 0) { j++; break; }
-    }
-  }
-  let lit = src.slice(i, j)
-    .replace(/\s+as\s+const\s*;?$/, '')
-    .replace(/;$/, '');
-  return Function(`"use strict"; return (${lit});`)();
-}
 
 const gen = (() => {
   const i18n = readFileSync(join(FE, 'src/lib/i18n.ts'), 'utf8');

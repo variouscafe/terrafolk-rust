@@ -414,7 +414,23 @@
   }
 
   // ── 자원 팝업(FE popups res 포트) ──
-    return { html: function () { return charsHtml(); }, heroUpdate: heroUpdate };
+    /** 참여 폼 입력 — 타이핑 중 재렌더 금지(포커스 유지), 상태만 갱신.
+     *  폼 본체를 이 패널이 그리므로 와이어도 여기서(tf-ui에서 이관, 2026-11-03). */
+    function wireJoinInputs() {
+      var name = document.getElementById('tf-join-name');
+      var age = document.getElementById('tf-join-age');
+      var sex = document.getElementById('tf-join-sex');
+      var persona = document.getElementById('tf-join-persona');
+      if (name) name.oninput = function () { S.joinForm.name = name.value; };
+      if (age) age.oninput = function () {
+        S.joinForm.age = age.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 2);
+        if (age.value !== S.joinForm.age) age.value = S.joinForm.age;
+      };
+      if (sex) sex.onchange = function () { S.joinForm.sex = sex.value; schedule(); };
+      if (persona) persona.oninput = function () { S.joinForm.persona = persona.value; };
+    }
+
+    return { wireJoinInputs: wireJoinInputs, html: function () { return charsHtml(); }, heroUpdate: heroUpdate };
   }
   window.TF_CHARS = { create: create };
 })();

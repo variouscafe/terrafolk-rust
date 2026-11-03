@@ -3,6 +3,7 @@
 
 pub mod animal_anim;
 pub mod bld;
+pub mod bld_spawn;
 pub mod chat_action;
 pub mod home;
 pub mod cam_follow;
@@ -35,6 +36,7 @@ pub mod sky;
 pub mod splat;
 pub mod terrain;
 pub mod villager;
+pub mod villager_spawn;
 pub mod villager_tools;
 pub mod water;
 pub mod reference_look;
@@ -179,7 +181,7 @@ impl Plugin for WorldPlugin {
                 villager_tools::apply_villager_tools,
                 villager::animate_states,
                 villager::throttle_offscreen_anims,
-                villager::retry_villager_setup,
+                villager_spawn::retry_villager_setup,
                 wear::apply_wears,
                 (pick::drain_select, pick::pick_agent, pick::follow_selection).chain(),
                 look_edit::drain_bridge,

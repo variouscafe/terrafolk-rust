@@ -12,9 +12,13 @@
 #[cfg(not(target_arch = "wasm32"))]
 pub mod chars;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod chars_sel;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod chat;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod civ;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod civ_detail;
 pub mod daydial;
 pub mod hud;
 #[cfg(not(target_arch = "wasm32"))]
@@ -29,6 +33,8 @@ pub mod log;
 pub mod look;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod look_data;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod look_model;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod look_view;
 #[cfg(not(target_arch = "wasm32"))]
@@ -126,7 +132,7 @@ impl Plugin for UiPlugin {
                     )
                         .chain(),
                     (menu::interact, menu::refresh_account_popup).chain(),
-                    (chars::refresh_list, chars::refresh_sel_panel, look::refresh).chain(),
+                    (chars::refresh_list, chars_sel::refresh_sel_panel, look::refresh).chain(),
                     res::refresh_res,
                     civ::refresh_civ,
                     log::update_log,
@@ -158,7 +164,7 @@ fn apply_safe_area(
     mut q_panel: Query<
         &mut Node,
         (
-            With<chars::SelPanel>,
+            With<chars_sel::SelPanel>,
             Without<hud::HudRoot>,
             Without<menu::MenuDropdown>,
         ),

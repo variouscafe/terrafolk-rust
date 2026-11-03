@@ -1,6 +1,11 @@
-// Terrafolk ☰ 메뉴·중앙 팝업 DOM 오버레이 — FE worldsim 화면(TopBar·메뉴 드롭다운·
-// 팝업 6종·크레딧·외형 편집)의 바닐라 JS 포트. 상태는 worldsim.js(룸 접속)가
-// TF_UI.feed.*로 밀어주고, 이 모듈이 렌더·REST(선택 상세·참여·외형)·로케일을 소유한다.
+// Terrafolk ☰ 메뉴·중앙 팝업 DOM 오버레이 코어 — FE worldsim 화면(상단 바·
+// 메뉴·팝업 6종·크레딧)의 바닐라 JS 포트. 상태 S와 렌더 슬롯·이벤트 위임을
+// 소유하고, 협력 모듈에 ctx를 주입해 조립한다(index.html 로드 순서 계약 —
+// 전부 tf-ui.js보다 앞):
+//   tf-civ·tf-chars·tf-reslog·tf-set  패널 렌더(2026-10-22 분리)
+//   tf-rest                            REST 전부·공지 바·내 주민 id(2026-11-03)
+//   tf-feed                            worldsim feed.* 수신·침전·유물 카드(2026-11-03)
+//   tf-lookedit                        외형 편집기 UI·상호작용(2026-11-03)
 // 채팅 바·대화 로그 독은 ui.js 담당 — 선택 단일 소스는 Rust 픽킹
 // (tf.selectAgent 요청 → tf.onPickAgent 통보, src/world/pick.rs). 이 파일은 로드
 // 순서상 ui.js 뒤라 기존 onPickAgent 핸들러를 chaining으로 이어받는다.
@@ -38,12 +43,6 @@
     creditsOpen: false,
     netLive: false,
   };
-  var rowSeq = 0;
-  function nextRowId() {
-    rowSeq = (rowSeq + 1) % 10000;
-    return Date.now() * 10000 + rowSeq;
-  }
-
   // ═══════════════ 렌더 스케줄 ═══════════════
   var raf = 0;
   function schedule() {
@@ -105,16 +104,6 @@
     return text;
   }
 
-  function apiBase() { return (window.TF && window.TF.apiBase) || ''; }
-  function authFetch(path, opts) {
-    var f = window.terrafolk && window.terrafolk.authFetch;
-    if (f) return f(apiBase() + path, opts);
-    return fetch(apiBase() + path, opts);
-  }
-  function hasToken() {
-    return !!(window.terrafolk && window.terrafolk.getAuth && window.terrafolk.getAuth().at);
-  }
-
   // 아이콘 캐시(칩 <img>) — 스펙 → dataURL, 완료 후 재렌더
   var iconUrls = {};
   function chipIconHtml(name, px) {
@@ -133,58 +122,6 @@
       return '<span>⚒</span>';
     }
     return '<span>' + (spec ? '⚒' : '🎒') + '</span>';
-  }
-
-  // ── 문명 도우미(FE civ.ts 포트) ──
-  function resUsable(kind, state, season) {
-    if (!state) return true;
-    if (kind === 'tree') return Number(state.maturity != null ? state.maturity : 0) >= 2;
-    if (kind === 'gold_vein') return Number(state.amount != null ? state.amount : 0) > 0;
-    if (kind === 'plant') {
-      if (!state.available) return false;
-      var seasons = state.seasons;
-      if (Array.isArray(seasons) && seasons.length > 0 && season) return seasons.indexOf(season) >= 0;
-      return true;
-    }
-    if (kind === 'animal') return state.alive !== false;
-    return true;
-  }
-  function resStats() {
-    var byKind = {};
-    Object.keys(S.resMap).forEach(function (rid) {
-      var r = S.resMap[rid];
-      if (r.kind === 'campfire' || r.kind === 'hut') return;   // 발명 도감으로(§17.38)
-      var k = byKind[r.kind];
-      if (!k) k = byKind[r.kind] = { kind: r.kind, total: 0, usable: 0, species: {} };
-      var u = resUsable(r.kind, r.state, S.clock.season);
-      k.total++;
-      if (u) k.usable++;
-      var s = k.species[r.species];
-      if (!s) s = k.species[r.species] = { n: 0, usable: 0 };
-      s.n++;
-      if (u) s.usable++;
-    });
-    return Object.keys(byKind).map(function (k) { return byKind[k]; })
-      .sort(function (a, b) { return b.total - a.total; });
-  }
-
-  function isHumanRow(c) {
-    var a = S.live[c.agent_id];
-    return String(c.speaker || '').indexOf('@') >= 0 || (a !== undefined && c.speaker !== a.name);
-  }
-  function isAlreadyKorean(s) {
-    var h = (String(s).match(/[가-힣]/g) || []).length;
-    var l = (String(s).match(/[A-Za-z]/g) || []).length;
-    return h > 0 && h >= l * 3;
-  }
-  function chatDisplayText(cm) {
-    var src = cm.orig != null ? cm.orig : cm.text;
-    var lang = cm.lang || 'en';
-    var locale = I.getLocale();
-    if (locale === lang) return src;
-    if (locale === 'en' && cm.text_en) return String(cm.text_en);
-    if (locale === 'ko' && isAlreadyKorean(src)) return src;
-    return mt(src);
   }
 
   // ═══════════════ 상단 바 ═══════════════
@@ -246,6 +183,11 @@
     set: { titleKey: 'menu.settings', width: 'max-w-sm' },
   };
 
+  // ── 협력 모듈 조립(로드 순서 계약: 전부 이 시점에 정의됨) ──
+  var rest = window.TF_REST.create({ S: S, t: t, I: I, schedule: schedule,
+    liveSignature: function () { return Object.keys(S.live).sort().join(','); } });
+  var hasToken = rest.hasToken;
+
   // 문명 패널 — tf-civ.js로 분리(500줄 규칙·기능 분리, 2026-10-22).
   // 클로저 의존(S·t·esc…)은 생성 시점에 ctx로 주입한다.
   var civPanel = window.TF_CIV.create({ S: S, t: t, tOr: tOr, esc: esc, mt: mt,
@@ -259,12 +201,31 @@
 
   // 자원·기록 패널 — tf-reslog.js로 분리(500줄 규칙, 2026-10-22).
   var resPanel = window.TF_RESLOG.create({ S: S, t: t, tOr: tOr, esc: esc, mt: mt,
-    I: I, DATA: DATA, chipIconHtml: chipIconHtml, resUsable: resUsable, resStats: resStats,
-    isHumanRow: isHumanRow, chatDisplayText: chatDisplayText });
+    I: I, DATA: DATA, chipIconHtml: chipIconHtml });
+
+  // 크레딧 화면 — tf-credits.js로 분리(500줄 규칙, 2026-11-03).
+  var creditsMod = window.TF_CREDITS.create({ t: t, esc: esc, svg: svg, ICONS: ICONS, DATA: DATA });
 
   // 계정·설정 패널 — tf-set.js로 분리(500줄 규칙, 2026-10-22).
   var setPanel = window.TF_SET.create({ t: t, esc: esc, svg: svg, ICONS: ICONS,
     I: I, hasToken: hasToken });
+
+  // 외형 편집기 — tf-lookedit.js(2026-11-03). 저장·미리보기는 tf-rest 계층.
+  var lookedit = window.TF_LOOKEDIT.create({ S: S, t: t, tOr: tOr, esc: esc, svg: svg,
+    ICONS: ICONS, schedule: schedule,
+    save: rest.lookSave, previewPush: rest.localLookPush });
+
+  // 라이브 프레임 수신 — tf-feed.js(2026-11-03). /me·내 집 해제는 tf-rest 계층.
+  var feedmod = window.TF_FEED.create({ S: S, I: I, schedule: schedule,
+    nextRowId: rest.nextRowId, openPopup: openPopup,
+    loadMine: rest.loadMine, clearMine: rest.clearMine });
+
+  function openPopup(key) {
+    S.menuOpen = false;
+    S.popup = key;
+    schedule();
+    if (key === 'chars') { rest.loadRelations(); rest.onSelected(); }
+  }
 
   function popupBody(key) {
     if (key === 'chars') return charsPanel.html();
@@ -318,223 +279,14 @@
     }
   }
 
-  function creditsHtml() {
-    var authors = Object.keys(DATA.CREDITS.authors).map(function (name) {
-      var c = DATA.CREDITS.authors[name];
-      return '<div class="tf-credit-card"><div class="nm">' + esc(name) + '</div>' +
-        '<div class="lc">' + esc(c.licenses.join(' · ')) + '</div></div>';
-    }).join('');
-    var tools = {};
-    Object.keys(DATA.CREDITS.tools).forEach(function (k) { tools[k] = DATA.CREDITS.tools[k]; });
-    Object.keys(DATA.CREDITS.spears).forEach(function (k) { tools[k] = DATA.CREDITS.spears[k]; });
-    var toolHtml = Object.keys(tools).map(function (name) {
-      var c = tools[name];
-      return '<div class="tf-credit-card"><div class="nm">' + esc(name) + '</div>' +
-        '<div class="lc">' + esc(c.licenses.join(' · ')) + ' — ' + esc(c.items.join(', ')) + '</div></div>';
-    }).join('');
-    return '<div class="tf-overlay" data-act="close-credits">' +
-      '<div class="tf-dialog max-w-3xl">' +
-        '<div class="tf-dialog-head">' +
-          '<h2 class="tf-dialog-title">' + esc(t('set.credits')) + '</h2>' +
-          '<button class="tf-dialog-close" data-act="close-credits">' + svg(ICONS.X, 16) + '</button>' +
-        '</div>' +
-        '<div class="tf-credits tf-scroll" data-scroll="credits">' +
-          '<section class="tf-card" style="padding:1rem">' +
-            '<h2>' + esc(t('credits.tiles.h')) + '</h2>' +
-            '<p>' + esc(t('credits.tiles.body1')) + ' <a href="https://kenney.nl" target="_blank" rel="noreferrer">Kenney</a> ' + esc(t('credits.tiles.body2')) + '</p>' +
-          '</section>' +
-          '<section class="tf-card" style="padding:1rem">' +
-            '<h2>' + esc(t('credits.icons.h')) + '</h2>' +
-            '<p>' + esc(t('credits.icons.body1')) + ' <a href="https://game-icons.net" target="_blank" rel="noreferrer">game-icons.net</a> ' +
-            esc(t('credits.icons.body2')) + ' <strong>Lorc</strong>(stone-spear, stone-axe, curvy-knife, flat-hammer, needle-drill, harpoon-trident, mantrap, spears), ' +
-            '<strong>Delapouite</strong>(bow-arrow, hand-saw, sling, fishing-pole, basket, cooking-pot, plain-arrow).</p>' +
-          '</section>' +
-          '<section class="tf-card" style="padding:1rem">' +
-            '<h2>' + esc(t('credits.sprites.h')) + '</h2>' +
-            '<p style="margin-bottom:.5rem">' + esc(t('credits.sprites.body1')) +
-            ' <a href="https://github.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator" target="_blank" rel="noreferrer">Universal LPC Spritesheet Character Generator</a> ' +
-            esc(t('credits.sprites.body2')) + ' ' + esc(t('credits.sprites.body3')) + '</p>' +
-            '<div class="tf-credits-grid">' + authors + '</div>' +
-            '<h3>' + esc(t('credits.tools.h')) + ' (docs §17.39)</h3>' +
-            '<p style="margin-bottom:.5rem">' + esc(t('credits.tools.body')) + '</p>' +
-            '<div class="tf-credits-grid">' + toolHtml + '</div>' +
-            '<p style="margin-top:.75rem;font-size:12px;color:var(--ink-400)">' + esc(t('credits.docs')) +
-            ' <a href="https://github.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/blob/master/README.md" target="_blank" rel="noreferrer">' +
-            esc(t('credits.repo')) + '</a></p>' +
-          '</section>' +
-        '</div>' +
-      '</div>' +
-    '</div>';
-  }
-
-  // ── 외형 편집 모달(FE LookEditor 포트) ──
-  function lookHtml() {
+  /** 편집기 닫기 — 남은 디바운스 즉시 실행(마지막 선택 유실 방지) 후 포커스 해제. */
+  function closeLookEditor() {
     var E = S.lookEdit;
-    var tab = E.tab;
-    var rows;
-    if (tab === 'clothes') {
-      rows = ['top', 'bottom', 'feet'].map(function (slot) {
-        var label = t(slot === 'top' ? 'look.top' : slot === 'bottom' ? 'look.bottom' : 'look.feet');
-        var options = E.wearOptions(slot);
-        var value = E.wears[slot] || 'auto';
-        return optRowHtml(label, options, value, E);
-      }).join('');
-    } else if (tab === 'hair') {
-      rows = optRowHtml(t('look.hair'), E.opts.hairs.map(function (v) { return { key: v, ko: E.prettyPart(v) }; }), E.parts.hair || E.opts.hairs[0], E) +
-        swatchRowHtml(t('look.hairColor'), 'hairColor', E.opts.hairColors, E.parts.hairColor || E.opts.hairColors[0], E);
-    } else {
-      rows = swatchRowHtml(t('look.skin'), 'skin', E.opts.skins, E.parts.skin || E.opts.skins[0], E) +
-        swatchRowHtml(t('look.eye'), 'eye', E.opts.eyes, E.parts.eye || E.opts.eyes[0], E) +
-        optRowHtml(t('look.beard'), E.opts.beards.map(function (v) { return { key: v, ko: E.prettyPart(v) }; }), E.parts.beard || 'none', E) +
-        optRowHtml(t('look.glasses'), E.opts.glasses.map(function (v) { return { key: v, ko: E.prettyPart(v) }; }), E.parts.glasses || 'none', E);
-    }
-    var tabs = [['clothes', 'look.tab.clothes'], ['hair', 'look.tab.hair'], ['face', 'look.tab.face']].map(function (tb) {
-      return '<button class="tf-look-tab' + (tab === tb[0] ? ' on' : '') + '" data-act="look-tab" data-key="' + tb[0] + '">' + esc(t(tb[1])) + '</button>';
-    }).join('');
-    return '<div class="tf-overlay tf-lookwrap" data-act="close-look">' +
-      '<div class="tf-look tf-scroll" data-scroll="look">' +
-        '<div class="tf-look-head">' +
-          '<div class="tf-look-headgroup">' +
-            '<h3 class="tf-look-title">' + esc(t('look.title')) + ' — ' + esc(E.name) + '</h3>' +
-            '<span class="tf-look-status' + (E.busy ? ' busy' : '') + '">' +
-              (E.busy ? esc(tOr('look.saving', '저장 중…')) : '✓ ' + esc(tOr('look.autosaved', '자동 저장'))) +
-            '</span>' +
-          '</div>' +
-          '<button class="tf-dialog-close" data-act="close-look">' + svg(ICONS.X, 16) + '</button>' +
-        '</div>' +
-        '<div class="tf-look-body">' +
-          '<div class="tf-look-main">' +
-            '<div class="tf-look-tabs">' + tabs + '</div>' +
-            '<div class="tf-look-rows">' + rows + '</div>' +
-            '<p class="tf-look-note">' + esc(tOr('look.preview3d', '위에 보이는 내 캐릭터에 바로 반영돼요 — 옵션을 바꿔보세요')) + '</p>' +
-          '</div>' +
-        '</div>' +
-        '<div class="tf-look-actions">' +
-          '<button class="tf-btn-accent" data-act="look-save" ' + (E.busy ? 'disabled' : '') + '>' + esc(t('look.save')) + '</button>' +
-          '<button class="tf-btn-outline" data-act="close-look">' + esc(t('look.cancel')) + '</button>' +
-        '</div>' +
-        (tab === 'clothes'
-          ? '<p class="tf-look-note">' + svg(ICONS.Lock, 12) + ' ' + esc(t('look.auto')) + ' · 🔒 ' + esc(t('look.locked')) + '</p>'
-          : '') +
-      '</div>' +
-    '</div>';
-  }
-
-  /** 색상 행 — 팔레트 스와치 그리드(2026-10-23 상용 UI): ◀▶ 사이클 대신
-   * 전체 팔레트를 나열해 한 번에 보고 탭으로 선택. hex는 3D 틴트 팔레트와
-   * 동일(TF_LOOK.swatch) — 고른 색이 미리보기에 그대로 반영된다. */
-  function swatchRowHtml(label, kind, options, value, E) {
-    var dots = options.map(function (k) {
-      var hex = window.TF_LOOK.swatch(kind, k);
-      if (!hex) return '';
-      return '<button class="tf-pal-dot' + (k === value ? ' on' : '') + '" data-act="look-pick" data-part="' + esc(kind) + '" data-key="' + esc(k) + '" title="' + esc(E.prettyPart(k)) + '" aria-label="' + esc(E.prettyPart(k)) + '" style="background:' + hex + '"></button>';
-    }).join('');
-    return '<div class="tf-optrow tf-pal">' +
-      '<span class="tf-optrow-label">' + esc(label) + '</span>' +
-      '<div class="tf-pal-grid">' + dots + '</div>' +
-    '</div>';
-  }
-
-  /** 옵션 행 — 색 옵션(hairColor·skin·eye)은 3D 틴트 팔레트 스와치, 스타일은
-   *  이름만(2D 시트 프리뷰 폐지 — 3D 반영 시대, 실 프리뷰는 저장 후 세계). */
-  function optRowHtml(label, options, value, E, swatchKind) {
-    var idx = Math.max(0, options.findIndex(function (o) { return o.key === value; }));
-    var cur = options[idx] || options[0] || { key: 'none', ko: '' };
-    var sw = swatchKind ? window.TF_LOOK.swatch(swatchKind, cur.key) : null;
-    var thumb = sw ? '<span class="tf-swatch" style="background:' + sw + '"></span>' : '';
-    return '<div class="tf-optrow">' +
-      '<span class="tf-optrow-label">' + esc(label) + '</span>' +
-      '<button class="tf-optrow-nav" data-act="look-slide" data-dir="-1">' + svg(ICONS.ChevronLeft, 16) + '</button>' +
-      '<div class="tf-optrow-main">' +
-        thumb +
-        '<div class="tf-optrow-name">' +
-          '<div class="tf-optrow-nm' + (cur.locked ? ' locked' : '') + '">' +
-            (cur.key === 'none' ? esc(t('look.none')) : esc(cur.ko)) + '</div>' +
-          '<div class="tf-optrow-sub">' + (cur.locked ? '🔒 ' + esc(t('look.locked')) : (idx + 1) + '/' + options.length) + '</div>' +
-        '</div>' +
-      '</div>' +
-      '<button class="tf-optrow-nav" data-act="look-slide" data-dir="1">' + svg(ICONS.ChevronRight, 16) + '</button>' +
-    '</div>';
-  }
-
-  /** 외형 편집기 상태 — 옷(소지 기반 잠금)·헤어·얼굴 슬라이드, 저장은 PATCH look. */
-  function makeLookEditor(m) {
-    var opts = window.TF_LOOK.lookPartOptions(m.sex, m.age);
-    var base = window.TF_LOOK.buildLook(m.id, m.sex, m.age).picks;
-    var E = {
-      agentId: m.id, name: m.name, sex: m.sex || 'female', age: m.age || 30,
-      opts: opts,
-      inv: m.inventory || {}, invClothes: m.clothingInventions || [],
-      tab: 'clothes',
-      parts: Object.assign({}, base, m.parts || {}),
-      wears: Object.assign({}, m.wears || {}),
-      busy: false, saveTimer: 0,
-      prettyPart: function (v) {
-        // 스타일명 한글화(2026-10-23 직접 QA — 'Long' 등 영어 원문 노출).
-        // LPC id 마지막 세그먼트를 한국어 라벨로; 미등록은 기존 영문 대문자화.
-        var KO = {
-          long: '롱헤어', bangs: '앞머리', bun: '번 스타일', afro: '아프로', ponytail: '포니테일',
-          bob: '밥컷', buzz: '스포츠', bald: '대머리', balding: '헤어라인', braid: '땋은머리',
-          loose: '웨이브', tied: '묶은머리', short: '숏컷', messy: '헝클어진', spiked: '스파이크',
-          flat: '플랫', curly: '곱슬', straight: '스트레이트', xlong: '슈퍼롱', pixie: '픽시',
-          undercut: '언더컷', mohawk: '모히칸', dreads: '드레드', side: '사이드', top: '탑',
-          back: '뒤로넘김', center: '중앙', parted: '가르마', down: '내려쓴', up: '올림',
-          beard: '턱수염', mustache: '콧수염', chevron: '쉐브론 콧수염', handlebar: '핸들바',
-          lampshade: '램프셰이드', medium: '미디움', trimmed: '다듬은 수염', shadow: '5시 그림자',
-          glasses: '기본 안경', nerd: '너드 안경', round: '동그란 안경', halfmoon: '하프문',
-          female: '여성용', male: '남성용', plain: '심플', basic: '베이직',
-        };
-        var s = String(v).split('_').pop() || v;
-        // 'none'은 옵션 칩에도 쓰인다(tf-look concat) — 빈 라벨 대신 '없음'.
-        if (v === 'none') return '없음';
-        if (KO[s]) return KO[s];
-        var eng = s.replace(/([a-z])([A-Z])/g, '$1 $2');
-        return eng.charAt(0).toUpperCase() + eng.slice(1);
-      },
-      setPart: function (k, v) { E.parts[k] = v; schedule(); },
-      pickWear: function (slot, key) {
-        if (key === 'auto') delete E.wears[slot];
-        else E.wears[slot] = key;
-        schedule();
-      },
-      // 옷 카탈로그(FE CLOTHES 미러) — 소지 기반 잠금
-      CLOTHES: [
-        { item: 'grass_skirt', slot: 'bottom', cf: 0.72, look: { bottom: 'legs_skirts_plain', bottomColor: 'forest' } },
-        { item: 'leather_wrap', slot: 'top', cf: 0.65, look: { top: 'torso_clothes_sleeveless2', topColor: 'leather' } },
-        { item: 'woven_leather', slot: 'top', cf: 0.5, look: { top: 'torso_clothes_longsleeve2', topColor: 'walnut' } },
-        { item: 'stitched_leather', slot: 'top', cf: 0.35, look: { top: 'torso_clothes_longsleeve2_cardigan', topColor: 'brown' } },
-        { item: 'leather_shoes', slot: 'feet', cf: 0.9, look: { feet: 'feet_boots_basic', feetColor: 'leather' } },
-      ],
-      INVENTED_LOOK: function (color) { return { top: 'torso_clothes_longsleeve', topColor: color }; },
-      effectiveWearPatch: function () {
-        var patch = {};
-        var owned = function (i) { return (E.inv[i] || 0) > 0; };
-        ['top', 'bottom', 'feet'].forEach(function (slot) {
-          var cands = E.CLOTHES.filter(function (c) { return c.slot === slot && owned(c.item); }).concat(
-            E.invClothes.filter(function (ic) { return owned(ic.name); })
-              .map(function (ic) { return { item: ic.name, cf: ic.cf, look: E.INVENTED_LOOK(ic.color) }; })
-          );
-          var pick = E.wears[slot];
-          if (pick && owned(pick)) {
-            var f = cands.filter(function (c) { return c.item === pick; })[0];
-            if (f) { Object.assign(patch, f.look); return; }
-          }
-          var best = cands.slice().sort(function (a, b) { return a.cf - b.cf; })[0];
-          if (best) Object.assign(patch, best.look);
-        });
-        return patch;
-      },
-      fullParts: function () { return Object.assign({}, E.parts, E.effectiveWearPatch()); },
-      wearOptions: function (slot) {
-        var owned = function (i) { return (E.inv[i] || 0) > 0; };
-        return [{ key: 'auto', ko: t('look.auto') }]
-          .concat(E.CLOTHES.filter(function (c) { return c.slot === slot; }).map(function (c) {
-            return { key: c.item, ko: tOr('item.' + c.item, c.item), locked: !owned(c.item) };
-          }))
-          .concat(E.invClothes.map(function (ic) { return { key: ic.name, ko: ic.name }; }));
-      },
-    };
-    return E;
+    if (!E) return;
+    if (E.saveTimer) { clearTimeout(E.saveTimer); E.saveTimer = 0; rest.lookSave(E.tab === 'clothes'); }
+    rest.lookFocus(false);
+    S.lookEdit = null;
+    schedule();
   }
 
   // ═══════════════ 렌더 본체 ═══════════════
@@ -588,8 +340,8 @@
     setSlot('topbar', topbarHtml());
     charsPanel.heroUpdate();
     popupUpdate();
-    setSlot('credits', S.creditsOpen ? creditsHtml() : '');
-    setSlot('look', S.lookEdit ? lookHtml() : '');
+    setSlot('credits', S.creditsOpen ? creditsMod.html() : '');
+    setSlot('look', S.lookEdit ? lookedit.html() : '');
     applyScrolls(root, saved);
     if (focus) {
       var el = document.getElementById(focus);
@@ -600,22 +352,7 @@
         }
       }
     }
-    wireJoinInputs();
-  }
-
-  /** 참여 폼 입력 — 타이핑 중 재렌더 금지(포커스 유지), 상태만 갱신. */
-  function wireJoinInputs() {
-    var name = document.getElementById('tf-join-name');
-    var age = document.getElementById('tf-join-age');
-    var sex = document.getElementById('tf-join-sex');
-    var persona = document.getElementById('tf-join-persona');
-    if (name) name.oninput = function () { S.joinForm.name = name.value; };
-    if (age) age.oninput = function () {
-      S.joinForm.age = age.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 2);
-      if (age.value !== S.joinForm.age) age.value = S.joinForm.age;
-    };
-    if (sex) sex.onchange = function () { S.joinForm.sex = sex.value; schedule(); };
-    if (persona) persona.oninput = function () { S.joinForm.persona = persona.value; };
+    charsPanel.wireJoinInputs();
   }
 
   // ═══════════════ 이벤트 위임 ═══════════════
@@ -658,36 +395,36 @@
       S.selRelic = null;
       // 선택 단일 소스 — Rust Selection으로 요청(링·카메라 추적·채팅 바 ui.js)
       if (window.terrafolk && window.terrafolk.selectAgent) window.terrafolk.selectAgent(S.selected);
-      onSelected();
+      rest.onSelected();
       schedule();
     }
     else if (act === 'preset') {
       var p = I.PERSONA_PRESETS.filter(function (x) { return x.key === key; })[0];
       if (p) { S.joinForm.persona = p.text; schedule(); }
     }
-    else if (act === 'join') { join(); }
+    else if (act === 'join') { rest.join(); }
     else if (act === 'look-edit') {
       var m = S.mineDetail.filter(function (x) { return x.id === el.getAttribute('data-id'); })[0];
       if (m) {
-        S.lookEdit = makeLookEditor(m);
+        S.lookEdit = lookedit.makeEditor(m);
         // 편집은 풀스크린 전용 화면으로 — 주민 목록 팝업이 뒤에 겹쳐
         // 난잡해 보이는 문제(2026-10-23 모바일 보고). 카메라 팔로우로
         // 캐릭터를 화면 상단에 크게 띄운다(밤은 러스트가 정오 조명으로).
         S.popup = null;
-        lookFocus(true, m.id);
+        rest.lookFocus(true, m.id);
         schedule();
       }
     }
     else if (act === 'look-tab') { if (S.lookEdit) { S.lookEdit.tab = key; schedule(); } }
-    else if (act === 'look-save') { lookSave(); }
+    else if (act === 'look-save') { rest.lookSave(); }
     else if (act === 'look-pick') {
       // 팔레트 스와치 즉시 선택 — 미리보기·자동 저장은 슬라이드와 동일 경로
       var E0 = S.lookEdit;
       if (E0) {
         E0.setPart(el.getAttribute('data-part'), key);
-        localLookPush(E0);
+        rest.localLookPush(E0);
         clearTimeout(E0.saveTimer);
-        E0.saveTimer = setTimeout(function () { lookSave(false); }, 500);
+        E0.saveTimer = setTimeout(function () { rest.lookSave(false); }, 500);
       }
     }
     else if (act === 'close-look') { if (ev.target === el) { closeLookEditor(); } }
@@ -698,48 +435,8 @@
     else if (act === 'locale') { I.setLocale(key); schedule(); }
     else if (act === 'credits') { S.creditsOpen = true; schedule(); }
     else if (act === 'close-credits') { if (ev.target === el) { S.creditsOpen = false; schedule(); } }
-    else if (act === 'logout') { logout(); }
+    else if (act === 'logout') { rest.logout(); }
   });
-
-  // look-slide는 행(row) 단위로 처리 — 캡처 단계에서 클릭된 optrow의 순서를 읽는다.
-  // 잠긴 옵션(미보유 의상)은 볼 수만 있고 선택은 스킵(FE와 동일).
-  document.addEventListener('click', function (ev) {
-    var nav = ev.target.closest ? ev.target.closest('[data-act="look-slide"]') : null;
-    if (!nav || !S.lookEdit) return;
-    var row = nav.closest('.tf-optrow');
-    if (!row) return;
-    var idx = Array.prototype.indexOf.call(row.parentNode.children, row);
-    var E = S.lookEdit;
-    var tab = E.tab;
-    var spec;
-    if (tab === 'clothes') spec = { slot: ['top', 'bottom', 'feet'][idx] };
-    else if (tab === 'hair') spec = { part: ['hair', 'hairColor'][idx] };
-    else spec = { part: ['skin', 'eye', 'beard', 'glasses'][idx] };
-    var dir = Number(nav.getAttribute('data-dir'));
-    var options, value, apply;
-    if (spec.slot) {
-      options = E.wearOptions(spec.slot);
-      value = E.wears[spec.slot] || 'auto';
-      apply = function (k) { E.pickWear(spec.slot, k); };
-    } else {
-      var list = E.opts[spec.part] || [];
-      options = list.map(function (v) { return { key: v, ko: E.prettyPart(v) }; });
-      value = E.parts[spec.part] || (options[0] && options[0].key) || 'none';
-      apply = function (k) { E.setPart(spec.part, k); };
-    }
-    var i = Math.max(0, options.findIndex(function (o) { return o.key === value; }));
-    var next = options[(i + dir + options.length) % options.length];
-    if (next && !next.locked) apply(next.key);
-    else schedule();
-    // 즉시 미리보기 — 선택 순간 로컬 look 오버라이드로 재스폰(서버 왕복 전).
-    // rust(look_edit)가 서버 정본 look에 parts를 머지하고, 저장이 확정되면
-    // (룸 lookJson == 오버라이드) 자동 수렴·해제된다. 그림 미리보기 아님.
-    localLookPush(E);
-    // 슬라이드 즉시 저장(0.5s 디바운스) — 실 프리뷰는 투명 오버레이 너머
-    // 3D 세계(저장→룸 lookJson→재스폰→틴트). 옷 탭이 아니면 옷 파트 보존.
-    clearTimeout(E.saveTimer);
-    E.saveTimer = setTimeout(function () { lookSave(tab === 'clothes'); }, 500);
-  }, true);
 
   var modalEscLatch = false;
   document.addEventListener('keydown', function (ev) {
@@ -751,361 +448,6 @@
     }
   });
 
-  // ═══════════════ REST ═══════════════
-  function notify(msg) {
-    S.notice = String(msg || '');
-    schedule();
-    if (I.getLocale() !== 'en' && S.notice) {
-      I.translateText(I.getLocale(), S.notice).then(function (tr) {
-        if (tr !== S.notice) { S.notice = tr; schedule(); }
-      }).catch(function () {});
-    }
-  }
-
-  function openPopup(key) {
-    S.menuOpen = false;
-    S.popup = key;
-    schedule();
-    if (key === 'chars') { loadRelations(); onSelected(); }
-  }
-
-  var backlogSeeded = false;
-  /** 백로그(이벤트·채팅) — 부팅 시 1회 시딩. 실패 시 2.5s 간격 3회 재시도. */
-  function loadBacklogs() {
-    if (backlogSeeded) return;
-    var tries = 0;
-    var load = function () {
-      var okEvents = false, okChat = false;
-      authFetch('/api/worldsim/events').then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (rows) {
-          if (rows) {
-            okEvents = true;
-            var seeded = rows.slice(-400).map(function (r2) {
-              return { id: r2.id, tick: r2.tick, kind: r2.kind, agent_id: r2.agent_id, payload: r2.payload, ts: r2.ts };
-            });
-            S.events = seeded.concat(S.events).slice(-400);
-            schedule();
-          }
-        }).catch(function () {}).finally(function () { retryCheck(okEvents); });
-      authFetch('/api/worldsim/chat').then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (rows) {
-          if (rows) {
-            okChat = true;
-            var seeded = rows.slice(-120).map(function (r2) {
-              return Object.assign({}, r2, { id: nextRowId(), orig: r2.text });
-            });
-            S.chat = seeded.concat(S.chat).slice(-120);
-            schedule();
-          }
-        }).catch(function () {}).finally(function () { retryCheck(okChat); });
-    };
-    var retryCheck = function (ok) {
-      if (ok) backlogSeeded = true;
-      else if (++tries < 3) setTimeout(function () { if (!backlogSeeded) load(); }, 2500);
-    };
-    load();
-  }
-
-  var relTimer = null;
-  function loadRelations() {
-    if (relTimer) clearInterval(relTimer);
-    var load = function () {
-      authFetch('/api/worldsim/relations').then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (rows) { if (rows) { S.relations = rows; if (S.popup === 'chars') schedule(); } })
-        .catch(function () {});
-    };
-    load();
-    relTimer = setInterval(load, 20000);
-  }
-
-  var selTimer = null;
-  /** 선택 주민 상세 — 생활기록(공개)·기억(로그인), 15s 갱신. */
-  function onSelected() {
-    if (selTimer) { clearInterval(selTimer); selTimer = null; }
-    if (!S.selected) return;
-    var load = function () {
-      authFetch('/api/worldsim/agents/' + encodeURIComponent(S.selected) + '/history')
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (rows) {
-          if (rows) {
-            S.history = rows.slice(0, 25).map(function (h) {
-              return { ts: h.ts, type: h.type, text: h.text, orig: h.text };
-            });
-            if (S.popup === 'chars') schedule();
-          }
-        }).catch(function () {});
-      if (S.scope && S.scope.kind === 'user') {
-        authFetch('/api/worldsim/agents/' + encodeURIComponent(S.selected) + '/memories')
-          .then(function (r) { return r.ok ? r.json() : null; })
-          .then(function (rows) {
-            if (rows) {
-              S.memories = rows.slice(0, 20).map(function (m) {
-                return { id: m.id, kind: m.kind, text: m.text, orig: m.text, ts: m.ts };
-              });
-              if (S.popup === 'chars') schedule();
-            }
-          }).catch(function () {});
-      }
-    };
-    load();
-    selTimer = setInterval(load, 15000);
-  }
-
-  // 내 주민 id — Rust '내 집' 마커(§5 갭2)로 전달. wasm 브리지(tf.setMine)는
-  // Rust 부팅 후 생기므로 prime 시 재전송한다(index.html uiPrime → pushMine).
-  var mineIds = [];
-  function pushMine() {
-    var tf = window.terrafolk;
-    if (tf && tf.setMine) {
-      try { tf.setMine(mineIds); } catch (e) { /* 브리지 미등록 — prime에서 재시도 */ }
-    }
-  }
-
-  function loadMine() {
-    if (!(S.scope && S.scope.kind === 'user')) return;
-    authFetch('/api/worldsim/me').then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (mine) {
-        if (!mine) return;
-        mine.forEach(function (m) {
-          var cur = S.live[m.id];
-          if (cur) { cur.mine = true; cur.name = m.name; }
-        });
-        S.liveSig = liveSignature();
-        mineIds = mine.map(function (m) { return m.id; });
-        pushMine();
-        S.mineDetail = mine.map(function (m) {
-          return {
-            id: m.id, name: m.name, sex: m.sex || 'female', age: m.age || 30,
-            parts: m.parts || {}, wears: m.wears || {},
-            inventory: m.inventory || {}, clothingInventions: m.clothingInventions || [],
-          };
-        });
-        schedule();
-      }).catch(function () {});
-  }
-
-  function join() {
-    if (S.busy || !S.joinForm.name.trim()) return;
-    S.busy = true;
-    schedule();
-    authFetch('/api/worldsim/join', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: S.joinForm.name.trim() || t('join.name.default'),
-        persona: {
-          age: Number(S.joinForm.age) || 30,
-          sex: S.joinForm.sex,
-          persona: S.joinForm.persona.trim() || undefined,
-        },
-      }),
-    }).then(function (r) {
-      return r.ok ? r.json() : r.json().then(function (j) { throw new Error(j.message || j.detail || 'join failed'); });
-    }).then(function (res) {
-      S.busy = false;
-      S.joinForm.name = '';
-      S.joinForm.persona = '';
-      notify(t('notice.join', { name: res.name }));
-      loadMine();
-      schedule();
-    }).catch(function (e) {
-      S.busy = false;
-      notify((e && e.message) || t('err.generic'));
-      schedule();
-    });
-  }
-
-  // ── 편집 미리보기 브리지(look_edit.rs) ── 카메라 포커스(내 캐릭터 줌 인
-  // 팔로우)와 즉시 로컬 look 오버라이드(저장 왕복 전 재스폰).
-  function lookFocus(on, agentId) {
-    var tf = window.terrafolk || {};
-    if (on && agentId && tf.selectAgent) tf.selectAgent(agentId);
-    if (tf.setLookFocus) tf.setLookFocus(on);
-  }
-  function closeLookEditor() {
-    var E = S.lookEdit;
-    if (!E) return;
-    // 남은 디바운스 즉시 실행 — 마지막 선택이 닫힘으로 유실되지 않게.
-    if (E.saveTimer) { clearTimeout(E.saveTimer); E.saveTimer = 0; lookSave(E.tab === 'clothes'); }
-    lookFocus(false);
-    S.lookEdit = null;
-    schedule();
-  }
-  function localLookPush(E) {
-    var f = window.terrafolk && window.terrafolk.setLocalLook;
-    if (f) f(E.agentId, JSON.stringify(E.fullParts()));
-  }
-
-  function lookSave(fromClothes) {
-    var E = S.lookEdit;
-    if (!E || E.busy) return;
-    E.busy = true;
-    schedule();
-    // 옷 슬롯은 wears가 관장 — 수동 parts의 옷 잔존값은 정리해 파생이 우선하게.
-    // wears는 에디터 선택(E.wears, 미지정 슬롯=auto 초기화)을 그대로 — 하드코딩
-    // auto면 사용자 선택·기존 저장값이 전부 지워진다(FE LookEditor 규약)
-    var partsOut = Object.assign({}, E.parts);
-    var wearsOut;
-    if (fromClothes !== false) {
-      // 옷 탭 편집 — 옷 파트는 wears가 관장(소지 파생 우선, FE 규약)
-      ['top', 'topColor', 'bottom', 'bottomColor', 'feet', 'feetColor'].forEach(function (k) { delete partsOut[k]; });
-      wearsOut = { top: E.wears.top || 'auto', bottom: E.wears.bottom || 'auto', feet: E.wears.feet || 'auto' };
-    } else {
-      // 헤어·얼굴 편집 — 옷은 건드리지 않는다(기존 wears 그대로 송신)
-      wearsOut = Object.assign({}, E.wears);
-    }
-    authFetch('/api/worldsim/agents/' + encodeURIComponent(E.agentId) + '/look', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ parts: partsOut, wears: wearsOut }),
-    }).then(function (r) {
-      if (!r.ok) return r.json().then(function (j) { throw new Error(j.message || j.detail || 'save failed'); });
-      return r.json();
-    }).then(function () {
-      // 편집기 유지(2026-10-23) — 슬라이드마다 즉시 저장되므로 닫지 않고
-      // 계속 조정하게 한다. 실 프리뷰는 투명 오버레이 너머 3D 세계.
-      E.busy = false;
-      notify(t('look.saved'));
-      loadMine();
-      schedule();
-    }).catch(function (e) {
-      E.busy = false;
-      notify((e && e.message) || t('look.err.save'));
-      schedule();
-    });
-  }
-
-  function logout() {
-    var f = window.terrafolk && window.terrafolk.logout;
-    if (f) Promise.resolve(f()).then(function () {
-      S.scope = null;
-      S.mineDetail = [];
-      Object.keys(S.live).forEach(function (k) { S.live[k].mine = false; });
-      schedule();
-    });
-  }
-
-  // ═══════════════ feed — worldsim.js가 호출 ═══════════════
-  // 침전 오버레이 — CSS(.tf-precip) 구동. 3D 파이프라인은 WebGL2 프래그먼트
-  // 유니폼 한도(12) 초과로 침전 재질을 만들 수 없어 여기서 처리한다.
-  var precipEl = null;
-  function syncPrecip(weather) {
-    if (!precipEl) precipEl = document.querySelector('.tf-precip');
-    if (!precipEl) return;
-    var cls = 'tf-precip';
-    if (weather === 'rain') cls += ' rain';
-    else if (weather === 'storm') cls += ' rain storm';
-    else if (weather === 'snow') cls += ' snow';
-    if (precipEl.className !== cls) precipEl.className = cls;
-  }
-
-  function feedFrame(f) {
-    // 시계
-    S.clock = {
-      day: f.day, hour: f.hour, minute: f.minute, season: f.season,
-      weather: f.weather, sunrise: f.sunrise, sunset: f.sunset,
-    };
-    syncPrecip(f.weather);
-    // 주민 — 프레임에 없는 기존 행은 유지(이름 시드), 퇴장 제거
-    var seen = {};
-    (f.agents || []).forEach(function (a) {
-      seen[a.id] = 1;
-      var cur = S.live[a.id];
-      S.live[a.id] = {
-        id: a.id,
-        name: a.name || (cur ? cur.name : a.id),
-        status: a.status != null ? a.status : (cur ? cur.status : ''),
-        actType: a.actType != null ? a.actType : (cur ? cur.actType : ''),
-        actProgress: a.actProgress != null ? a.actProgress : (cur ? cur.actProgress : 0),
-        needs: a.needs || (cur ? cur.needs : {}),
-        inv: a.inventory != null ? I.parseInv(a.inventory) : (cur ? cur.inv : {}),
-        goalText: a.goalText != null ? a.goalText : (cur ? cur.goalText : ''),
-        look: a.look != null ? a.look : (cur ? cur.look : null),
-        kind: a.kind != null ? a.kind : (cur ? cur.kind : ''),
-        x: a.x != null ? a.x : (cur ? cur.x : 0),
-        y: a.y != null ? a.y : (cur ? cur.y : 0),
-        mine: cur ? cur.mine : false,
-      };
-    });
-    Object.keys(S.live).forEach(function (k) { if (!seen[k]) delete S.live[k]; });
-    // 자원 — 스냅숏 시드
-    S.resMap = {};
-    (f.resources || []).forEach(function (r) {
-      S.resMap[r.id] = r;
-    });
-    // 발명
-    if (f.inventions) {
-      S.inventionsAll = f.inventions;
-      var inv = {};
-      f.inventions.forEach(function (i) {
-        if (i.icon && i.icon.tpl) {
-          inv[i.name] = {
-            tpl: i.icon.tpl, primary: i.icon.primary, accent: i.icon.accent,
-            purpose: i.purpose, inventor: i.inventor, based_on: i.based_on,
-          };
-        }
-      });
-      S.inventions = inv;
-    }
-    // 내 캐릭 확인 — 주민 집합이 바뀌면
-    var sig = liveSignature();
-    if (sig !== S.liveSig) {
-      S.liveSig = sig;
-      loadMine();
-    }
-    // 선택 해제는 Rust 단일 소스(tf.onPickAgent(null))에 맡긴다 — 프레임 공백
-    // (재접속·드랍)으로 S.live가 잠깐 비어도 카드·추적이 튕기지 않는다.
-    // Rust는 AgentGrace 유예 후 실제 철거 시에만 null을 통보한다.
-    schedule();
-  }
-  function liveSignature() {
-    return Object.keys(S.live).sort().join(',');
-  }
-  function feedEvent(e) {
-    S.events.push(Object.assign({ id: nextRowId(), ts: new Date().toISOString() }, e));
-    if (S.events.length > 400) S.events.splice(0, S.events.length - 400);
-    // 스폰 이름 시드 — 접속 후 합류한 주민도 이름으로
-    if (e.kind === 'spawn' && e.agent_id && e.payload && e.payload.name) {
-      var cur = S.live[e.agent_id];
-      if (cur && cur.name !== String(e.payload.name)) cur.name = String(e.payload.name);
-    }
-    if (S.popup === 'log' || S.popup === 'inventions') schedule();
-  }
-  function feedChat(c) {
-    S.chat.push(Object.assign({ id: nextRowId(), orig: c.text, ts: new Date().toISOString() }, c));
-    if (S.chat.length > 120) S.chat.splice(0, S.chat.length - 120);
-    if (S.popup === 'log') schedule();
-  }
-  function feedScope(scope) {
-    S.scope = scope;
-    if (scope && scope.kind === 'user') loadMine();
-    else { mineIds = []; pushMine(); }  // 로그아웃 — 내 집 마커 해제
-    schedule();
-  }
-
-  // ── Rust 픽 브리지 — 빈 땅 클릭 좌표로 유물 카드(§17.38).
-  //    주민 픽킹은 Rust pick.rs가直接 하고 tf.onPickAgent로 돌아온다.
-  function pickAt(x, y) {
-    // 건물·묘지 탭 툴팁(§17.78 — 터치 고정 2.5s) — tf-world-ui가 판정·표시.
-    // 유물 카드보다 우선(발판 안 클릭은 집 안내가 우선).
-    if (window.TF_WORLD_UI && window.TF_WORLD_UI.showResAt(x, y)) return;
-    var bestR = null, bestRd = 4;
-    Object.keys(S.resMap).forEach(function (rid) {
-      var r = S.resMap[rid];
-      if (r.kind !== 'relic') return;
-      var d = (r.x + 0.5 - x) * (r.x + 0.5 - x) + (r.y + 0.5 - y) * (r.y + 0.5 - y);
-      if (d < bestRd) { bestRd = d; bestR = r; }
-    });
-    if (bestR) {
-      var st = bestR.state || {};
-      S.selRelic = {
-        name: bestR.species, by: String(st.by || ''),
-        purpose: String(st.purpose || ''), basedOn: String(st.based_on || ''),
-      };
-      openPopup('res');
-    }
-  }
-
   // ── Rust 선택 통보 수신 — ui.js가 먼저 등록한 핸들러를 chaining으로 이어받는다.
   //    (로드 순서: ui.js → tf-ui.js — 채팅 바와 팝업이 같은 선택 신호를 함께 받는다)
   (function chainPickAgent() {
@@ -1116,7 +458,7 @@
       if (prev) { try { prev(id); } catch (e) { console.error('[tf-ui] onPickAgent 체인 오류', e); } }
       S.selected = id || null;
       S.selRelic = null;
-      onSelected();
+      rest.onSelected();
       schedule();   // 히어로 카드 즉시 반영 — 단선 시엔 틱이 안 오니 여기서 갱신
     };
   })();
@@ -1129,7 +471,7 @@
   if (tfb) tfb.modalEsc = function () { var v = modalEscLatch; modalEscLatch = false; return v; };
 
   // 라이브 프라임 로딩 캡션(index.html 정적 폴백 텍스트)을 사전 언어로 교체 —
-  // 키(boot.loading)는 ../terrafolk 정본 사전 등록 후 갱신된다(tOr 폴백 유지).
+  // 키(boot.loading)는 ../terrafolk-2d-legacy 정본 사전 등록 후 갱신된다(tOr 폴백 유지).
   document.addEventListener('DOMContentLoaded', function () {
     var cap = document.querySelector('.tf-boot-caption');
     if (cap) cap.textContent = tOr('boot.loading', '세계에 접속하는 중…');
@@ -1137,17 +479,17 @@
   window.TF_UI = {
     state: S,
     feed: {
-      frame: feedFrame,
-      event: feedEvent,
-      chat: feedChat,
-      scope: feedScope,
+      frame: feedmod.frame,
+      event: feedmod.event,
+      chat: feedmod.chat,
+      scope: feedmod.scope,
     },
     open: openPopup,
     openRelic: function (r) { S.selRelic = r; openPopup('res'); },
-    pickAt: pickAt,
-    seedBacklogs: loadBacklogs,
-    notify: notify,
-    pushMine: pushMine,
+    pickAt: feedmod.pickAt,
+    seedBacklogs: rest.loadBacklogs,
+    notify: rest.notify,
+    pushMine: rest.pushMine,
     setNet: function (live) { S.netLive = live; },
     render: schedule,
     // 소지 칩 아이콘 HTML — ui.js 우측 레일 소지품 패널이 재사용(동일 룩 유지)

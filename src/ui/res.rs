@@ -3,7 +3,8 @@
 
 use bevy::prelude::*;
 
-use super::civ::{CivSigs, TextLine, clear_children};
+use super::civ::{CivSigs, clear_children};
+use super::civ_detail::TextLine;
 use super::{Popup, UiState};
 use crate::net::NetState;
 use crate::world::data::WorldData;

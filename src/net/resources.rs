@@ -55,7 +55,7 @@ pub(crate) fn cleared_tiles(
 /// hut은 정체성 필드(stage·type·w·h)만 — work/progress는 스냅숏마다 변해
 /// 재스폰 깜빡임을 일으키므로 제외하고 진행률은 SiteMeta를 통해 갱신한다.
 /// (동물 x/y는 행 필드라 애초에 서명에 없다 — 배회는 RoamTo로 부드럽게.)
-fn res_sig(r: &super::LiveResource, vis: bool) -> u64 {
+pub(crate) fn res_sig(r: &super::LiveResource, vis: bool) -> u64 {
     let mut h = 1469598103934665603u64;
     let mut feed = String::new();
     if r.kind == "hut" {
@@ -268,137 +268,14 @@ pub fn sync_resources(
             skip_cache.insert(r.id);
             continue;
         }
-        // ── hut — 다중 타일 발판(§17.75)·창불(§17.78). 서버 앵커=좌상단 타일,
-        //    표현은 발판 중심. 공사 중=절차 발판(말뚝·밧줄·링·진행 바·재료),
-        //    완공=타입별 GLB + 발판 안 주민 점등 창불.
+        // ── hut — 다중 타일 발판·시공 스테이지·완공 GLB·창불·내 집 마커.
+        //    스폰 본체는 world::bld::spawn_live_hut(§17.75·§17.78·§5 갭2) —
+        //    500줄 규칙으로 2026-11-03 이관.
         if r.kind == "hut" {
-            let bld_type = st.bld_type.clone().unwrap_or_else(|| "HUT".into());
-            let (w, h) = bld_size(&st, &bld_type);
-            let stage = st.stage.clone().unwrap_or_else(|| "COMPLETED".into());
-            let cx = r.x as f32 + w as f32 / 2.0;
-            let cz = r.y as f32 + h as f32 / 2.0;
-            let ground = world.height_at(r.x as i32 + w as i32 / 2, r.y as i32 + h as i32 / 2);
-            let sig = res_sig(r, true);
-            let rect = crate::world::bld::SiteRect {
-                x: r.x as i32,
-                y: r.y as i32,
-                w,
-                h,
-            };
-            if stage != "COMPLETED" {
-                let site = if super::dbg_gate::off("no_scaffold") {
-                    commands.spawn(Transform::default()).id() // 진단 게이트 — 빈 발판
-                } else {
-                    crate::world::bld::spawn_site(
-                        &mut commands,
-                        &mut meshes,
-                        &mut std_mats,
-                        r.x as i32,
-                        r.y as i32,
-                        w,
-                        h,
-                        ground,
-                        st.progress.unwrap_or(0.0).clamp(0.0, 1.0),
-                        &stage,
-                    )
-                };
-                commands
-                    .entity(site)
-                    .insert((LiveResourceTag(r.id), LiveResMeta(sig)));
-                // 재료 더미 — 부지 준비 단계의 장작(FE SITE_PREPARED 재료 표현)
-                let log_h = crate::world::models::prop_model(PropKind::WoodLog).0 * 0.9;
-                let pile = commands
-                    .spawn((
-                        crate::world::models::PropRoot {
-                            kind: PropKind::WoodLog,
-                            target_h: log_h,
-                            ground_y: ground,
-                            rot_y: (r.id % 360) as f32 / 360.0 * std::f32::consts::TAU,
-                            scale_jitter: 1.0,
-                            variants: crate::world::models::prop_model(PropKind::WoodLog).1,
-                        },
-                        bevy::world_serialization::WorldAssetRoot(
-                            crate::world::models::prop_scene(PropKind::WoodLog, &assets),
-                        ),
-                        Transform::from_translation(Vec3::new(
-                            r.x as f32 + 0.35,
-                            ground,
-                            r.y as f32 + 0.35,
-                        )),
-                    ))
-                    .id();
-                commands
-                    .entity(pile)
-                    .insert((LiveResourceTag(r.id), LiveResMeta(sig)));
-            } else if let Some((kind, target_h)) = live_visual(&r.kind, &r.species, &st) {
-                // 발명품 3D 모델 우선(§17.86 확장) — relic 부지의 species가
-                // 모델 보유 발명명과 일치하면 원격 GLB(DynProp)로 스폰.
-                // 미매칭·미로딩은 기존 정적 종(folder relic) 폴백 그대로.
-                let invention_model = if kind == PropKind::Relic {
-                    ready.as_ref().and_then(|rd| {
-                        // species는 발명명(한글) 또는 안정 key(영문 — 시드 발명) 둘 다.
-                        rd.by_name
-                            .get(&r.species)
-                            .or_else(|| rd.key_to_name.get(&r.species).and_then(|n| rd.by_name.get(n)))
-                            .cloned()
-                    })
-                } else {
-                    None
-                };
-                let b = if let Some(scene) = invention_model {
-                    commands
-                        .spawn((
-                            crate::world::prop_fit::DynProp {
-                                target_h: 1.4,
-                                ground_y: ground,
-                                rot_y: (r.id % 4) as f32 * std::f32::consts::FRAC_PI_2,
-                            },
-                            bevy::world_serialization::WorldAssetRoot(scene),
-                            LiveResourceTag(r.id),
-                            LiveResMeta(sig),
-                            Transform::from_translation(Vec3::new(cx, ground, cz)),
-                        ))
-                        .id()
-                } else {
-                    commands
-                        .spawn((
-                            crate::world::models::PropRoot {
-                                kind,
-                                target_h,
-                                ground_y: ground,
-                                rot_y: (r.id % 4) as f32 * std::f32::consts::FRAC_PI_2,
-                                scale_jitter: 1.0,
-                                variants: crate::world::models::prop_model(kind).1,
-                            },
-                            bevy::world_serialization::WorldAssetRoot(
-                                crate::world::models::prop_scene(kind, &assets),
-                            ),
-                            LiveResourceTag(r.id),
-                            LiveResMeta(sig),
-                            // '내 집' 마커·미니맵 핑 판정용(§5 갭2) — 소유자 id·지붕 높이
-                            crate::world::home::BldOwner {
-                                owner: st.owner.clone(),
-                                top_h: target_h,
-                            },
-                            Transform::from_translation(Vec3::new(cx, ground, cz)),
-                        ))
-                        .id()
-                };
-                let glow = crate::world::bld::spawn_window_glow(
-                    &mut commands,
-                    &mut meshes,
-                    &mut std_mats,
-                    rect,
-                    cx,
-                    cz,
-                    ground,
-                    target_h,
-                );
-                commands
-                    .entity(glow)
-                    .insert((LiveResourceTag(r.id), LiveResMeta(sig)));
-                let _ = b;
-            }
+            crate::world::bld_spawn::spawn_live_hut(
+                &mut commands, &mut meshes, &mut std_mats, &assets,
+                r, &st, &world, ready.as_deref(),
+            );
             continue;
         }
         let Some((kind, target_h)) = live_visual(&r.kind, &r.species, &st) else {

@@ -1,6 +1,7 @@
 //! 원격 에셋(GLB) 캐시·로드 — 발명품 3D 모델(§17.86 확장)의 클라이언트측
 //! 기반. URL → 캐시 파일(sha16 파일명) → bevy "remote" 소스(FileAssetReader)
-//! 로드. 네이티브 전용(안드로이드 우선 계약 — wasm은 JS fetch 경로 후속).
+//! 로드. 네이티브는 파일 캐시, wasm은 mem 서브모듈(MemoryAssetReader)로
+//! 동등 지원(2026-11-03 문서 정정 — 예전 "wasm 후속" 주석은 구현 이전의 것).
 
 use bevy::prelude::*;
 

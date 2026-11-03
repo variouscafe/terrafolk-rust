@@ -7,16 +7,16 @@
 
 | 기능 | 웹 | 앱 |
 |---|---|---|
-| 주민 목록·선택·follow | tf-chars.js | ui/chars.rs |
+| 주민 목록·선택·follow | tf-chars.js | ui/chars.rs·chars_sel.rs(선택 패널) |
 | 주민 상세(욕구·목표·챗) | tf-chars.js | ui/chars.rs(SelPanel·ChatBar) |
 | 문명 팝업·연대기·**유물 카드** | tf-civ.js | ui/civ.rs(relic.card.*) |
-| 자원·기록 패널 | tf-reslog.js | ui/res.rs·log.rs |
+| 자원·기록 패널 | tf-reslog.js(자원 판정 헬퍼 포함) | ui/res.rs·log.rs |
 | 미니맵 | tf-minimap.js | ui/minimap.rs |
 | 레일(활동) | tf-rail.js | ui/rail.rs |
 | HUD(시계·날씨·인구·넷) | tf-world-ui.js | ui/hud.rs |
 | 설정·계정 로그인·i18n | tf-set.js | ui/menu.rs(AccountPopup) |
-| **외형 편집(look editor)** | tf-ui.js lookEdit + world/look_edit.rs | ui/look.rs·look_view.rs + net/look_sync.rs |
-| 발명품 3D 프롭(§17.86) | 원격 GLB | net/inventions.rs(데스크톱·안드로이드 우선) |
+| **외형 편집(look editor)** | tf-lookedit.js + world/look_edit.rs | ui/look.rs·look_model.rs·look_view.rs + net/look_sync.rs |
+| 발명품 3D 프롭(§17.86) | 원격 GLB(메모리 소스) | net/inventions.rs(파일 캐시·wasm mem 양측) |
 | 계절 앰비언스 연출 | tf-ambience.js(DOM 보정) | 엔진 sky/daynight로 별도 구현(동등) |
 
 ## 완료 기록

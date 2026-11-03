@@ -12,38 +12,11 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { extract } from './gen-lib.mjs';
 
 const FE = join(import.meta.dirname, '..', '..', 'terrafolk-2d-legacy');
 const OUT = join(import.meta.dirname, '..', 'src', 'ui', 'i18n_data.rs');
 
-function extract(src, name) {
-  const re = new RegExp(`(?:export\\s+)?const\\s+${name}\\b[^=]*=`);
-  const m = re.exec(src);
-  if (!m) throw new Error(`원천에서 ${name}을(를) 찾을 수 없음`);
-  let i = m.index + m[0].length;
-  while (src[i] === ' ') i++;
-  const open = src[i];
-  const close = open === '{' ? '}' : ']';
-  let depth = 0, str = null, esc = false;
-  let j = i;
-  for (; j < src.length; j++) {
-    const c = src[j];
-    if (str) {
-      if (esc) esc = false;
-      else if (c === '\\') esc = true;
-      else if (c === str) str = null;
-      continue;
-    }
-    if (c === '"' || c === "'" || c === '`') { str = c; continue; }
-    if (c === open) depth++;
-    else if (c === close) {
-      depth--;
-      if (depth === 0) { j++; break; }
-    }
-  }
-  let lit = src.slice(i, j).replace(/\s+as\s+const\s*;?$/, '').replace(/;$/, '');
-  return Function(`"use strict"; return (${lit});`)();
-}
 
 const events = readFileSync(join(FE, 'src/lib/i18n/events.gen.ts'), 'utf8');
 const vocab = readFileSync(join(FE, 'src/lib/i18n/vocab.gen.ts'), 'utf8');

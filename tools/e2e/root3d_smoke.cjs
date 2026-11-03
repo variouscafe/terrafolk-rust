@@ -2,66 +2,13 @@
 // 사용: NODE_PATH=/opt/homebrew/lib/node_modules node tools/e2e/root3d_smoke.cjs [url]
 // 기본 url = https://terrafolk-3d.pages.dev (pages.dev 자동화 계약 — 커스텀 도메인은 봇 방어 403).
 // 판정: 캔버스 영역 휘도 표준편차 > 임계 = 지형 렌더됨(스피너·단색 화면 아님).
+const { pngPixels, boxStats } = require('./lib.cjs');
 //      Rust panic 콘솔 라인 감지 시 FAIL. 스크린샷 /tmp/root3d_smoke.png 저장.
-// 유래: 3D 웹 배포 개시(2026-10-21) — proto2d_regress.cjs의 PNG 디코더·런치 패턴 재사용.
+// 유래: 3D 웹 배포 개시(2026-10-21). PNG 디코더·런치 패턴은 lib.cjs로 분리(2026-11-03).
 const { chromium } = require('playwright');
 const fs = require('fs');
 const zlib = require('zlib');
 
-/// 최소 PNG 디코더(Playwright 스크린샷 = RGBA8 비인터레이스 전제)
-function pngPixels(buf) {
-  const b = Buffer.from(buf);
-  if (b.readUInt32BE(0) !== 0x89504e47) throw new Error('not png');
-  let off = 8, w = 0, h = 0, idat = [], ctype = 6;
-  while (off < b.length) {
-    const len = b.readUInt32BE(off);
-    const type = b.toString('ascii', off + 4, off + 8);
-    if (type === 'IHDR') {
-      w = b.readUInt32BE(off + 8); h = b.readUInt32BE(off + 12); ctype = b[off + 17];
-    } else if (type === 'IDAT') idat.push(b.subarray(off + 8, off + 8 + len));
-    else if (type === 'IEND') break;
-    off += 12 + len;
-  }
-  const raw = zlib.inflateSync(Buffer.concat(idat));
-  const ch = ctype === 6 ? 4 : 3;
-  const stride = w * ch;
-  const out = Buffer.alloc(h * stride);
-  let p = 0;
-  for (let y = 0; y < h; y++) {
-    const f = raw[p++];
-    const row = raw.subarray(p, p + stride); p += stride;
-    const prev = y ? out.subarray((y - 1) * stride, y * stride) : null;
-    const cur = out.subarray(y * stride, (y + 1) * stride);
-    for (let x = 0; x < stride; x++) {
-      const a = x >= ch ? cur[x - ch] : 0;
-      const bb = prev ? prev[x] : 0;
-      const c = x >= ch && prev ? prev[x - ch] : 0;
-      let v = row[x];
-      if (f === 1) v += a;
-      else if (f === 2) v += bb;
-      else if (f === 3) v += (a + bb) >> 1;
-      else if (f === 4) {
-        const pa = Math.abs(bb - c), pb = Math.abs(a - c), pc = Math.abs(a + bb - 2 * c);
-        v += pa <= pb && pa <= pc ? a : pb <= pc ? bb : c;
-      }
-      cur[x] = v & 0xff;
-    }
-  }
-  return { w, h, ch, data: out };
-}
-
-/// 박스 휘도 통계 {mean, std} — 지형·소품이 그려졌으면 분산 발생
-function boxStats(px, [x0, y0, x1, y1]) {
-  let sum = 0, sum2 = 0, n = 0;
-  for (let y = y0; y < y1; y += 2)
-    for (let x = x0; x < x1; x += 2) {
-      const i = (y * px.w + x) * px.ch;
-      const l = (px.data[i] + px.data[i + 1] + px.data[i + 2]) / 3;
-      sum += l; sum2 += l * l; n++;
-    }
-  const mean = sum / n;
-  return { mean, std: Math.sqrt(Math.max(0, sum2 / n - mean * mean)) };
-}
 
 (async () => {
   const url = process.argv[2] || 'https://terrafolk-3d.pages.dev';

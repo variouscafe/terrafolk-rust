@@ -1,13 +1,66 @@
 // Terrafolk 자원·기록 패널 — tf-ui.js에서 기능 분리(500줄 규칙, 2026-10-22).
 // 자원 팝업(FE popups res 포트 — relic 상세 포함)과 기록(이벤트 로그) 렌더.
+// 자원 이용가능 판정(resUsable·resStats — FE civ.ts 포트)과 채팅 로그 표기
+// 헬퍼(isHumanRow·isAlreadyKorean·chatDisplayText)도 이 모듈이 소유한다
+// (2026-11-03 tf-ui에서 이관 — 이 패널 전용).
 // TF_RESLOG.create(ctx) 주입 — tf-ui.js보다 먼저 로드.
 (function () {
   'use strict';
   function create(ctx) {
     var S = ctx.S, t = ctx.t, tOr = ctx.tOr, esc = ctx.esc, mt = ctx.mt,
-        I = ctx.I, DATA = ctx.DATA, chipIconHtml = ctx.chipIconHtml,
-        resUsable = ctx.resUsable, resStats = ctx.resStats, isHumanRow = ctx.isHumanRow,
-        chatDisplayText = ctx.chatDisplayText;
+        I = ctx.I, DATA = ctx.DATA, chipIconHtml = ctx.chipIconHtml;
+
+    // ── 자원 이용가능 판정(FE civ.ts 포트) ──
+    function resUsable(kind, state, season) {
+      if (!state) return true;
+      if (kind === 'tree') return Number(state.maturity != null ? state.maturity : 0) >= 2;
+      if (kind === 'gold_vein') return Number(state.amount != null ? state.amount : 0) > 0;
+      if (kind === 'plant') {
+        if (!state.available) return false;
+        var seasons = state.seasons;
+        if (Array.isArray(seasons) && seasons.length > 0 && season) return seasons.indexOf(season) >= 0;
+        return true;
+      }
+      if (kind === 'animal') return state.alive !== false;
+      return true;
+    }
+    function resStats() {
+      var byKind = {};
+      Object.keys(S.resMap).forEach(function (rid) {
+        var r = S.resMap[rid];
+        if (r.kind === 'campfire' || r.kind === 'hut') return;   // 발명 도감으로(§17.38)
+        var k = byKind[r.kind];
+        if (!k) k = byKind[r.kind] = { kind: r.kind, total: 0, usable: 0, species: {} };
+        var u = resUsable(r.kind, r.state, S.clock.season);
+        k.total++;
+        if (u) k.usable++;
+        var s = k.species[r.species];
+        if (!s) s = k.species[r.species] = { n: 0, usable: 0 };
+        s.n++;
+        if (u) s.usable++;
+      });
+      return Object.keys(byKind).map(function (k) { return byKind[k]; })
+        .sort(function (a, b) { return b.total - a.total; });
+    }
+
+    function isHumanRow(c) {
+      var a = S.live[c.agent_id];
+      return String(c.speaker || '').indexOf('@') >= 0 || (a !== undefined && c.speaker !== a.name);
+    }
+    function isAlreadyKorean(s) {
+      var h = (String(s).match(/[가-힣]/g) || []).length;
+      var l = (String(s).match(/[A-Za-z]/g) || []).length;
+      return h > 0 && h >= l * 3;
+    }
+    function chatDisplayText(cm) {
+      var src = cm.orig != null ? cm.orig : cm.text;
+      var lang = cm.lang || 'en';
+      var locale = I.getLocale();
+      if (locale === lang) return src;
+      if (locale === 'en' && cm.text_en) return String(cm.text_en);
+      if (locale === 'ko' && isAlreadyKorean(src)) return src;
+      return mt(src);
+    }
   // ── 캐릭터 팝업(FE CharsPopup 포트) ──
   function resHtml() {
     var relic = '';

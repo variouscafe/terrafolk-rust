@@ -401,7 +401,7 @@ pub fn sync_agents(
             spawned_villager.insert(crate::world::reference_look::ReferenceVillager);
             info!("[net] 레퍼런스 파머 배정: {} ({})", a.name, a.id);
         }
-        spawned_villager.observe(crate::world::villager::villager_ready);
+        spawned_villager.observe(crate::world::villager_spawn::villager_ready);
         spawned += 1;
     }
     if spawned > 0 {

@@ -5,7 +5,8 @@
 //!
 //! 단계: sync(프레임 → 이름↔URL 맵) → download(전용 스레드, http_poll 패턴)
 //! → ready(asset 핸들 사전 등록) → resources.rs relic 분기가 스폰.
-//! wasm은 비활성(데스크톱·안드로이드 우선 — 원격 소스가 파일 리더 기반).
+//! wasm도 동작(pump_downloads_wasm → remote_assets::mem 메모리 소스 —
+//! 2026-11-03 문서 정정, 예전 "비활성" 주석은 구현 이전의 것).
 
 use bevy::prelude::*;
 

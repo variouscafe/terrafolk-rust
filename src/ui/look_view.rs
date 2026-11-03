@@ -3,7 +3,8 @@
 
 use bevy::prelude::*;
 
-use super::look::{EditorData, LookSlide, LookSwatch, RowTarget, Tab};
+use super::look::{LookSlide, LookSwatch, RowTarget, Tab};
+use super::look_model::EditorData;
 use super::look::{on_slide_click, on_swatch_click, part_options, wear_options};
 use super::look_data;
 use super::theme::{self, UiTheme};

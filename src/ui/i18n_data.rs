@@ -1,4 +1,4 @@
-// 자동 생성 — tools/gen-native-i18n.mjs (수동 편집 금지). 원천: ../terrafolk-2d-legacy (gen 2026-11-03T02:50:58.176Z)
+// 자동 생성 — tools/gen-native-i18n.mjs (수동 편집 금지). 원천: ../terrafolk-2d-legacy (gen 2026-11-03T07:54:43.610Z)
 //! 이벤트 템플릿(§17.44)·어휘·UI 문구 — 네이티브 렌더(src/ui/i18n.rs)의 데이터.
 //! (key, ko, en) — ko 우선, 빈값이면 en 폴백. 조사 토큰은 런타임 처리.
 

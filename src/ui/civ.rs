@@ -5,6 +5,7 @@
 use bevy::prelude::*;
 
 use super::i18n;
+use super::civ_detail::{spawn_detail, TextLine};
 use super::theme::{self, UiTheme};
 use super::{Popup, UiState};
 use crate::net::NetState;
@@ -18,9 +19,6 @@ pub struct CivBody;
 /// 발명 목록 행(탭 → 상세 카드) — 이름으로 식별.
 #[derive(Component)]
 struct CivRow(String);
-/// 상세 카드 닫기(✕) 버튼.
-#[derive(Component)]
-struct CivDetailClose;
 
 /// 각 팝업 재구성 서명(자원은 res.rs가 사용) — 변화 시에만 자식 재구성.
 #[derive(Resource, Default)]
@@ -37,19 +35,19 @@ pub struct CivDetail(pub Option<String>);
 #[derive(serde::Deserialize, Clone)]
 #[allow(dead_code)] // 표시에 골라 쓴다 — 필드는 계약 정본 그대로
 pub(crate) struct InventionRow {
-    name: String,
+    pub(super) name: String,
     #[serde(default)]
-    purpose: Option<String>,
+    pub(super) purpose: Option<String>,
     #[serde(default)]
-    inventor: Option<String>,
+    pub(super) inventor: Option<String>,
     #[serde(default)]
-    based_on: Option<String>,
+    pub(super) based_on: Option<String>,
     #[serde(default)]
-    category: Option<String>,
+    pub(super) category: Option<String>,
     #[serde(default)]
-    day: Option<u32>,
+    pub(super) day: Option<u32>,
     #[serde(default)]
-    materials: Option<std::collections::BTreeMap<String, u32>>,
+    pub(super) materials: Option<std::collections::BTreeMap<String, u32>>,
     #[serde(default)]
     performs: Option<u32>,
     #[serde(default)]
@@ -418,103 +416,14 @@ pub(crate) fn refresh_civ(
     }
 }
 
-/// 발명 상세 카드 — 아이콘 대신 범주 심볼, 재료 목록·만든 날짜(태양력)·설명.
-fn spawn_detail(
-    commands: &mut Commands,
-    body: Entity,
-    theme: &UiTheme,
-    r: &InventionRow,
-) {
-    let amber = Color::srgb(0.988, 0.816, 0.325);
-    commands.entity(body).with_child((
-        TextLine,
-        Node {
-            flex_direction: FlexDirection::Row,
-            align_items: AlignItems::Baseline,
-            column_gap: Val::Px(6.0),
-            ..default()
-        },
-    )).with_children(|h| {
-        h.spawn((Text::new(r.name.clone()), theme.title(12.0)));
-        if let Some(base) = r.based_on.as_deref().filter(|b| !b.is_empty()) {
-            h.spawn((
-                Text::new(i18n::t_fmt("relic.card.improved", &[("x", base)])),
-                theme.text(8.5, amber),
-            ));
-        }
-        h.spawn(Node { flex_grow: 1.0, ..default() });
-        // ✕ — 목록으로 돌아가기
-        h.spawn((
-            CivDetailClose,
-            Button,
-            Text::new("✕"),
-            theme.label(11.0),
-            Node {
-                padding: UiRect::axes(Val::Px(6.0), Val::Px(2.0)),
-                ..default()
-            },
-            BackgroundColor(theme::INK700),
-            Interaction::default(),
-        ))
-        .observe(on_detail_close);
-    });
-    // 만든 이 · 날짜(태양력) · 범주
-    let (y, m, d, _) = super::hud::date_of(r.day.unwrap_or(0));
-    let cat = r.category.as_deref().unwrap_or("");
-    let meta = format!(
-        "{} · {}   {}   {}",
-        i18n::t_or("relic.card.by", "만든 이"),
-        r.inventor.as_deref().unwrap_or("—"),
-        i18n::t_fmt("civ.inv.date", &[("y", &y.to_string()), ("m", &m.to_string()), ("d", &d.to_string())]),
-        i18n::vocab_label("invcat", cat),
-    );
-    commands.entity(body).with_child((
-        TextLine,
-        Text::new(meta),
-        theme.text(9.0, theme::INK400),
-    ));
-    // 재료 목록 — "라벨 ×수량 · ..."
-    if let Some(mats) = &r.materials
-        && !mats.is_empty()
-    {
-        let line = mats
-            .iter()
-            .map(|(it, q)| format!("{} ×{q}", i18n::vocab_label("item", it)))
-            .collect::<Vec<_>>()
-            .join(" · ");
-        commands.entity(body).with_child((
-            TextLine,
-            Text::new(format!("{} · {}", i18n::t_or("inv.materials", "재료"), line)),
-            theme.text(9.0, theme::INK200),
-        ));
-    }
-    // 발명가의 설명(자유문 — 원문 표시)
-    let desc = r
-        .purpose
-        .as_deref()
-        .filter(|p| !p.trim().is_empty())
-        .map(str::to_owned)
-        .unwrap_or_else(|| i18n::t_or("relic.card.desc.empty", "설명이 남지 않았다"));
-    commands.entity(body).with_child((
-        TextLine,
-        Text::new(i18n::fx(&desc)),
-        theme.text(9.5, theme::INK200),
-    ));
-}
-
 fn on_inv_click(trigger: On<Pointer<Click>>, rows: Query<&CivRow>, mut detail: ResMut<CivDetail>) {
     if let Ok(row) = rows.get(trigger.entity) {
         detail.0 = Some(row.0.clone());
     }
 }
 
-fn on_detail_close(_: On<Pointer<Click>>, mut detail: ResMut<CivDetail>) {
-    detail.0 = None;
-}
 
 /// 재구성 대행 표식 — 본문 텍스트 행(스타일 공통, res.rs도 사용).
-#[derive(Component)]
-pub(crate) struct TextLine;
 #[derive(Component)]
 struct SummaryLine;
 

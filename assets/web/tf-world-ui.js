@@ -4,7 +4,7 @@
 //   · 이름 라벨(저줌 숨김) · 말풍선(§17.44 · 사용자 발언 금색 ⟪이름⟫)
 //   · 활동 배지(진행 링 + ACT_ICON) · 수면 zZz · 욕구 경고 ❗
 //   · 하이라이트 토스트(우하단, FE highlightOf 20종)
-//   · 미니맵(지형 1회 베이크 + 점·뷰포트 박스 + 클릭 점프 tf.panTo)
+//   (미니맵 DOM 슬롯은 2026-10-25 폐지 — bevy_ui MinimapPlugin이 양측 담당)
 // 데이터는 TF_UI.state(1s 스냅숏)·TF_UI.feed wrap(채팅·이벤트)로 받는다 —
 // 로드 순서: tf-ui.js 직후(이 파일은 TF_UI·TF_I18N를 사용 시점에 해석).
 (function () {
