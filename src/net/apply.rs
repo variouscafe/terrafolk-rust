@@ -204,6 +204,13 @@ pub fn sync_daynight(
             weather.kind = w;
         }
     }
+    // wasm 검증 스위치(2026-11-04) — env var이 wasm에 없으므로 URL 게이트
+    // ?tfdbg=weather_rain 등으로 동일 덮어쓰기(패리티 백로그 P3).
+    for w in ["clear", "rain", "storm", "snow", "overcast", "fog"] {
+        if super::dbg_gate::on(&format!("weather_{w}")) {
+            weather.kind = w.to_string();
+        }
+    }
 }
 
 /// 주민 동기화 — 신규 스폰 / 목적지·이동상태 갱신 / 사라진 것 제거.

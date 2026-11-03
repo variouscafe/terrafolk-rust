@@ -11,6 +11,7 @@ pub mod camera_input;
 pub mod camera_rig;
 pub mod data;
 pub mod daynight;
+pub mod fish;
 pub mod foot_probe;
 pub mod globe;
 pub mod grav_probe;
@@ -174,6 +175,8 @@ impl Plugin for WorldPlugin {
                     overlay::hover_res, // §17.78 자원 호버 툴팁 — 미등록으로 죽어있었다(리뷰 #3)
                     propsfx::bob_relics,
                     propsfx::spark_veins,
+                    fish::bob_fish,
+                    fish::swish_fish_tails,
                     sky::sky_update,
                     globe::sync_globe_uniforms, // 카메라 이후 병렬 그룹에서 유니폼 반영
                 ),

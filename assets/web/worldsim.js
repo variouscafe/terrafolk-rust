@@ -22,6 +22,7 @@
   let lastMap = null; // mapJson은 fullStateOnly — 최초 1회만 오므로 캐시
   let lastInventions = null; // inventionsJson 원문 캐시 — Rust sink용(§17.30)
   let pendingCampfires = []; // §17.25 모닥불 이벤트 — 다음 sink 프레임에 편승
+  let pendingMoves = []; // §17.43 동물 좌표 갱신(어류 유영) — sink 편승
   const names = {}; // agent id → 표시명(채팅 스피커)
   const agentsInfo = {}; // agent id → {name, actType, status} — ui.js 헤더 칩·행 판정
   const chatRowListeners = []; // ui.js — 대화 로그 패널 수신기
@@ -196,6 +197,7 @@
           agents: sinkAgents, resources: resources,
           inventions: lastInventions,
           campfires: pendingCampfires.splice(0),
+          moves: pendingMoves.splice(0),
         }));
       } catch (e) { console.error('[worldsim] sink 오류', e); }
     }
@@ -327,8 +329,16 @@
       // 소멸 payload {id, kind:'campfire', x?, y?, remove?}).
       room.onMessage('event', function (e) {
         if (window.TF_UI) window.TF_UI.feed.event(e);
-        if (e && e.payload && e.payload.kind === 'campfire') {
-          pendingCampfires.push(e.payload);
+        const p = e && e.payload;
+        if (!p) return;
+        // 모닥불(§17.25) — 스폰/소멸은 Rust 씬으로 편승.
+        if (p.kind === 'campfire') {
+          pendingCampfires.push(p);
+          return;
+        }
+        // 동물 좌표 갱신(§17.43 — 어류 유영 포함): {id, x, y} 숫자 트리플.
+        if (typeof p.id === 'number' && typeof p.x === 'number' && typeof p.y === 'number') {
+          pendingMoves.push({ id: p.id, x: p.x, y: p.y });
         }
       });
       room.onLeave(function () {

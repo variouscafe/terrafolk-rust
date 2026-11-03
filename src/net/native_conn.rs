@@ -377,6 +377,7 @@ fn build_frame(state: &SchemaState, with_map: bool) -> Option<LiveFrame> {
         .collect();
     Some(LiveFrame {
         campfires: Vec::new(),
+        moves: Vec::new(),
         tick: numv("tick")? as u32,
         day: numv("day").unwrap_or(0.0) as u16,
         hour: numv("hour").unwrap_or(0.0) as u16,

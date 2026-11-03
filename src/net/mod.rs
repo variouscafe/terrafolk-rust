@@ -41,6 +41,8 @@ pub struct NetState {
     /// 1회 소비(drain). 프레임은 매초 덮어쓰이므로 여기로 옮겨야 중복
     /// 스폰가 없다.
     pub pending_campfires: Vec<CampfireEvent>,
+    /// 동물 좌표 갱신 큐(§17.43 어류 유영) — 소비 계약 campfires와 동일.
+    pub pending_moves: Vec<MoveEvent>,
 }
 
 impl Default for NetState {
@@ -49,6 +51,7 @@ impl Default for NetState {
             status: NetStatus::Idle,
             frame: None,
             pending_campfires: Vec::new(),
+            pending_moves: Vec::new(),
         }
     }
 }
@@ -119,6 +122,15 @@ pub struct CampfireEvent {
     pub remove: Option<bool>,
 }
 
+/// 동물 좌표 갱신(§17.43) — 어류 유영 등 이벤트 이동. 어류는 스키마 rs.x/y
+/// diff에서 제외돼(terrafolk-web worldsim 계약) 이벤트로만 움직인다.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct MoveEvent {
+    pub id: u32,
+    pub x: f32,
+    pub y: f32,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct LiveFrame {
     #[allow(dead_code)]
@@ -142,6 +154,9 @@ pub struct LiveFrame {
     /// 모닥불 이벤트(§17.25) — drain_frames가 NetState 큐로 옮겨 1회 소비.
     #[serde(default)]
     pub campfires: Vec<CampfireEvent>,
+    /// 동물 좌표 갱신(§17.43) — 어류 유영. 소비 계약 campfires와 동일.
+    #[serde(default)]
+    pub moves: Vec<MoveEvent>,
     /// 발명 레지스트리 원문(inventionsJson) — 문명 요약(시대·발명 수) 원천.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub inventions: Option<String>,
@@ -299,6 +314,7 @@ pub fn drain_frames(queue: Res<FrameQueue>, phase: Res<NetLinkPhase>, mut net: R
             // 모닥불 이벤트(§17.25)는 프레임에 편승 도착 — 큐로 옮겨
             // sync_resources가 정확히 1회 소비하게 한다.
             net.pending_campfires.append(&mut frame.campfires);
+            net.pending_moves.append(&mut frame.moves);
             net.frame = Some(frame);
         }
         Err(e) => warn!("[net] 프레임 파싱 실패: {e}"),

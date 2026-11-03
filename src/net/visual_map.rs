@@ -9,6 +9,9 @@ use crate::world::data::PropKind;
 pub(crate) struct ResState {
     #[serde(default)]
     pub(crate) alive: Option<bool>,
+    /// 수중 서식(§17.43) — 어류·가재·조개. 물 타일 스킵 대신 수면 유영.
+    #[serde(default)]
+    pub(crate) aquatic: Option<bool>,
     #[serde(default)]
     pub(crate) stage: Option<String>,
     #[serde(default, rename = "type")]
