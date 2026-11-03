@@ -1,8 +1,8 @@
 // Terrafolk 문명(발명품) 패널 — tf-ui.js에서 기능 분리(파일당 500줄·기능별
 // 분리 규칙, 2026-10-22). 렌더 로직 전체(시대·그룹 통계·목록·상세·§17.86
 // 스프라이트/생김새 서술)를 소유한다. 클로저 의존은 TF_CIV.create(ctx)로
-// tf-ui.js가 주입한다. 로드 순서: tf-ui.js와 무관(정의 시점 의존 없음)이나
-// index.html 계약상 tf-ui.js 뒤에 둔다.
+// tf-ui.js가 주입한다. 로드 순서: tf-ui.js와 무관(정의 시점 의존 없음)이며
+// index.html 계약상 tf-ui.js보다 앞에 둔다(tf-chars·tf-reslog과 동일).
 (function () {
   'use strict';
   function create(ctx) {
@@ -20,11 +20,19 @@
   }
   function invGroupOf(c) { return DATA.INVCAT_GROUPS[invCatId(c)] || ''; }
   function invCatEmoji(c) { return DATA.INV_CAT_EMOJI[invCatId(c)] || '⚒️'; }
-  function civScore(list) {
+  // 정착 실적(settle) — 발명 외 물리 근거(완공 건축·인구) 반영.
+  // 레거시 civ.ts(terrafolk-2d-legacy)·룸 civ.ts와 동일식·동일 상한:
+  // + min(20, 완공 오두막×2) + min(15, 인구).
+  function civScore(list, settle) {
     var groups = {};
     var n = 0;
     list.forEach(function (i) { var g = invGroupOf(i.category); if (g && !groups[g]) { groups[g] = 1; n++; } });
-    return list.length + n * 2;
+    var score = list.length + n * 2;
+    if (settle) {
+      score += Math.min(20, Math.max(0, settle.buildings || 0) * 2);
+      score += Math.min(15, Math.max(0, settle.agents || 0));
+    }
+    return score;
   }
   function eraOf(score) {
     var key = 'band';
@@ -49,7 +57,18 @@
 
   function civHtml() {
     var all = S.inventionsAll;
-    var score = civScore(all);
+    // 정착 실적 원천 — 완공 오두막 수·인구(레거시 WorldSimPage hutsCompleted
+    // 기준: kind='hut' && state.stage==='COMPLETED'). S.resMap·S.live는
+    // worldsim.js 스냅숏(1s)이 tf-ui feedFrame에서 유지한다.
+    var hutsCompleted = 0;
+    Object.keys(S.resMap || {}).forEach(function (rid) {
+      var r = S.resMap[rid];
+      if (r && r.kind === 'hut' && String((r.state || {}).stage || '') === 'COMPLETED') hutsCompleted++;
+    });
+    var score = civScore(all, {
+      buildings: hutsCompleted,
+      agents: Object.keys(S.live || {}).length,
+    });
     var era = eraOf(score);
     var stats = civGroupStats(all);
     var sel = S.selInv ? all.filter(function (i) { return i.name === S.selInv; })[0] : null;

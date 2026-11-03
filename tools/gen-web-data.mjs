@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** FE(../terrafolk) 정본 → DOM 오버레이용 데이터 번들 생성.
+/** FE(../terrafolk-2d-legacy) 정본 → DOM 오버레이용 데이터 번들 생성.
  *
  * 원천(수동 편집 금지 — 이 스크립트로만 재생성):
  *   src/lib/i18n.ts                      → D(기본 사전)
@@ -14,6 +14,9 @@
  * 산출: assets/web/tf-data.js — 웹 UI(tf-i18n/tf-ui)가 로드. 네이티브 빌드는
  * 이 파일 없이 게임만 동작(오버레이는 wasm 전용).
  *
+ * FE 정본은 2026-10-27 terrafolk-2d-legacy 추출(동결 스냅숏)로 이동했다 —
+ * 구 경로 ../terrafolk 의 웹 소스는 제거돼 더 존재하지 않는다.
+ *
  * 사용: node tools/gen-web-data.mjs [--skip-lpc]
  */
 import { readFileSync, writeFileSync, cpSync, rmSync, existsSync, mkdirSync, statSync } from 'node:fs';
@@ -21,7 +24,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const FE = join(HERE, '..', '..', 'terrafolk');
+const FE = join(HERE, '..', '..', 'terrafolk-2d-legacy');
 const OUT = join(HERE, '..', 'assets', 'web', 'tf-data.js');
 const LPC_DST = join(HERE, '..', 'assets', 'lpc');
 const ICONS_DST = join(HERE, '..', 'assets', 'icons');

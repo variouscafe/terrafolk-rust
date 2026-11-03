@@ -121,14 +121,35 @@ fn era_label(key: &str) -> &'static str {
     }
 }
 
-fn civ_summary(rows: &[InventionRow]) -> (u32, &'static str) {
+/// 정착 실적(settle) — 발명 외 물리 근거(완공 건축·인구) 반영.
+/// 레거시 civ.ts(terrafolk-2d-legacy)·룸 civ.ts와 동일식·동일 상한:
+/// + min(20, 완공 오두막×2) + min(15, 인구).
+#[derive(serde::Deserialize)]
+struct HutState {
+    #[serde(default)]
+    stage: Option<String>,
+}
+
+fn hut_completed(state: Option<&str>) -> bool {
+    state
+        .and_then(|s| serde_json::from_str::<HutState>(s).ok())
+        .and_then(|st| st.stage)
+        .as_deref()
+        == Some("COMPLETED")
+}
+
+fn civ_summary(rows: &[InventionRow], settle: Option<(u32, u32)>) -> (u32, &'static str) {
     let mut groups: std::collections::BTreeSet<&str> = Default::default();
     for r in rows {
         if let Some(c) = r.category.as_deref() {
             groups.insert(i18n::inv_group_of(c));
         }
     }
-    let score = rows.len() as u32 + groups.len() as u32 * 2;
+    let mut score = rows.len() as u32 + groups.len() as u32 * 2;
+    if let Some((buildings, agents)) = settle {
+        score += buildings.saturating_mul(2).min(20);
+        score += agents.min(15);
+    }
     let mut era = "band";
     for (key, at) in ERA_STEPS {
         if score >= at {
@@ -189,8 +210,23 @@ pub(crate) fn refresh_civ(
         .iter()
         .filter(|e| e.kind == "chronicle")
         .collect();
+    // 정착 실적 원천 — 완공 오두막 수·인구(레거시 WorldSimPage hutsCompleted
+    // 기준: kind="hut" && state.stage=="COMPLETED"). sig에 포함해 완공·
+    // 인구 변화 시 패널이 다시 그려지게 한다.
+    let (huts, agents) = net
+        .frame
+        .as_ref()
+        .map(|f| {
+            let huts = f
+                .resources
+                .iter()
+                .filter(|r| r.kind == "hut" && hut_completed(r.state.as_deref()))
+                .count() as u32;
+            (huts, f.agents.len() as u32)
+        })
+        .unwrap_or((0, 0));
     let sig = format!(
-        "{}:{:?}|{:?}|{}",
+        "{}:{:?}|{:?}|{}|{huts}+{agents}",
         rows.len(),
         rows.first().map(|r| &r.name),
         detail.0,
@@ -223,7 +259,7 @@ pub(crate) fn refresh_civ(
         spawn_detail(&mut commands, body_e, &theme, r);
         return;
     }
-    let (score, era) = civ_summary(rows);
+    let (score, era) = civ_summary(rows, Some((huts, agents)));
     commands.entity(body_e).with_child((
         SummaryLine,
         Text::new(format!("{era} · 발명 {} · 문명 점수 {score}", rows.len())),
