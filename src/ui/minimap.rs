@@ -170,6 +170,7 @@ pub fn update_minimap(
     time: Res<Time>,
     world: Res<WorldData>,
     net: Res<NetState>,
+    mine: Res<crate::world::home::MineAgent>,
     rig: Res<CameraRig>,
     selection: Res<Selection>,
     villagers: Query<(Entity, &Transform, Option<&LiveAgentTag>), With<Villager>>,
@@ -256,7 +257,7 @@ pub fn update_minimap(
     // 오버레이 — 베이크 사본에 문명 레이어·자원·주민·뷰포트 박스.
     let mut buf = bake.pixels;
     if let Some(frame) = net.frame.as_ref() {
-        draw_live(&mut buf, size, frame, &mut st.res_cache);
+        draw_live(&mut buf, size, frame, &mine.0, &mut st.res_cache);
     } else {
         draw_demo_props(&mut buf, size, &world);
     }

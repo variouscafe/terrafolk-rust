@@ -375,6 +375,11 @@ pub fn sync_resources(
                             ),
                             LiveResourceTag(r.id),
                             LiveResMeta(sig),
+                            // '내 집' 마커·미니맵 핑 판정용(§5 갭2) — 소유자 id·지붕 높이
+                            crate::world::home::BldOwner {
+                                owner: st.owner.clone(),
+                                top_h: target_h,
+                            },
                             Transform::from_translation(Vec3::new(cx, ground, cz)),
                         ))
                         .id()

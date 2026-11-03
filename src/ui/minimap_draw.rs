@@ -31,6 +31,8 @@ pub const GRAVE: Rgba = rgb([0xe8, 0xe4, 0xda]);
 pub const RELIC: Rgba = rgb([0xb4, 0x8e, 0xe0]);
 pub const STASH: Rgba = rgb([0xc9, 0xa3, 0x6a]);
 pub const VILLAGER: Rgba = rgb([0xff, 0x6b, 0x6b]);
+/// 내 집 핑 테두리 — 올리브(깃발과 동일색, §5 갭2).
+pub const MINE_HOME: Rgba = rgb([0x8f, 0xd1, 0x4a]);
 pub const SELECTED: Rgba = rgb([0xff, 0xff, 0xff]);
 pub const VIEW_DARK: Rgba = [20, 24, 16, 165];
 pub const VIEW_GOLD: Rgba = [255, 224, 138, 250];
@@ -42,6 +44,8 @@ pub struct ResState {
     pub h: u16,
     pub done: bool,
     pub lit: bool,
+    /// 내 소유 완공 건물(hut) — 핑 테두리 대상.
+    pub mine: bool,
 }
 
 /// 지형 시그니처(FNV-1a) — 맵 교체(데모→라이브 프라임) 감지.
@@ -98,6 +102,7 @@ pub fn draw_live(
     buf: &mut [u8],
     size: usize,
     frame: &LiveFrame,
+    mine_ids: &[String],
     cache: &mut HashMap<u32, (String, ResState)>,
 ) {
     use crate::net::LiveResource;
@@ -137,6 +142,9 @@ pub fn draw_live(
                 .map(|s| s == "COMPLETED")
                 .unwrap_or(true),
             lit: g("lit").and_then(|l| l.as_bool()).unwrap_or(false),
+            mine: g("owner")
+                .and_then(|o| o.as_str())
+                .is_some_and(|o| mine_ids.iter().any(|m| m == o)),
         };
         cache.insert(r.id, (raw.to_owned(), parsed));
         parsed
@@ -158,6 +166,21 @@ pub fn draw_live(
                     st.h as usize,
                     c,
                 );
+                // 내 집 핑 — 완공 내 소유 건물에 올리브 테두리(§5 갭2).
+                // rect_stroke는 끝 좌표(x1,y1) 계약 — 맵 경계는 클램프(부분 링).
+                if st.done && st.mine {
+                    let x1 = ((r.x + st.w as u16) as usize).min(size - 1);
+                    let y1 = ((r.y + st.h as u16) as usize).min(size - 1);
+                    rect_stroke(
+                        buf,
+                        size,
+                        r.x.saturating_sub(1) as usize,
+                        r.y.saturating_sub(1) as usize,
+                        x1.max(r.x as usize),
+                        y1.max(r.y as usize),
+                        MINE_HOME,
+                    );
+                }
             }
             "campfire" => {
                 let st = parse(r, cache);

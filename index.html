@@ -70,6 +70,9 @@
                 var tf = window.terrafolk || (window.terrafolk = {});
                 tf.uiPrime = function () {
                     document.body.classList.remove("tf-loading");
+                    // wasm 브리지 확정 시점 — 내 집 마커 id 재전달(tf-ui loadMine이
+                    // wasm 부팅 전에 뛰었을 수 있다, §5 갭2).
+                    if (window.TF_UI && window.TF_UI.pushMine) window.TF_UI.pushMine();
                 };
             })();
         </script>

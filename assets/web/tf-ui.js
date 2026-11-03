@@ -851,6 +851,16 @@
     selTimer = setInterval(load, 15000);
   }
 
+  // 내 주민 id — Rust '내 집' 마커(§5 갭2)로 전달. wasm 브리지(tf.setMine)는
+  // Rust 부팅 후 생기므로 prime 시 재전송한다(index.html uiPrime → pushMine).
+  var mineIds = [];
+  function pushMine() {
+    var tf = window.terrafolk;
+    if (tf && tf.setMine) {
+      try { tf.setMine(mineIds); } catch (e) { /* 브리지 미등록 — prime에서 재시도 */ }
+    }
+  }
+
   function loadMine() {
     if (!(S.scope && S.scope.kind === 'user')) return;
     authFetch('/api/worldsim/me').then(function (r) { return r.ok ? r.json() : null; })
@@ -861,6 +871,8 @@
           if (cur) { cur.mine = true; cur.name = m.name; }
         });
         S.liveSig = liveSignature();
+        mineIds = mine.map(function (m) { return m.id; });
+        pushMine();
         S.mineDetail = mine.map(function (m) {
           return {
             id: m.id, name: m.name, sex: m.sex || 'female', age: m.age || 30,
@@ -1067,6 +1079,7 @@
   function feedScope(scope) {
     S.scope = scope;
     if (scope && scope.kind === 'user') loadMine();
+    else { mineIds = []; pushMine(); }  // 로그아웃 — 내 집 마커 해제
     schedule();
   }
 
@@ -1134,6 +1147,7 @@
     pickAt: pickAt,
     seedBacklogs: loadBacklogs,
     notify: notify,
+    pushMine: pushMine,
     setNet: function (live) { S.netLive = live; },
     render: schedule,
     // 소지 칩 아이콘 HTML — ui.js 우측 레일 소지품 패널이 재사용(동일 룩 유지)
