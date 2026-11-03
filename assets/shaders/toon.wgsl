@@ -1,9 +1,10 @@
-// 캐릭터 툰 셰이딩 — 맵(핸드페인트 아소)과 재질감 통일(2026-10-22).
-// 3밴드 양자화 조명 + 웜 라이트/쿨 섀도 이중 틴트. PBR 스펙큘러·환경
+// 캐릭터 툰 셰이딩 — 일본 2.5D 애니 셀(2026-11-03 개편, 이전 2026-10-22
+// 핸드페인트 소프트 밴드). 하드 2톤(명·암 경계 1px AA) + 웜 라이트/쿨 섀도
+// 이중 틴트 + 명부 림라이트. 외곽선은 잉크 헐(chibi-character ink). PBR 스펙큘러·환경
 // 반사를 아예 계산하지 않아(커스텀 프래그먼트) 매트 카툰 촉감이 된다.
 // 버텍스는 bevy 기본(mesh.wgsl) — SKINNED 분기가 스키닝을 처리한다.
 #import bevy_pbr::{
-    mesh_view_bindings::lights,
+    mesh_view_bindings::{lights, view},
     forward_io::VertexOutput,
 }
 
@@ -39,8 +40,12 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // 반구 램프 — 위(하늘빛)·아래(땅빛) 미세 보정으로 정면보다 입체감
     let hemi = n.y * 0.5 + 0.5;
     let nd = dot(n, sun_dir) * 0.5 + 0.5;
-    // 2단 밴드(부드러운 계단 — 핸드페인트 느낌): 어두움→중간→밝음
-    let t = smoothstep(0.28, 0.47, nd) * 0.55 + smoothstep(0.52, 0.72, nd) * 0.45;
+    // 셀 2톤 — 명암 경계(CEL_EDGE)에서 하드 전환. 폭은 화면 미분(fwidth)
+    // 기반 ~1px라 줌과 무관하게 계단 앨리어싱 없이 선명한 셀 경계가 된다.
+    // 경계를 반사광 중앙(0.5)보다 약간 위로 — 애니 작화처럼 그림자 면적 확보.
+    let CEL_EDGE = 0.54;
+    let aa = max(fwidth(nd) * 1.2, 0.002);
+    let t = smoothstep(CEL_EDGE - aa, CEL_EDGE + aa, nd);
 
     // 웜 라이트 / 쿨 섀도 — 레퍼런스 좌상단 웜키 광원 감각. 강도 정규화 게인
     // (낮 1.0 · 밤 ≈0.37)으로 daynight 감광 전파. ⚠️ 섀도 스케일러는 lit와
@@ -50,8 +55,15 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let lit_c = albedo * vec3<f32>(1.06, 1.00, 0.90) * sun_col * lit_f * 0.95;
     let sha_c = albedo * vec3<f32>(0.66, 0.70, 0.86) * lit_f * 0.92;
     var col = mix(sha_c, lit_c, t);
-    // 중간 밴드 하이라이트 — 테두리진 카툰보다 붓질감
-    col += albedo * 0.06 * (hemi - 0.5);
+    // 반구 미세 보정(하늘빛 위·땅빛 아래) — 셀 평면감 안의 최소 입체.
+    col += albedo * 0.04 * (hemi - 0.5);
+
+    // 림라이트 — 명부(t) 실루엣 가장자리에 얇은 웜 하이라이트(애니 역광
+    // 테두리). 시선 수직 성분만 하드 스텝으로 → 띠가 아닌 선 느낌.
+    let v = normalize(view.world_position.xyz - in.world_position.xyz);
+    let fres = 1.0 - max(dot(n, v), 0.0);
+    let rim = smoothstep(0.72, 0.80, fres) * t;
+    col += (albedo * 0.5 + vec3<f32>(0.10, 0.09, 0.07)) * sun_col * lit_f * rim * 0.45;
 
     // 앰비언트(야간 최소 가시성) — 패킹 동일(rgb=색×brightness · a=brightness,
     // 낮 280) 정규화 후 가산.

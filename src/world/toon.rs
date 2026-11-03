@@ -91,7 +91,7 @@ pub fn toonify(
     mut images: ResMut<Assets<Image>>,
     q_mat: Query<
         (&MeshMaterial3d<bevy::pbr::StandardMaterial>, Option<&ToonSwapped>),
-        Without<super::outline::OutlineHull>,
+        Without<crate::character::ink::InkHull>,
     >,
     mut white: Local<Option<Handle<Image>>>,
     // (원본 재질, look 지문) → 툰 핸들 캐시 — look별 틴트가 다르므로 키에 포함
@@ -246,7 +246,14 @@ pub fn toonify(
             commands
                 .entity(d)
                 .remove::<MeshMaterial3d<bevy::pbr::StandardMaterial>>()
-                .insert((MeshMaterial3d(toon), ToonSwapped, Visibility::Visible));
+                .insert((
+                    MeshMaterial3d(toon),
+                    ToonSwapped,
+                    Visibility::Visible,
+                    // 잉크 선색 원천 — 룩 틴트 반영 최종색(재질 교체 후에도
+                    // 부위색 컬러 트레스가 나오게 — chibi-character ink).
+                    crate::character::InkColor(Color::srgba(tint.x, tint.y, tint.z, 1.0)),
+                ));
         }
         // 표시 게이트 — 자손 PBR 메시 관측 이후(SeenStdMesh) 미스왑 0프레임에
         // 루트 표시. 이력이 없으면(씬 로드 전) 조기 표시로 자손 등장 프레임이

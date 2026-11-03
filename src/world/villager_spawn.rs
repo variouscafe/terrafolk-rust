@@ -225,6 +225,8 @@ fn finish_villager_setup(
     // Fall: 절벽 단차에서 지구 중력 물리낙하 참여(fall.rs).
     commands.entity(entity).insert((
         crate::character::ChibiTarget,
+        // 애니 셀 잉크 아웃라인 옵트인(world/outline.rs — 크레이트 InkPlugin).
+        crate::character::Ink,
         crate::character::GroundActor,
         crate::character::AnimState(AnimKind::Idle),
         crate::character::tool::HeldTool::default(),
