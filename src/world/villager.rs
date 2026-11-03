@@ -13,11 +13,12 @@ use super::data::WorldData;
 
 const WALK_TIME: f32 = 0.85;
 /// 주민 fit 목표(미터) — **치비화 이전 raw 기준치**(오토폿이 chibiify 전
-/// AABB를 재므로). 2026-10-27 치비 복귀 결정: CHIBI_V1에서 가시 신장
-/// 1.72m 유지에 필요한 값(실측 비율 0.889 — CHIBI_REF head 2.20 반영:
-/// 0.865 + 헤드 상향분 0.024). 세계 물체 대비
-/// 가시 신장은 REAL 시대(1.72)와 동일 — 카메라·오버레이 보정 불변.
-pub const VILLAGER_H: f32 = 1.94;
+/// AABB를 재므로). 가시 신장 1.72m 유지값 — 세계 물체 대비 가시 신장은
+/// REAL 시대(1.72)와 동일, 카메라·오버레이 보정 불변.
+/// 이력: CHIBI_REF(head 2.20) 1.94 → 2026-11-03 CHIBI_REF2(head 2.60·
+/// leg 0.44)로 가시 신장 ×1.085(qchar 5종 LBS 실측 평균, 망토 모델
+/// m-adventurer 제외) → 1.94/1.085 = 1.79.
+pub const VILLAGER_H: f32 = 1.79;
 
 /// 모델 전방 보정 — Quaternius 리깅는 +Z 전방(실측 후 조정)
 const MODEL_YAW: f32 = 0.0;
