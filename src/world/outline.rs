@@ -13,8 +13,9 @@ use bevy::prelude::*;
 
 use crate::character::{InkPlugin, InkSettings};
 
-/// 기본 두께(px@800) — 셀 애니 감각 + 기본 줌(주민 25~70px)에서 판독 가능.
-const INK_PX_DEFAULT: f32 = 4.0;
+/// 기본 두께(px@800) — 2026-11-03 사용자 '선이 너무 두껍다'로 4→2.
+/// 선색은 크레이트 기본(단일 웜 다크브라운 — 부위색 '펜 효과' 반려).
+const INK_PX_DEFAULT: f32 = 2.0;
 
 pub fn plugin(app: &mut App) {
     let mut s = InkSettings {

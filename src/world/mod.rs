@@ -116,11 +116,11 @@ impl Plugin for WorldPlugin {
         app.add_systems(Update, animal_anim::play_animal_idles);
         // 캐릭터 프레임워크(비율·접지·발바닥 수평) — 게임 무관 계층
         // (2026-10-24 P1, docs/character-module-redesign.md). 표면장=WorldData.
-        // 비율 룩 = 레퍼런스 치비(2026-10-27 — CHIBI_REF, head 2.20:
-        // 모자 포함 실루엣까지 감안. 가시 신장 1.72m 유지 fit = 1.94,
-        // 비율 0.889 = 0.865 + 헤드 상향분 0.024).
+        // 비율 룩 = 레퍼런스 치비 v2(2026-11-03 비율 감사 — CHIBI_REF2:
+        // 두신 ~2.6·다리 ~31%·손끝 허벅지 중앙·어깨≈머리 폭). 가시 신장
+        // 1.72m 유지 fit = villager::VILLAGER_H 1.79.
         app.add_plugins(crate::character::CharacterPlugin::<data::WorldData>::new(
-            crate::character::rig::CHIBI_REF,
+            crate::character::rig::CHIBI_REF2,
         ));
         app.configure_sets(
             Update,
