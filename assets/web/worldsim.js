@@ -117,6 +117,18 @@
     if (window.TF_UI) window.TF_UI.setNet(live);
   }
 
+  // 재접속 안내 바(§17.29 UX 포트, 2026-11-03) — 레거시 useWorldConnection과
+  // 동일 문구 3종: 첫 재시도는 조용히(일시 드랍이 대부분·2회째부터
+  // notice.reconnecting), 복귀 시 notice.reconnected, 실패 원문은 notice.fail.
+  function notifyBar(key, params) {
+    if (!window.TF_UI || !window.TF_UI.notify) return;
+    var text = key;
+    try {
+      if (window.TF_I18N) text = window.TF_I18N.t(key, params || {});
+    } catch (e) { /* i18n 미로딩 — 키 원문 그대로 */ }
+    window.TF_UI.notify(text);
+  }
+
   function snapshot(st) {
     const agents = [];
     st.agents.forEach(function (a, id) {
@@ -213,6 +225,8 @@
     room = null;
     retry += 1;
     const wait = Math.min(3000 * 2 ** (retry - 1), 30000);
+    // 첫 재시도는 조용히(레거시와 동일) — 2회째부터 재접속 안내
+    if (retry > 1) notifyBar('notice.reconnecting');
     if (retryTimer) clearTimeout(retryTimer);
     retryTimer = setTimeout(function () { void connect(); }, wait);
   }
@@ -263,6 +277,7 @@
       setStatus(true);
       alive = true;
       connecting = false;
+      if (retry > 0) notifyBar('notice.reconnected');
       retry = 0;
 
       room.onStateChange(function (st) {
@@ -297,6 +312,9 @@
     } catch (e) {
       console.warn('[worldsim] 접속 실패(재시도):', String(e));
       setStatus(false);
+      // 실패 안내 — 레거시와 동일(원문 노출). 다음 사이클의 재접속 안내가
+      // 이어서 덮는다(같은 바, 마지막 메시지 우선).
+      notifyBar('notice.fail', { msg: String((e && e.message) || e).slice(0, 80) });
       scheduleRetry();
     }
   }

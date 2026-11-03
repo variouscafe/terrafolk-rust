@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** FE(../terrafolk) 정본 → 네이티브 i18n 데이터 생성(src/ui/i18n_data.rs).
+/** FE(../terrafolk-2d-legacy) 정본 → 네이티브 i18n 데이터 생성(src/ui/i18n_data.rs).
  *
  * 원천(수동 편집 금지 — 이 스크립트로만 재생성):
  *   src/lib/i18n/events.gen.ts  → EVENT_DICT(ev.*·goal.* 템플릿, 4로케일)
@@ -13,7 +13,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const FE = join(import.meta.dirname, '..', '..', 'terrafolk');
+const FE = join(import.meta.dirname, '..', '..', 'terrafolk-2d-legacy');
 const OUT = join(import.meta.dirname, '..', 'src', 'ui', 'i18n_data.rs');
 
 function extract(src, name) {
@@ -101,7 +101,7 @@ const kvRows = (name, data, val, ty = '(&str, &str)') =>
   data.map(([k, v]) => `    (${rs(k)}, ${val(v)}),`).join('\n') +
   '\n];\n';
 
-const header = `// 자동 생성 — tools/gen-native-i18n.mjs (수동 편집 금지). 원천: ../terrafolk (gen ${new Date().toISOString()})
+const header = `// 자동 생성 — tools/gen-native-i18n.mjs (수동 편집 금지). 원천: ../terrafolk-2d-legacy (gen ${new Date().toISOString()})
 //! 이벤트 템플릿(§17.44)·어휘·UI 문구 — 네이티브 렌더(src/ui/i18n.rs)의 데이터.
 //! (key, ko, en) — ko 우선, 빈값이면 en 폴백. 조사 토큰은 런타임 처리.
 

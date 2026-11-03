@@ -1,4 +1,4 @@
-// 자동 생성 — tools/gen-native-i18n.mjs (수동 편집 금지). 원천: ../terrafolk (gen 2026-10-18T11:13:12.437Z)
+// 자동 생성 — tools/gen-native-i18n.mjs (수동 편집 금지). 원천: ../terrafolk-2d-legacy (gen 2026-11-03T02:50:58.176Z)
 //! 이벤트 템플릿(§17.44)·어휘·UI 문구 — 네이티브 렌더(src/ui/i18n.rs)의 데이터.
 //! (key, ko, en) — ko 우선, 빈값이면 en 폴백. 조사 토큰은 런타임 처리.
 
@@ -6,6 +6,7 @@ pub static EVENT_DICT: &[(&str, &str, &str)] = &[
     ("ev.act.gone", "대상이 사라졌다", "The target is gone"),
     ("ev.act.no_path", "길이 없다 ({species})", "No path there ({species})"),
     ("ev.act.no_target", "주변에 대상이 없다", "No target nearby"),
+    ("ev.act.retarget", "{species 대신} 갈 수 있는 곳의 것으로 바꿔 잡는다", "Switching to a reachable {species} instead"),
     ("ev.act.storm_slow", "폭풍이라 손이 느리다", "Hands are slow in the storm"),
     ("ev.act.wrong_season", "{species}은(는) 철이 아니다 — {seasons}에만 난다", "{species} is out of season — it only grows in {seasons}"),
     ("ev.birth.born", "👶 {name} · {to} 사이에서 {child이가} 태어났다 — 마을의 새 세대", "👶 {child} was born to {name} and {to} — a new generation for the village"),
@@ -68,12 +69,12 @@ pub static EVENT_DICT: &[(&str, &str, &str)] = &[
     ("ev.directive.lost", "미처 듣지 못한 지시가 사라졌다: {text}", "A directive went unheard and was lost: {text}"),
     ("ev.drink.far", "물이 멀다", "Water is too far"),
     ("ev.drink.no_water", "마실 물이 없다 — 물가에서 물을 떠야 한다 (fetch)", "No water to drink — fetch some at the water's edge first (fetch)"),
-    ("ev.drink.ok", "물을 마셨다 (물 {n}모금 남음)", "Drank water ({n} water left)"),
+    ("ev.drink.ok", "물을 마셨다 (물 {n}L 남음)", "Drank water ({n} L left)"),
     ("ev.eat.none", "먹을 것이 없다", "Nothing to eat"),
     ("ev.eat.ok", "{item을} 먹었다 ({item} {n}개 남음)", "Ate {item} ({n} left)"),
     ("ev.fetch.far", "물가가 멀다 — 물 있는 곳으로 가야 한다", "The water's edge is far — must go to the water first"),
     ("ev.fetch.full", "물을 더 담을 수 없다 — 이미 가득이다", "Cannot carry more water — already full"),
-    ("ev.fetch.ok", "물가에서 물을 {n}모금 떠담았다", "Scooped up {n} water at the water's edge"),
+    ("ev.fetch.ok", "물가에서 물통을 가득 채웠다 (+{n}L)", "Filled the flask full at the water's edge (+{n} L)"),
     ("ev.forage.ok", "{species을} 채집했다", "Foraged {species}"),
     ("ev.gather.ok", "마른 풀을 묶었다 — 풀 +{n}", "Tied dry grass into bundles — grass +{n}"),
     ("ev.gather.start", "마른 풀을 묶어 모은다", "Gathering dry grass into bundles"),
@@ -218,7 +219,9 @@ pub static EVENT_DICT: &[(&str, &str, &str)] = &[
     ("ev.weather.storm", "폭풍이 몰아치기 시작했다", "A storm has begun to rage"),
     ("ev.withdraw.none", "보관함에 {item이가} 없다", "No {item} in storage"),
     ("ev.withdraw.ok", "보관함에서 {item} {n}개를 꺼냈다", "Took {n} {item} out of storage"),
+    ("goal.build_resume", "짓던 것을 마저 올린다", "Resuming the unfinished build"),
     ("goal.campfire", "추위가 짙다 — 장작으로 모닥불을 피운다", "Bitterly cold — lighting a campfire with firewood"),
+    ("goal.chop_wood", "재목을 모은다 — 나무를 벤다", "Stocking timber — felling trees"),
     ("goal.drink", "물을 찾아 마신다", "Finding water to drink"),
     ("goal.eat_owned", "배가 고프다 — 가진 것을 먹는다", "Hungry — eating what they have"),
     ("goal.eat_seek", "배가 고프다 — {species을} 찾는다", "Hungry — looking for {species}"),
