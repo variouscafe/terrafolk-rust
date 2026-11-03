@@ -54,6 +54,7 @@ impl Plugin for WorldPlugin {
         // 바람 재질 플러그인 제거(2026-10-22) — 효과 비활성, 소품은 StandardMaterial
         app.add_plugins(night_glow::plugin);
         app.add_plugins(toon::plugin);
+        app.add_plugins(outline::plugin);
         app.add_systems(Update, water::water_night_dim);
         app.insert_resource(ClearColor(Color::srgb(0.30, 0.48, 0.68)))
             .init_resource::<prop_fit::MeshAabbCache>()
@@ -136,7 +137,6 @@ impl Plugin for WorldPlugin {
                 outfit::vary_outfits,
                 outfit::spawn_blob_shadows,
                 outfit::blob_shadow_ground,
-                outline::attach_outlines,
             ),
         );
         app.add_systems(Update, materials_guard::guard_blend_materials);

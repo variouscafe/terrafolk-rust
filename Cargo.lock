@@ -5219,7 +5219,7 @@ dependencies = [
 
 [[package]]
 name = "terrafolk_bevy"
-version = "0.8.50"
+version = "0.8.51"
 dependencies = [
  "bevy",
  "chibi-character",
