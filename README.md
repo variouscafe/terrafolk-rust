@@ -49,7 +49,8 @@ FE(React) worldsim 화면의 바닐라 JS 포트 — 빌드 도구 없이 trunk�
 - `assets/web/tf-look.js` — LPC 외형 합성(uuid 결정적 부품 선택·팔레트 리컬러·
   walk 시트 캔버스) + 발명 아이콘 픽셀화. 부품 PNG: `assets/lpc/parts`.
 - `assets/web/tf-data.js` — **자동 생성**(수동 편집 금지): `node tools/gen-web-data.mjs`
-  가 `../terrafolk` 정본(i18n 사전·vocab·이벤트 템플릿·LPC 풀·크레딧)에서 생성.
+  가 `../terrafolk-2d-legacy` 정본(i18n 사전·vocab·이벤트 템플릿·LPC 풀·크레딧)에서 생성
+  (FE 정본은 2026-10-27 동결 스냅숏으로 추출 이동 — 구 `../terrafolk` 웹 소스는 제거됨).
   FE 사전이 바뀌면 재실행(`--skip-lpc`로 PNG 복사 생략 가능).
 - `src/net/apply.rs` — 자원 동기 확장: 동물 배위 보간(RoamTo, §17.64)·
   나무 성장 4단계(maturity)·건축 발판(w×h·stage·progress, §17.75).

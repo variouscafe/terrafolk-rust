@@ -1,15 +1,19 @@
 # Terrafolk Rust
 
 
-## ⚠️ 메인 롤백 — 0.8.50(치비 파머) 복귀(2026-11-03, 사용자 지시)
+## ⚠️ 메인 롤백 — 0.8.52(치비 파머 라인, 2026-11-03 배포 완료)
 
-main은 **3396792(0.8.50, CHIBI_REF 치비 파머)** — 사용자 요청 "3D 치비
-캐릭터 적용". 0.8.62+ folk 몸체 라인은 현재 라이브 월드에서 **주민이
-렌더되지 않는다**(2026-11-03 실측 — 원본 배포 포함 0.8.6x 전체 무주민).
-**이 체크아웃의 빌드는 chibi-character 크레이트를 d31b629(0.2.5)로
-맞춰야 한다**(커밋 시각이 게임 3396792와 정확히 페어 — 0.4.1 HEAD면
-API 불일치). 복구 지점: 태그 `rollback-0841`(LPC)·`rollback-0865`
-(0.8.65)·`pre-rollback-anime`(0.9.x).
+main은 **d960a64(0.8.52)** = 0.8.50(CHIBI_REF 치비 파머) 라인 + 문명 점수
+정착 실적·tf-data 재생성. 사용자 요청 "3D 치비 캐릭터 적용". 0.8.62+ folk
+몸체 라인은 현재 라이브 월드에서 **주민이 렌더되지 않는다**(2026-11-03 실측
+— 원본 배포 포함 0.8.6x 전체 무주민). **이 체크아웃의 빌드는
+chibi-character 크레이트를 d31b629(0.2.5)로 맞춰야 한다**(커밋 시각이 게임
+3396792와 정확히 페어 — 0.4.1 HEAD면 API 불일치). 복구 지점: 태그
+`rollback-0841`(LPC)·`rollback-0865`(0.8.65)·`pre-rollback-anime`(0.9.x).
+**롤백 확정(2026-11-03)**: origin/main도 0.8.52로 force-push 완료 — 버린
+0.8.52~0.8.78 folk 라인은 태그 `pre-rollback-anime`과 로컬 브랜치
+`archive/folk-line-0878`에 보존. 0.8.52는 terrafolk-3d.pages.dev에 배포·
+실측 완료(치비 파머 렌더·문명 점수 정착 실적 확인).
 
 **개발 모드 터널(2026-11-03, 사용자 지시 — 5100~5300 포트 대역)**:
 `trunk serve --port 5101 --address 127.0.0.1` 후
@@ -159,7 +163,10 @@ dist/character/에 탑재. 주민 보행은 절차적 게이트(gait — 월드 
 시스템의 PostUpdate 등록 계약 동반.
 
 **3D 웹 배포(terrafolk-3d.pages.dev, 2026-10-21)**: 루트 3D 클라이언트
-(bevy 0.20.0)의 웹 판 — `./tools/deploy-3d-r2.sh` 원스텝. **Pages 직행
+(bevy 0.20.0)의 웹 판 — `./tools/deploy-3d-r2.sh` 원스텝. **⚠️ 배포 중
+5101 trunk serve는 먼저 정지할 것(2026-11-03 실측)** — serve의 HMR 감시
+빌드가 같은 dist/stage 디렉터리를 경합해 release 빌드의 wasm-bindgen이
+"error writing JS loader file to stage dir"로 죽는다. **Pages 직행
 2모드(2026-10-23 개편 — 사용자 지시: R2보다 Pages CDN이 우위)**: wasm-opt
 (`-Os --strip-debug --all-features`, 사용자 허용 2026-10-23 — `-Oz`는 UBO
 손상 전례로 금지, `--all-features` 필수: rustc 1.97 GC 명령) 후 raw ≤25MiB면
