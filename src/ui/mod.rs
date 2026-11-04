@@ -153,20 +153,36 @@ impl Plugin for UiPlugin {
 }
 
 /// 인셋이 늦게 확정되면(0.5초 리프레시) 이미 스폰된 노드 위치를 패치.
-/// HUD 상단·드롭다운 상단·선택 패널 하단을 SafeArea로 다시 쓴다.
-/// (미니맵 top 패치는 MinimapPlugin::apply_safe_top — 웹 공용 이관.)
+/// HUD 상단·드롭다운 상단·공지 칩 상단·선택 패널 하단을 SafeArea로 다시
+/// 쓴다. (미니맵 top 패치는 MinimapPlugin::apply_safe_top — 웹 공용 이관.)
 #[cfg(not(target_arch = "wasm32"))]
 #[allow(clippy::type_complexity)]
 fn apply_safe_area(
     safe: Res<crate::platform::safe_area::SafeArea>,
     mut q_hud: Query<&mut Node, With<hud::HudRoot>>,
-    mut q_drop: Query<&mut Node, (With<menu::MenuDropdown>, Without<hud::HudRoot>)>,
+    mut q_drop: Query<
+        &mut Node,
+        (
+            With<menu::MenuDropdown>,
+            Without<hud::HudRoot>,
+            Without<hud::HudNotice>,
+        ),
+    >,
+    mut q_notice: Query<
+        &mut Node,
+        (
+            With<hud::HudNotice>,
+            Without<hud::HudRoot>,
+            Without<menu::MenuDropdown>,
+        ),
+    >,
     mut q_panel: Query<
         &mut Node,
         (
             With<chars_sel::SelPanel>,
             Without<hud::HudRoot>,
             Without<menu::MenuDropdown>,
+            Without<hud::HudNotice>,
         ),
     >,
     mut applied: Local<crate::platform::safe_area::SafeArea>,
@@ -180,6 +196,11 @@ fn apply_safe_area(
     }
     if let Ok(mut n) = q_drop.single_mut() {
         n.top = Val::Px(safe.top + hud::HUD_ROW_H + 6.0);
+    }
+    // 공지 칩도 스폰 시 구운 top을 인셋 확정 후 재판정(2026-11-04 리뷰 10 —
+    // 재접속 순간에만 존재하는 칩이 상태바 밑에 남는 것 방지).
+    if let Ok(mut n) = q_notice.single_mut() {
+        n.top = Val::Px(safe.top + hud::HUD_ROW_H + 4.0);
     }
     if let Ok(mut n) = q_panel.single_mut() {
         n.bottom = Val::Px(safe.bottom + 8.0);

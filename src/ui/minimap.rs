@@ -55,10 +55,13 @@ pub struct MinimapChip;
 
 const SIDE_DESK: f32 = 148.0;
 const SIDE_MOB: f32 = 112.0;
-/// HUD 높이 30px + 여백 — MinimapRoot.top 오프셋(네이티브).
-pub const SAFE_TOP_OFFSET: f32 = 34.0;
-/// 웹 DOM 상단 바 아래 슬롯 — 구 tf-minimap.js top:46과 동일 자리.
-const WEB_TOP_OFFSET: f32 = 46.0;
+/// MinimapRoot.top 오프셋(네이티브) — HUD 레일(hud::HUD_ROW_H) + 여백.
+/// 레일 38px 상향(2026-11-04)에서 상수 재연동: 미니맵 상단 4px이 레일
+/// 아래 깔리던 것 수정(리뷰 5). 앞으로 레일 높이는 hud::HUD_ROW_H로만.
+pub const SAFE_TOP_OFFSET: f32 = super::hud::HUD_ROW_H + 8.0;
+/// 웹 DOM 상단 바 아래 슬롯 — 구 tf-minimap.js top:46과 동일 자리
+/// (HUD_ROW_H + 8과 같은 값 — 표현만 레거시 계약 인용).
+const WEB_TOP_OFFSET: f32 = super::hud::HUD_ROW_H + 8.0;
 const UPDATE_SECS: f32 = 0.5;
 /// 라이브 칩 색 — 접속=초록, 끊김(연결·재접속)=빨강(2026-10-25 사용자 지시.
 /// 하단 DOM 배지는 폐지하고 이 칩이 접속 상태의 단일 표시지점).

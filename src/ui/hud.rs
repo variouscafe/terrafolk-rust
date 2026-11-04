@@ -24,12 +24,41 @@ impl Plugin for HudPlugin {
             )
             // 진단 — ?tfdbg=uidbg: 모든 bevy_ui 노드의 화면좌표를 1회 덤프
             .add_systems(Update, uidbg_dump);
+        // 웹 — DOM 클러스터 예약 폭을 창 폭에 실시간 추종(회전·리사이즈)
+        #[cfg(target_arch = "wasm32")]
+        app.add_systems(Update, update_dom_reserve);
     }
 }
 
 /// HUD 레일 높이(px) — DOM 상단 컨트롤(웹 ☰ 클러스터)과 같은 스케일.
-/// menu.rs 드롭다운·mod.rs safe-area 패치가 함께 참조한다.
+/// menu.rs 드롭다운·minimap.rs 상단 오프셋·mod.rs safe-area 패치가 참조.
 pub const HUD_ROW_H: f32 = 38.0;
+
+/// 웹 DOM 클러스터(모드 칩+☰) 예약 폭 — 모바일(≤600px, 칩 숨김)은 ☰만.
+#[cfg(target_arch = "wasm32")]
+fn dom_reserve_w(win: f32) -> f32 {
+    if win <= 600.0 { 68.0 } else { 184.0 }
+}
+
+/// DOM 예약 스폰 마커 — update_dom_reserve가 창 폭 변화에 맞춘다(wasm).
+#[derive(Component)]
+#[cfg(target_arch = "wasm32")]
+pub struct HudDomReserve;
+
+/// 창 폭 → 예약 폭 재계산(wasm). CSS @media는 실시간으로 반응하므로
+/// 스폰 시점 고정값은 회전·리사이즈에서 어긋난다(2026-11-04 리뷰 3).
+#[cfg(target_arch = "wasm32")]
+pub fn update_dom_reserve(
+    window: Single<&Window>,
+    mut q: Query<&mut Node, With<HudDomReserve>>,
+) {
+    let w = Val::Px(dom_reserve_w(window.width()));
+    if let Ok(mut n) = q.single_mut()
+        && n.width != w
+    {
+        n.width = w;
+    }
+}
 
 /// 스폰 시점 화면 폭 기반 레이아웃 플래그 — 기존 narrow(<360) 관례 확장.
 /// 칩 텍스트가 줄바꿈으로 찢어지던 것(2026-11-04 '관즐' 보고)을 폭 단계별
@@ -212,14 +241,20 @@ pub fn spawn_hud(
             }
             // 웹 — 우측 DOM 클러스터(모드 칩+☰) 자리 예약. 칩이 ☰ 밑으로
             // 파고들어 '관즐'처럼 겹쳐 읽히던 것(2026-11-04)의 여백 확보.
-            // 모바일(≤600px)은 DOM 칩이 숨겨져 ☰만 남는다(tf-ui.css 미디어).
+            // 폭은 update_dom_reserve가 매 프레임 창 폭에 맞춘다(회전·
+            // 리사이즈 — 스폰 시 1회면 CSS 미디어(≤600px 칩 숨김)와 어긋난다,
+            // 리뷰 3). 데스크톱 184px는 영어 로케일 최장 칩('Participating')
+            // 까지 포함한 실측 여유(리뷰 4).
             #[cfg(target_arch = "wasm32")]
             {
-                p.spawn(Node {
-                    width: Val::Px(if window.width() <= 600.0 { 60.0 } else { 150.0 }),
-                    flex_shrink: 0.0,
-                    ..default()
-                });
+                p.spawn((
+                    HudDomReserve,
+                    Node {
+                        width: Val::Px(dom_reserve_w(window.width())),
+                        flex_shrink: 0.0,
+                        ..default()
+                    },
+                ));
             }
             // ☰ 메뉴 버튼 — 네이티브 전용(웹은 DOM 메뉴).
             #[cfg(not(target_arch = "wasm32"))]
@@ -227,7 +262,10 @@ pub fn spawn_hud(
                 super::menu::spawn_menu_button(p, &theme);
             }
         });
-    // 공지 칩 — HUD 아래 좌측(절대), 평소 숨김
+    // 공지 칩 — 네이티브 전용(웹은 DOM 공지 바 tf-rest notifyBar + 모드 점이
+    // 같은 정보를 준다 — bevy 칩이 웹 미니맵 좌상단과 겹치던 것, 리뷰 6).
+    // HUD 아래 좌측(절대), 평소 숨김.
+    #[cfg(not(target_arch = "wasm32"))]
     commands.spawn((
         HudNotice,
         Node {
@@ -326,15 +364,31 @@ pub fn update_hud(
     let (y, m, d, season) = date_of(day.day);
     let hh = day.hour.floor() as u32;
     let mm = ((day.hour - hh as f32) * 60.0).floor() as u32;
-    let clock = format!(
-        "{} {}년 {}월 {}일 {:02}:{:02}",
-        theme::season_label(season),
-        y,
-        m,
-        d,
-        hh,
-        mm
-    );
+    // 협소 화면 시계 축약(리뷰 7) — 칩 전체가 no-shrink라 양보할 수 있는 건
+    // 텍스트 길이뿐. compact: 계절+월일+시각(연도 생략), ultra: 시각만.
+    // 레거시 FE도 모바일 축약 시계(tf-i18n clockCompact)를 썼다.
+    let clock = if layout.ultra {
+        format!("{:02}:{:02}", hh, mm)
+    } else if layout.compact {
+        format!(
+            "{} {}월 {}일 {:02}:{:02}",
+            theme::season_label(season),
+            m,
+            d,
+            hh,
+            mm
+        )
+    } else {
+        format!(
+            "{} {}년 {}월 {}일 {:02}:{:02}",
+            theme::season_label(season),
+            y,
+            m,
+            d,
+            hh,
+            mm
+        )
+    };
     if clock != last.clock {
         last.clock = clock.clone();
         if let Ok(mut t) = q_clock.single_mut() {
