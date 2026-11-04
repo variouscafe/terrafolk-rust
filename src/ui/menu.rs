@@ -34,7 +34,11 @@ pub fn spawn_menu_button(p: &mut ChildSpawnerCommands, theme: &UiTheme) {
         MenuButton,
         Button,
         Node {
-            padding: UiRect::axes(Val::Px(7.0), Val::Px(3.0)),
+            width: Val::Px(38.0),
+            height: Val::Px(30.0),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            border_radius: BorderRadius::all(Val::Px(7.0)),
             ..default()
         },
         BackgroundColor(theme::INK800),
@@ -42,7 +46,7 @@ pub fn spawn_menu_button(p: &mut ChildSpawnerCommands, theme: &UiTheme) {
     ))
     .observe(on_menu_btn_click) // 폴링 아닌 확정 클릭 이벤트(빠른 탭 유실 방지)
     .with_children(|b| {
-        b.spawn((Text::new("☰"), theme.title(12.0)));
+        b.spawn((Text::new("☰"), theme.title(13.0)));
     });
 }
 
@@ -91,19 +95,24 @@ pub fn spawn_menu(
     theme: Res<UiTheme>,
     safe: Res<crate::platform::safe_area::SafeArea>,
 ) {
-    // ── ☰ 드롭다운 — HUD 우측 아래로 열린다
+    // ── ☰ 드롭다운 — HUD 우측 아래로 열린다(라운드·보더·항목 호버 —
+    // 웹 DOM 메뉴(tf-ui.css .tf-menu)와 같은 관계: 본문 4종 | 설정·계정)
     commands
         .spawn((
             MenuDropdown,
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Px(safe.top + 30.0),
+                top: Val::Px(safe.top + super::hud::HUD_ROW_H + 6.0),
                 right: Val::Px(6.0),
                 flex_direction: FlexDirection::Column,
-                padding: UiRect::all(Val::Px(4.0)),
+                padding: UiRect::all(Val::Px(5.0)),
                 row_gap: Val::Px(2.0),
+                min_width: Val::Px(132.0),
+                border: UiRect::all(Val::Px(1.0)),
+                border_radius: BorderRadius::all(Val::Px(10.0)),
                 ..default()
             },
+            BorderColor::all(theme::INK700),
             BackgroundColor(theme::INK900),
             Visibility::Hidden,
         ))
@@ -112,6 +121,7 @@ pub fn spawn_menu(
             menu_item(d, &theme, "자원", Popup::Res);
             menu_item(d, &theme, "문명", Popup::Inventions);
             menu_item(d, &theme, "기록", Popup::Log);
+            menu_separator(d);
             menu_item(d, &theme, "설정", Popup::Settings);
             menu_item(d, &theme, "계정", Popup::Account);
         });
@@ -180,7 +190,8 @@ fn menu_item(d: &mut ChildSpawnerCommands, theme: &UiTheme, label: &str, popup: 
         MenuOpenPopup(popup),
         Button,
         Node {
-            padding: UiRect::axes(Val::Px(12.0), Val::Px(7.0)),
+            padding: UiRect::axes(Val::Px(12.0), Val::Px(8.0)),
+            border_radius: BorderRadius::all(Val::Px(6.0)),
             ..default()
         },
         BackgroundColor(Color::NONE),
@@ -190,6 +201,43 @@ fn menu_item(d: &mut ChildSpawnerCommands, theme: &UiTheme, label: &str, popup: 
     .with_children(|b| {
         b.spawn((Text::new(label), theme.label(12.0)));
     });
+}
+
+/// 본문 항목(주민~기록)과 시스템 항목(설정·계정) 사이 구분선
+fn menu_separator(d: &mut ChildSpawnerCommands) {
+    d.spawn((
+        Node {
+            height: Val::Px(1.0),
+            margin: UiRect::axes(Val::Px(8.0), Val::Px(3.0)),
+            ..default()
+        },
+        BackgroundColor(super::theme::INK800),
+    ));
+}
+
+/// 메뉴 버튼·항목 호버/프레스 배경 — 웹 DOM :hover·:active 대응.
+/// 클릭 판정은 옵저버가 담당(여기는 시각 상태만).
+pub fn menu_hover(
+    mut q_btn: Query<(&Interaction, &mut BackgroundColor), With<MenuButton>>,
+    mut q_items: Query<
+        (&Interaction, &mut BackgroundColor),
+        (With<MenuOpenPopup>, Without<MenuButton>),
+    >,
+) {
+    for (i, mut bg) in &mut q_btn {
+        bg.0 = match *i {
+            Interaction::Pressed => theme::INK600,
+            Interaction::Hovered => theme::INK700,
+            Interaction::None => theme::INK800,
+        };
+    }
+    for (i, mut bg) in &mut q_items {
+        bg.0 = match *i {
+            Interaction::Pressed => theme::INK700,
+            Interaction::Hovered => theme::INK800,
+            Interaction::None => Color::NONE,
+        };
+    }
 }
 
 /// 메뉴 상태 반영 — 뒤로가기 닫기 + 드롭다운·설정 팝업 표시.

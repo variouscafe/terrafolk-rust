@@ -27,6 +27,21 @@ impl Plugin for HudPlugin {
     }
 }
 
+/// HUD 레일 높이(px) — DOM 상단 컨트롤(웹 ☰ 클러스터)과 같은 스케일.
+/// menu.rs 드롭다운·mod.rs safe-area 패치가 함께 참조한다.
+pub const HUD_ROW_H: f32 = 38.0;
+
+/// 스폰 시점 화면 폭 기반 레이아웃 플래그 — 기존 narrow(<360) 관례 확장.
+/// 칩 텍스트가 줄바꿈으로 찢어지던 것(2026-11-04 '관즐' 보고)을 폭 단계별
+/// 정보 축약으로 해소한다(리사이즈 미추적 — narrow와 동일 계약).
+#[derive(Resource)]
+pub struct HudLayout {
+    /// <420px — 타이틀·날씨 라벨 생략(우측 상태 칩 + ☰ 자리 확보)
+    pub compact: bool,
+    /// <340px — 날씨 칩 전체 생략
+    pub ultra: bool,
+}
+
 /// HUD 루트 마커 — 세이프에어리어 패치 대상
 #[derive(Component)]
 pub struct HudRoot;
@@ -51,6 +66,7 @@ pub struct LastHud {
     weather: String,
     pop: String,
     net: String,
+    net_col: Color,
 }
 
 /// 재접속 공지 — 링크 단계 에지에서 문구 갱신, 복구 2s 후 소멸(FE notice 근사).
@@ -100,10 +116,12 @@ pub fn update_notice(
     }
 }
 
-/// 칩 공통 노드(레거시 rounded bg-ink-800 칩)
+/// 칩 공통 노드(레거시 rounded bg-ink-800 칩) — 줄바꿈·압축 금지로 한 줄 유지
 fn chip() -> Node {
     Node {
-        padding: UiRect::axes(Val::Px(5.0), Val::Px(2.0)),
+        padding: UiRect::axes(Val::Px(6.0), Val::Px(3.0)),
+        flex_shrink: 0.0,
+        border_radius: BorderRadius::all(Val::Px(5.0)),
         ..default()
     }
 }
@@ -116,6 +134,9 @@ pub fn spawn_hud(
 ) {
     // 협소 화면 — DayDial 축소·관전 칩 생략(☰가 밀려나지 않게)
     let narrow = window.width() < 360.0;
+    let compact = window.width() < 420.0;
+    let ultra = window.width() < 340.0;
+    commands.insert_resource(HudLayout { compact, ultra });
     commands
         .spawn((
             HudRoot,
@@ -124,7 +145,7 @@ pub fn spawn_hud(
                 top: Val::Px(safe.top),
                 left: Val::Px(0.0),
                 width: Val::Percent(100.0),
-                height: Val::Px(30.0),
+                height: Val::Px(HUD_ROW_H),
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 column_gap: Val::Px(5.0),
@@ -134,16 +155,36 @@ pub fn spawn_hud(
             BackgroundColor(theme::HUD_BG),
         ))
         .with_children(|p| {
-            p.spawn((Text::new("Terrafolk"), theme.title(11.0)));
-            p.spawn((HudClock, Text::new(""), theme.label(10.0)));
-            super::daydial::mount(p, &theme, narrow);
-            p.spawn((
-                HudWeather,
-                Text::new(""),
-                theme.label(10.0),
-                chip(),
-                BackgroundColor(theme::INK800),
-            ));
+            if !compact {
+                p.spawn((
+                    Text::new("Terrafolk"),
+                    theme.title(11.0),
+                    Node {
+                        flex_shrink: 0.0,
+                        ..default()
+                    },
+                ));
+            }
+            p.spawn((HudClock, Text::new(""), theme.label(10.0), Node {
+                flex_shrink: 0.0,
+                ..default()
+            }));
+            super::daydial::mount(p, &theme, narrow || compact);
+            // 좌측 정보군 ↔ 우측 상태 칩군 분리 — 상태(날씨·인구·링크)는
+            // 우측 끝에 붙는 관전 HUD 관례(상용 시뮬 레이아웃).
+            p.spawn(Node {
+                flex_grow: 1.0,
+                ..default()
+            });
+            if !ultra {
+                p.spawn((
+                    HudWeather,
+                    Text::new(""),
+                    theme.label(10.0),
+                    chip(),
+                    BackgroundColor(theme::INK800),
+                ));
+            }
             p.spawn((
                 HudPop,
                 Text::new(""),
@@ -158,6 +199,9 @@ pub fn spawn_hud(
                 chip(),
                 BackgroundColor(theme::INK800),
             ));
+            // 관전 칩은 네이티브 전용 — 웹은 DOM 모드 칩(관전/참여 실제
+            // 상태 + 글래스 필)이 같은 정보를 주므로 중복 표시가 된다.
+            #[cfg(not(target_arch = "wasm32"))]
             if !narrow {
                 p.spawn((
                     Text::new("관전"),
@@ -166,13 +210,20 @@ pub fn spawn_hud(
                     BackgroundColor(theme::INK800),
                 ));
             }
-            // flex spacer + ☰ 메뉴 버튼 — 네이티브 전용(웹은 DOM 메뉴).
-            #[cfg(not(target_arch = "wasm32"))]
+            // 웹 — 우측 DOM 클러스터(모드 칩+☰) 자리 예약. 칩이 ☰ 밑으로
+            // 파고들어 '관즐'처럼 겹쳐 읽히던 것(2026-11-04)의 여백 확보.
+            // 모바일(≤600px)은 DOM 칩이 숨겨져 ☰만 남는다(tf-ui.css 미디어).
+            #[cfg(target_arch = "wasm32")]
             {
                 p.spawn(Node {
-                    flex_grow: 1.0,
+                    width: Val::Px(if window.width() <= 600.0 { 60.0 } else { 150.0 }),
+                    flex_shrink: 0.0,
                     ..default()
                 });
+            }
+            // ☰ 메뉴 버튼 — 네이티브 전용(웹은 DOM 메뉴).
+            #[cfg(not(target_arch = "wasm32"))]
+            {
                 super::menu::spawn_menu_button(p, &theme);
             }
         });
@@ -181,9 +232,10 @@ pub fn spawn_hud(
         HudNotice,
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(safe.top + 32.0),
+            top: Val::Px(safe.top + HUD_ROW_H + 4.0),
             left: Val::Px(8.0),
             padding: UiRect::axes(Val::Px(7.0), Val::Px(4.0)),
+            border_radius: BorderRadius::all(Val::Px(5.0)),
             ..default()
         },
         BackgroundColor(Color::srgb(0.988, 0.816, 0.325)),
@@ -231,6 +283,7 @@ pub fn update_hud(
     day: Res<DayTime>,
     weather: Res<WeatherState>,
     net: Res<NetState>,
+    layout: Res<HudLayout>,
     villagers: Query<(), With<Villager>>,
     mut q_clock: Query<
         &mut Text,
@@ -260,7 +313,7 @@ pub fn update_hud(
         ),
     >,
     mut q_net: Query<
-        &mut Text,
+        (&mut Text, &mut TextColor),
         (
             With<HudNet>,
             Without<HudClock>,
@@ -289,11 +342,16 @@ pub fn update_hud(
         }
     }
 
-    let weather_txt = format!(
-        "{} {}",
-        theme::weather_icon(&weather.kind),
-        theme::weather_label(&weather.kind)
-    );
+    // 협소 화면(compact) — 날씨는 아이콘만(칸 절약, 라벨 생략)
+    let weather_txt = if layout.compact {
+        theme::weather_icon(&weather.kind).to_owned()
+    } else {
+        format!(
+            "{} {}",
+            theme::weather_icon(&weather.kind),
+            theme::weather_label(&weather.kind)
+        )
+    };
     if weather_txt != last.weather {
         last.weather = weather_txt.clone();
         if let Ok(mut t) = q_weather.single_mut() {
@@ -309,17 +367,24 @@ pub fn update_hud(
         }
     }
 
-    // 링크 배지 — 라이브(네이티브 접속 스레드)·데모 구분(웹 worldsim 배지 대응)
-    let net_txt = match net.status {
-        NetStatus::Connected => "● LIVE".to_owned(),
-        NetStatus::Connecting => "…연결".to_owned(),
-        NetStatus::Reconnecting => "↻ 재접속".to_owned(),
-        NetStatus::Idle => "○ 데모".to_owned(),
+    // 링크 배지 — 라이브(네이티브 접속 스레드)·데모 구분(웹 worldsim 배지 대응).
+    // 상태별 색: LIVE=그린(방송 관례), 연결/재접속=앰버/레드, 데모=뮤트.
+    let (net_txt, net_col) = match net.status {
+        NetStatus::Connected => ("● LIVE", Color::srgb(0.33, 0.85, 0.47)),
+        NetStatus::Connecting => ("…연결", Color::srgb(1.0, 0.75, 0.28)),
+        NetStatus::Reconnecting => ("↻ 재접속", Color::srgb(0.97, 0.44, 0.44)),
+        NetStatus::Idle => ("○ 데모", theme::INK400),
     };
     if net_txt != last.net {
-        last.net = net_txt.clone();
-        if let Ok(mut t) = q_net.single_mut() {
-            **t = net_txt;
+        last.net = net_txt.to_owned();
+        if let Ok((mut t, _)) = q_net.single_mut() {
+            **t = net_txt.to_owned();
+        }
+    }
+    if net_col != last.net_col {
+        last.net_col = net_col;
+        if let Ok((_, mut c)) = q_net.single_mut() {
+            c.0 = net_col;
         }
     }
 }
@@ -330,6 +395,7 @@ pub fn update_hud(
 #[allow(clippy::type_complexity)]
 pub fn uidbg_dump(
     mut done: Local<bool>,
+    time: Res<Time>,
     q: Query<
         (
             &bevy::ui::UiGlobalTransform,
@@ -339,7 +405,9 @@ pub fn uidbg_dump(
         With<Node>,
     >,
 ) {
-    if *done || !crate::net::dbg_gate::on("uidbg") {
+    // t>8s — 첫 프레임(레이아웃 전)에 덤프하면 전 노드 0×0으로 나와 무의미
+    // 했다(2026-11-04 실측). 레이아웃 확정 후 1회 덤프.
+    if *done || time.elapsed_secs() < 8.0 || !crate::net::dbg_gate::on("uidbg") {
         return;
     }
     *done = true;

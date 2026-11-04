@@ -142,28 +142,39 @@
   // ── 상단바 — 정보(시계·해시계·날씨·인구)는 bevy_ui 공용 HUD로 이관
   // (2026-10-25 통일 2호). DOM은 ☰ 메뉴·모드 칩(관전/참가 — DOM 인증 전용
   // 정보)·공지만 담는다 — 배경은 bevy HUD가 제공하므로 투명 라이트.
+  // 우측 클러스터(2026-11-04 상용화): 모드 칩=상태 점 필, ☰=글래스 스쿼클,
+  // 드롭다운=아이콘 칩 + 본문/시스템 구분선 + 등장 애니메이션.
   function topbarHtml() {
     var isUser = S.scope && S.scope.kind === 'user';
-    var menuItems = [
-      ['chars', t('menu.chars'), ICONS.Users],
-      ['res', t('menu.resources'), ICONS.TreePine],
-      ['inventions', t('menu.civilization'), ICONS.Landmark],
-      ['log', t('menu.log'), ICONS.ScrollText],
-      ['set', t('menu.settings'), ICONS.Settings],
-      ['account', hasToken() ? t('menu.account') : t('menu.login'), hasToken() ? ICONS.User : ICONS.LogIn],
-    ].map(function (m) {
-      return '<button class="tf-menu-item" data-act="popup" data-key="' + m[0] + '">' +
-        svg(m[2], 14) + ' ' + esc(m[1]) + '</button>';
-    }).join('');
+    var login = !hasToken();
+    var item = function (m) {
+      var isLogin = m[0] === 'account' && login;
+      return '<button class="tf-menu-item' + (isLogin ? ' login' : '') + '" role="menuitem"' +
+        ' data-act="popup" data-key="' + m[0] + '">' +
+        '<span class="tf-menu-ico">' + svg(m[2], 15) + '</span>' +
+        '<span class="tf-menu-txt">' + esc(m[1]) + '</span></button>';
+    };
+    var menuItems =
+      [['chars', t('menu.chars'), ICONS.Users],
+       ['res', t('menu.resources'), ICONS.TreePine],
+       ['inventions', t('menu.civilization'), ICONS.Landmark],
+       ['log', t('menu.log'), ICONS.ScrollText]].map(item).join('') +
+      '<div class="tf-menu-sep" role="separator"></div>' +
+      [['set', t('menu.settings'), ICONS.Settings],
+       ['account', login ? t('menu.login') : t('menu.account'), login ? ICONS.LogIn : ICONS.User]]
+        .map(item).join('');
     return (
       '<div class="tf-topbar tf-topbar-lite">' +
         '<span class="tf-chip tf-chip-mode' + (isUser ? ' tf-chip-user' : '') + '">' +
+          '<i class="dot' + (S.netLive ? '' : ' off') + '"></i>' +
           esc(isUser ? t('world.joined') : t('world.spectate')) + '</span>' +
         '<div class="tf-menu-anchor">' +
-          '<button class="tf-menu-btn" data-act="menu" title="' + esc(t('menu.game')) + '">' +
-            svg(ICONS.Menu, 16) + '</button>' +
+          '<button class="tf-menu-btn' + (S.menuOpen ? ' on' : '') + '" data-act="menu"' +
+            ' aria-haspopup="menu" aria-expanded="' + (S.menuOpen ? 'true' : 'false') + '"' +
+            ' title="' + esc(t('menu.game')) + '">' +
+            svg(ICONS.Menu, 17) + '</button>' +
           (S.menuOpen
-            ? '<div class="tf-menu">' + menuItems + '</div>'
+            ? '<div class="tf-menu" role="menu">' + menuItems + '</div>'
             : '') +
         '</div>' +
         (S.notice
