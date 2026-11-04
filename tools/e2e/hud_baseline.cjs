@@ -6,7 +6,7 @@ const { pngPixels } = require('./lib.cjs');
 (async () => {
   const url = process.argv[2] || 'https://terrafolk-3d.pages.dev';
   const out = process.env.PNG_OUT || '/tmp/hud_baseline.png';
-  const { b, pg } = await launchLive({ width: 390, height: 844 });
+  const { b, pg } = await launchLive({ width: +process.env.VW || 1280, height: 800 });
   await pg.goto(url, { waitUntil: 'load', timeout: 60000 });
   await waitPrimed(pg, 180000);
   await pg.waitForTimeout(2000);
@@ -16,7 +16,7 @@ const { pngPixels } = require('./lib.cjs');
   const px = pngPixels(shot);
   const cols = {};
   for (let y = 0; y < 44; y++)
-    for (let x = 0; x < Math.min(px.w, 370); x++) {
+    for (let x = 0; x < Math.min(px.w, +process.env.VW || 700); x++) {
       const i = (y * px.w + x) * px.ch;
       const lum = 0.299 * px.data[i] + 0.587 * px.data[i + 1] + 0.114 * px.data[i + 2];
       if (lum > 150) cols[x] = (cols[x] || 0) + 1;
@@ -30,6 +30,6 @@ const { pngPixels } = require('./lib.cjs');
   }
   console.log(`url=${url}`);
   console.log(`bright cols=${xs.length} clusters=${JSON.stringify(clusters.slice(0, 8))}`);
-  console.log(clusters.length >= 2 ? 'HUD TEXT: PRESENT' : 'HUD TEXT: MISSING');
+  console.log(xs.length > 50 ? 'HUD TEXT: PRESENT' : 'HUD TEXT: MISSING');
   await b.close();
 })();
