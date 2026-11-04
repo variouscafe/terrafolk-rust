@@ -131,7 +131,7 @@ impl Plugin for UiPlugin {
                         chat::refresh_chat_bar,
                     )
                         .chain(),
-                    (menu::interact, menu::refresh_account_popup).chain(),
+                    (menu::interact, menu::menu_hover, menu::refresh_account_popup).chain(),
                     (chars::refresh_list, chars_sel::refresh_sel_panel, look::refresh).chain(),
                     res::refresh_res,
                     civ::refresh_civ,
@@ -179,7 +179,7 @@ fn apply_safe_area(
         n.top = Val::Px(safe.top);
     }
     if let Ok(mut n) = q_drop.single_mut() {
-        n.top = Val::Px(safe.top + 30.0);
+        n.top = Val::Px(safe.top + hud::HUD_ROW_H + 6.0);
     }
     if let Ok(mut n) = q_panel.single_mut() {
         n.bottom = Val::Px(safe.bottom + 8.0);
