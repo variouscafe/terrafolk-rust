@@ -390,7 +390,7 @@ pub fn sync_agents(
                 t: 0.0,
                 moving: false,
                 idle: 0.0,
-                target_h: crate::world::villager::VILLAGER_H,
+                target_h: crate::world::villager::villager_h(),
                 name: a.name.clone(),
                 status: a.status.clone(),
                 act: a.act_type.clone().unwrap_or_default(),

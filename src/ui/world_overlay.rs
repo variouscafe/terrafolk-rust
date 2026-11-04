@@ -16,8 +16,8 @@ use crate::world::camera_rig::CameraRig;
 use crate::world::pick::Selection;
 use crate::world::villager::Villager;
 
-/// 주민 상단 앵커 높이(m) — overlay.rs ANCHOR_H와 동일값(네이티브 재정의).
-const ANCHOR_H: f32 = 1.85;
+/// 주민 상단 앵커 높이(m) — overlay.rs ANCHOR_H_BASE와 동일값(네이티브 재정의).
+const ANCHOR_H_BASE: f32 = 1.85;
 /// 이 줌보다 멀면 이름 숨김(tf-world-ui LABEL_ZOOM_MAX — FE zoom<0.85 상당).
 const LABEL_ZOOM_MAX: f32 = 1.9;
 /// 화면 밖 판정 마진(px) — tf-world-ui와 동일.
@@ -357,7 +357,7 @@ pub fn place_anchors(
             *vis = Visibility::Hidden;
             continue;
         };
-        let anchor = tr.translation + Vec3::Y * ANCHOR_H;
+        let anchor = tr.translation + Vec3::Y * (ANCHOR_H_BASE * crate::world::villager::villager_scale());
         let Ok(p) = cam.world_to_viewport(gt, anchor) else {
             *vis = Visibility::Hidden;
             continue;

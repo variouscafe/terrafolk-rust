@@ -25,7 +25,7 @@ fn ensure_glow(
                     color: Color::srgb(1.0, 0.78, 0.52),
                     intensity: 0.0,
                     range: 3.2,
-                    radius: 0.5,
+                    radius: 0.5 * crate::world::villager::villager_scale(),
                     shadow_maps_enabled: false,
                     ..default()
                 },
