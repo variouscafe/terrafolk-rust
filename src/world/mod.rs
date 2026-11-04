@@ -48,6 +48,19 @@ pub mod wind;
 use bevy::pbr::MaterialPlugin;
 use bevy::prelude::*;
 
+/// 게임 채택 비율 프로필 — CHIBI_REF2에서 어깨 폭만 오버라이드.
+/// 배율 >1은 상완 본 translation을 바깥으로 민다(쇄골 연장) — 원본 메시는
+/// shoulder=1에서 몸통에 붙도록 모델링돼 있어 그 위 배율은 팔-몸통 간격이
+/// 된다. `?tfdbg=shoulder{f}`(예: shoulder1.4)로 A/B.
+fn shoulder_profile() -> crate::character::rig::ProportionProfile {
+    let mut p = crate::character::rig::CHIBI_REF2;
+    p.shoulder = crate::net::dbg_gate::value("shoulder")
+        .and_then(|v| v.parse::<f32>().ok())
+        .filter(|v| (0.5..=3.0).contains(v))
+        .unwrap_or(1.0);
+    p
+}
+
 pub struct WorldPlugin;
 
 impl Plugin for WorldPlugin {
@@ -120,8 +133,12 @@ impl Plugin for WorldPlugin {
         // 비율 룩 = 레퍼런스 치비 v2(2026-11-03 비율 감사 — CHIBI_REF2:
         // 두신 ~2.6·다리 ~31%·손끝 허벅지 중앙·어깨≈머리 폭). 가시 신장
         // 1.72m 유지 fit = villager::villager_h()(기본 1.79×1.6).
+        // 어깨 폭 배율은 게임 오버라이드 1.0 — 크레이트 기본 2.2가 라이브
+        // m-farmer에서 상완 메시를 몸통에서 띄운다(2026-11-04 '팔 뜸' 보고.
+        // 롤백 라인 최초 0.2.9 페어 = 0.8.60부터, ×1.6으로 증폭). 실루엣
+        // 재튜닝은 크레이트 레포에서 실모델 검증 후. `?tfdbg=shoulder{f}` A/B.
         app.add_plugins(crate::character::CharacterPlugin::<data::WorldData>::new(
-            crate::character::rig::CHIBI_REF2,
+            shoulder_profile(),
         ));
         app.configure_sets(
             Update,
