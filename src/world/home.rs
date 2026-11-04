@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex};
 use bevy::prelude::*;
 
 use crate::net::resources::LiveResourceTag;
+use crate::world::prop_fit::Fitted;
 
 /// 내 주민 id 목록(미로그인·관전 = 빈). 마커·미니맵 핑의 판정 원천.
 #[derive(Resource, Default, PartialEq)]
@@ -82,14 +83,23 @@ pub fn drain_mine(bridge: Res<MineBridge>, mut mine: ResMut<MineAgent>) {
 
 /// 네이티브 /me → MineAgent 매핑(look_sync 폴 결과, wasm은 drain_mine 경유).
 #[cfg(not(target_arch = "wasm32"))]
-pub fn mine_sync_native(
-    look: Res<crate::net::look_sync::LookStore>,
-    mut mine: ResMut<MineAgent>,
-) {
+pub fn mine_sync_native(look: Res<crate::net::look_sync::LookStore>, mut mine: ResMut<MineAgent>) {
     let m = look.inner.mine.lock().unwrap_or_else(|e| e.into_inner());
     let ids: Vec<String> = m.iter().map(|a| a.id.clone()).collect();
     if mine.0 != ids {
         mine.0 = ids;
+    }
+}
+
+/// 원하는 월드(평면) 자세를 루트 로컬 Transform으로 변환 — 루트는 apply_fit이
+/// scale·회전을 기입하므로 월드 절대값을 그대로 자식에 주면 어긋난다(W1 계약).
+/// 스케일은 1/루트 스케일로 상쇄해 메시 크기가 루트 스케일에 왜곡되지 않게 한다.
+pub fn flag_local(root: &Transform, world_pos: Vec3, world_rot: Quat) -> Transform {
+    let inv = root.compute_affine().inverse();
+    Transform {
+        translation: Vec3::from(inv.transform_point3a(world_pos.into())),
+        rotation: root.rotation.inverse() * world_rot,
+        scale: Vec3::ONE / root.scale,
     }
 }
 
@@ -110,7 +120,7 @@ pub fn home_flags(
             Option<&HomeFlag>,
             Option<&Children>,
         ),
-        With<LiveResourceTag>,
+        (With<LiveResourceTag>, With<Fitted>),
     >,
     q_part: Query<&FlagPart>,
 ) {
@@ -141,11 +151,11 @@ pub fn home_flags(
                     Mesh3d(pole),
                     MeshMaterial3d(pole_mat),
                     // 지붕면 5cm 침투 — 골조 끝에서 뜨지 않게
-                    Transform::from_translation(Vec3::new(
-                        base.x,
-                        top + POLE_H / 2.0 - 0.05,
-                        base.z,
-                    )),
+                    flag_local(
+                        tr,
+                        Vec3::new(base.x, top + POLE_H / 2.0 - 0.05, base.z),
+                        Quat::IDENTITY,
+                    ),
                 ))
                 .id();
             let cloth_e = commands
@@ -156,12 +166,15 @@ pub fn home_flags(
                     // 깃대 상단에서 바람 방향(남동)으로 펄럭 — 시선각 고정이라
                     // 정지 천도 실루엣이 산다. 원경 가시성에 얇은 옆면은 빼고
                     // 정면판만(양면 렌더는 큐브 박스판으로 해결).
-                    Transform::from_translation(Vec3::new(
-                        base.x + FLAG_W / 2.0,
-                        top + POLE_H - 0.05 - FLAG_H / 2.0,
-                        base.z,
-                    ))
-                    .with_rotation(Quat::from_rotation_y(0.5)),
+                    flag_local(
+                        tr,
+                        Vec3::new(
+                            base.x + FLAG_W / 2.0,
+                            top + POLE_H - 0.05 - FLAG_H / 2.0,
+                            base.z,
+                        ),
+                        Quat::from_rotation_y(0.5),
+                    ),
                 ))
                 .id();
             commands.entity(root).add_child(pole_e);
@@ -178,5 +191,26 @@ pub fn home_flags(
             }
             commands.entity(root).remove::<HomeFlag>();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn flag_local_roundtrips_to_world() {
+        let root = Transform {
+            translation: Vec3::new(10.0, 2.0, 10.0),
+            rotation: Quat::from_rotation_y(0.7),
+            scale: Vec3::splat(0.5),
+        };
+        let world_pos = Vec3::new(10.0, 4.3, 10.0);
+        let world_rot = Quat::from_rotation_y(0.5);
+        let local = flag_local(&root, world_pos, world_rot);
+        let gt = GlobalTransform::from(root).mul_transform(local);
+        assert!((gt.translation() - world_pos).length() < 1e-4);
+        assert!(gt.rotation().angle_between(world_rot) < 1e-4);
+        assert!((gt.scale() - Vec3::ONE).length() < 1e-4);
     }
 }

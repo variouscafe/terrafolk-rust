@@ -42,7 +42,6 @@ pub struct ConstructionRing;
 #[derive(Component)]
 pub struct SiteBarFill {
     pub full_w: f32,
-    pub cx: f32,
 }
 
 /// 완공 건물 창불 쿼드 — 발판 안 주민 점등 시 Visible.
@@ -60,6 +59,8 @@ const GLOW_EMISSIVE: LinearRgba = LinearRgba::new(0.55, 0.435, 0.297, 1.0); // #
 
 /// 공사 발판 스폰 — 말뚝·밧줄·링·진행 바. 서버 앵커(x,y)=좌상단 타일.
 /// 루트 엔티티(SiteRect+SiteMeta)를 반환 — 호출처가 LiveResourceTag를 붙인다.
+/// 루트 = 발판 중심 지면 앵커 (cx, ground, cz), 자식 = 루트 기준 로컬 오프셋
+/// (글로브 워프 계약 W1 — globe.rs 모듈 doc 참조).
 #[allow(clippy::too_many_arguments)] // 스폰 파라미터 — 발판 규격·지면·진행률 주입
 pub fn spawn_site(
     commands: &mut Commands,
@@ -81,7 +82,7 @@ pub fn spawn_site(
         .spawn((
             SiteRect { x, y, w, h },
             SiteMeta { progress },
-            Transform::default(),
+            Transform::from_translation(Vec3::new(cx, ground, cz)),
             Visibility::default(),
         ))
         .id();
@@ -99,7 +100,7 @@ pub fn spawn_site(
             .spawn((
                 Mesh3d(post.clone()),
                 MeshMaterial3d(post_mat.clone()),
-                Transform::from_translation(Vec3::new(cx + dx, ground + 0.42, cz + dz)),
+                Transform::from_translation(Vec3::new(dx, 0.42, dz)),
             ))
             .id();
         // 루트 자식화 — 철거(LiveResourceTag despawn) 시 말뚝·밧줄도 함께
@@ -114,12 +115,12 @@ pub fn spawn_site(
         ..default()
     });
     for (len, px, pz, rot) in [
-        (fw - 0.16, cx, cz - hz, 0.0),
-        (fw - 0.16, cx, cz + hz, 0.0),
-        (fh - 0.16, cx - hx, cz, std::f32::consts::FRAC_PI_2),
-        (fh - 0.16, cx + hx, cz, std::f32::consts::FRAC_PI_2),
+        (fw - 0.16, 0.0, -hz, 0.0),
+        (fw - 0.16, 0.0, hz, 0.0),
+        (fh - 0.16, -hx, 0.0, std::f32::consts::FRAC_PI_2),
+        (fh - 0.16, hx, 0.0, std::f32::consts::FRAC_PI_2),
     ] {
-        let mut tr = Transform::from_translation(Vec3::new(px, ground + 0.05, pz));
+        let mut tr = Transform::from_translation(Vec3::new(px, 0.05, pz));
         tr.rotation = Quat::from_rotation_y(rot);
         tr.scale.x = len;
         let rope_e = commands
@@ -140,14 +141,14 @@ pub fn spawn_site(
                 ..default()
             })),
             Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2))
-                .with_translation(Vec3::new(cx, ground + 0.04, cz + hz)),
+                .with_translation(Vec3::new(0.0, 0.04, hz)),
         ))
         .id();
     commands.entity(root).add_child(ring);
 
     // 진행 바 — 건물 상단 부유(어두운 바탕판 + 호박색 채움, 좌측 고정 성장)
     let bar_w = (fw - 0.25).max(0.7);
-    let bar_y = ground + 2.6 + fh * 0.5;
+    let bar_y = 2.6 + fh * 0.5;
     let bg = commands
         .spawn((
             Mesh3d(meshes.add(Cuboid::new(bar_w, 0.055, 0.09))),
@@ -156,14 +157,13 @@ pub fn spawn_site(
                 unlit: true,
                 ..default()
             })),
-            Transform::from_translation(Vec3::new(cx, bar_y, cz)),
+            Transform::from_translation(Vec3::new(0.0, bar_y, 0.0)),
         ))
         .id();
     let fill = commands
         .spawn((
             SiteBarFill {
                 full_w: bar_w - 0.02,
-                cx,
             },
             Mesh3d(meshes.add(Cuboid::new(1.0, 0.045, 0.075))),
             MeshMaterial3d(mats.add(StandardMaterial {
@@ -171,7 +171,7 @@ pub fn spawn_site(
                 unlit: true,
                 ..default()
             })),
-            Transform::from_translation(Vec3::new(cx, bar_y + 0.001, cz)),
+            Transform::from_translation(Vec3::new(0.0, bar_y + 0.001, 0.0)),
         ))
         .id();
     commands.entity(root).add_child(bg);
@@ -208,7 +208,7 @@ pub fn spawn_site(
                 .spawn((
                     Mesh3d(col.clone()),
                     MeshMaterial3d(col_mat.clone()),
-                    Transform::from_translation(Vec3::new(cx + dx, ground + 0.95, cz + dz)),
+                    Transform::from_translation(Vec3::new(dx, 0.95, dz)),
                 ))
                 .id();
             commands.entity(root).add_child(c);
@@ -221,14 +221,14 @@ pub fn spawn_site(
             base_color: BEAM_COLOR,
             ..default()
         });
-        let by = ground + 1.85;
+        let by = 1.85;
         let ix = fw / 2.0 - 0.22;
         let iz = fh / 2.0 - 0.22;
         for (len, px, pz, rot) in [
-            (fw - 0.44, cx, cz - iz, 0.0),
-            (fw - 0.44, cx, cz + iz, 0.0),
-            (fh - 0.44, cx - ix, cz, std::f32::consts::FRAC_PI_2),
-            (fh - 0.44, cx + ix, cz, std::f32::consts::FRAC_PI_2),
+            (fw - 0.44, 0.0, -iz, 0.0),
+            (fw - 0.44, 0.0, iz, 0.0),
+            (fh - 0.44, -ix, 0.0, std::f32::consts::FRAC_PI_2),
+            (fh - 0.44, ix, 0.0, std::f32::consts::FRAC_PI_2),
         ] {
             let mut tr = Transform::from_translation(Vec3::new(px, by, pz));
             tr.rotation = Quat::from_rotation_y(rot);
@@ -245,14 +245,14 @@ pub fn spawn_site(
             base_color: ADOBE_COLOR,
             ..default()
         });
-        let wy = ground + 0.375;
+        let wy = 0.375;
         let wx = fw / 2.0 - 0.18;
         let wz = fh / 2.0 - 0.18;
         for (len, px, pz, rot, thick) in [
-            (fw - 0.36, cx, cz - wz, 0.0, 0.12),
-            (fw - 0.36, cx, cz + wz, 0.0, 0.12),
-            (fh - 0.36, cx - wx, cz, std::f32::consts::FRAC_PI_2, 0.12),
-            (fh - 0.36, cx + wx, cz, std::f32::consts::FRAC_PI_2, 0.12),
+            (fw - 0.36, 0.0, -wz, 0.0, 0.12),
+            (fw - 0.36, 0.0, wz, 0.0, 0.12),
+            (fh - 0.36, -wx, 0.0, std::f32::consts::FRAC_PI_2, 0.12),
+            (fh - 0.36, wx, 0.0, std::f32::consts::FRAC_PI_2, 0.12),
         ] {
             let wall = meshes.add(Cuboid::new(1.0, 0.75, thick));
             let mut tr = Transform::from_translation(Vec3::new(px, wy, pz));
@@ -271,7 +271,7 @@ pub fn spawn_site(
             base_color: BEAM_COLOR,
             ..default()
         });
-        let mut tr = Transform::from_translation(Vec3::new(cx, ground + 2.35, cz));
+        let mut tr = Transform::from_translation(Vec3::new(0.0, 2.35, 0.0));
         tr.scale.x = fw.max(fh) - 0.4;
         let r_e = commands
             .spawn((Mesh3d(ridge), MeshMaterial3d(ridge_mat), tr))
@@ -338,8 +338,8 @@ pub fn site_dressing(
             .unwrap_or(0.0);
         let w = (fill.full_w * prog.max(0.02)).max(0.02);
         tr.scale.x = w;
-        // 좌측 고정 — 바 중심(cx) 기준 왼쪽 끝을 바탕판에 맞춘다
-        tr.translation.x = fill.cx - fill.full_w / 2.0 + w / 2.0;
+        // 좌측 고정 — 바 중심(로컬 0) 기준 왼쪽 끝을 바탕판에 맞춘다
+        tr.translation.x = -fill.full_w / 2.0 + w / 2.0;
     }
 }
 
@@ -361,5 +361,80 @@ pub fn hut_lights(
         } else {
             Visibility::Hidden
         };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::world::globe::WarpFrame;
+    use bevy::ecs::world::CommandQueue;
+
+    fn spawn(x: i32, y: i32, w: u16, h: u16, ground: f32) -> (World, Entity) {
+        let mut world = World::new();
+        let mut meshes = Assets::<Mesh>::default();
+        let mut mats = Assets::<StandardMaterial>::default();
+        let mut queue = CommandQueue::default();
+        let root = {
+            let mut cmds = Commands::new(&mut queue, &world);
+            spawn_site(
+                &mut cmds,
+                &mut meshes,
+                &mut mats,
+                x,
+                y,
+                w,
+                h,
+                ground,
+                0.5,
+                "ROOF_READY",
+            )
+        };
+        queue.apply(&mut world);
+        (world, root)
+    }
+
+    fn child_locals(world: &World, root: Entity) -> Vec<Vec3> {
+        let ch = world.get::<Children>(root).expect("children");
+        assert!(ch.len() > 10);
+        ch.iter()
+            .map(|c| world.get::<Transform>(c).unwrap().translation)
+            .collect()
+    }
+
+    #[test]
+    fn site_root_is_anchor() {
+        let (world, root) = spawn(40, 60, 3, 2, 1.7);
+        let t = world.get::<Transform>(root).unwrap().translation;
+        assert!((t - Vec3::new(41.5, 1.7, 61.0)).length() < 1e-5, "{t:?}");
+        for l in child_locals(&world, root) {
+            assert!(l.x.abs() <= 1.5 + 0.6, "x {l:?}");
+            assert!(l.z.abs() <= 3.0 * 0.6 + 0.6, "z {l:?}");
+            assert!((0.0..=6.0).contains(&l.y), "y {l:?}");
+        }
+    }
+
+    // 원점 루트+월드 좌표 자식 방식이면 actual이 수십~수백 유닛 어긋난다.
+    #[test]
+    fn site_children_follow_globe() {
+        let r_planet = 1.5 * 256.0 / std::f32::consts::PI;
+        let frame = WarpFrame {
+            center: Vec2::splat(128.0),
+            r_eff: r_planet,
+            r_planet,
+            factor: 1.0,
+        };
+        for (x, y) in [(40, 60), (200, 200)] {
+            let (world, root) = spawn(x, y, 3, 2, 1.7);
+            let rt = world.get::<Transform>(root).unwrap().translation;
+            for l in child_locals(&world, root) {
+                let ideal = frame.warp_point(rt + l);
+                let actual = frame.warp_point(rt) + frame.warp_quat(rt.xz()) * l;
+                assert!(
+                    (ideal - actual).length() < 0.25,
+                    "{x},{y}: {ideal:?} vs {actual:?}"
+                );
+            }
+        }
     }
 }
