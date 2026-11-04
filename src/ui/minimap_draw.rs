@@ -156,6 +156,16 @@ pub fn draw_live(
             "gold_vein" => px(buf, size, r.x as usize, r.y as usize, GOLD),
             "hut" => {
                 let st = parse(r, cache);
+                // §17.92 유령 완공 hut — 3D 렌더와 동일 계약으로 미니맵에서도
+                // 제거(거주지 집합 = 살아 있는 agents의 homeId).
+                if st.done
+                    && !frame
+                        .agents
+                        .iter()
+                        .any(|a| a.home_id.as_deref() == Some(r.id.to_string().as_str()))
+                {
+                    continue;
+                }
                 let c = if st.done { HUT_DONE } else { HUT_WIP };
                 rect_fill(
                     buf,

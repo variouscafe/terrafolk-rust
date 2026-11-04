@@ -56,7 +56,7 @@ pub fn spawn_live_hut(
                 w,
                 h,
                 ground,
-                st.progress.unwrap_or(0.0).clamp(0.0, 1.0),
+                crate::net::visual_map::hut_progress(st),
                 &stage,
             )
         };

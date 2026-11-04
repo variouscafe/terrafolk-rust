@@ -45,6 +45,7 @@
           goalText: a.goalText != null ? a.goalText : (cur ? cur.goalText : ''),
           look: a.look != null ? a.look : (cur ? cur.look : null),
           kind: a.kind != null ? a.kind : (cur ? cur.kind : ''),
+          homeId: a.homeId != null ? a.homeId : (cur ? cur.homeId : null),
           x: a.x != null ? a.x : (cur ? cur.x : 0),
           y: a.y != null ? a.y : (cur ? cur.y : 0),
           mine: cur ? cur.mine : false,
