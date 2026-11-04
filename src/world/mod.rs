@@ -119,7 +119,7 @@ impl Plugin for WorldPlugin {
         // (2026-10-24 P1, docs/character-module-redesign.md). 표면장=WorldData.
         // 비율 룩 = 레퍼런스 치비 v2(2026-11-03 비율 감사 — CHIBI_REF2:
         // 두신 ~2.6·다리 ~31%·손끝 허벅지 중앙·어깨≈머리 폭). 가시 신장
-        // 1.72m 유지 fit = villager::VILLAGER_H 1.79.
+        // 1.72m 유지 fit = villager::villager_h()(기본 1.79×1.6).
         app.add_plugins(crate::character::CharacterPlugin::<data::WorldData>::new(
             crate::character::rig::CHIBI_REF2,
         ));

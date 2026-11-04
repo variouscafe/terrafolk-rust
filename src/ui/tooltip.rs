@@ -19,8 +19,8 @@ use crate::world::villager::Villager;
 const TAP_SECS: f32 = 2.5;
 /// 호버 리프레시(커서 이탈 후 잔상).
 const HOVER_LINGER: f32 = 0.15;
-const TORSO_H: f32 = 0.8;
-const PICK_RADIUS: f32 = 0.8;
+const TORSO_H_BASE: f32 = 0.8;
+const PICK_RADIUS_BASE: f32 = 0.8;
 
 #[derive(Component)]
 pub struct TooltipNode {
@@ -125,14 +125,14 @@ pub fn update_tooltip(
         if let Some(ray) = ray.as_ref() {
             for (gtr, v, _tag, hud) in &villagers {
                 // 워프 공간 판정(글로브 정합 — 평면에서는 기존과 동일)
-                let center = gtr.translation() + gtr.up() * TORSO_H;
+                let center = gtr.translation() + gtr.up() * (TORSO_H_BASE * crate::world::villager::villager_scale());
                 let dv = center - ray.origin;
                 let along = dv.dot(*ray.direction);
                 if along <= 0.0 {
                     continue;
                 }
                 let d = (dv - *ray.direction * along).length();
-                if d > PICK_RADIUS {
+                if d > PICK_RADIUS_BASE * crate::world::villager::villager_scale() {
                     continue;
                 }
                 let act = hud

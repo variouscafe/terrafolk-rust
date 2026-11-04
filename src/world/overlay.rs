@@ -16,10 +16,10 @@ use super::villager::Villager;
 use crate::net::apply::LiveAgentTag;
 use crate::net::resources::LiveResourceTag;
 
-/// 오버레이 앵커 높이(지면 기준 m) — 주민 상단(VILLAGER_H 1.72) 위 여백.
+/// 오버레이 앵커 높이(지면 기준 m) — 주민 상단(가시 신장 1.72×villager_scale) 위 여백; 사용 지점에서 배율 곱.
 /// 이름·배지·풍선은 JS가 이 앵커에서 위로 쌓는다.
 #[cfg(target_arch = "wasm32")]
-const ANCHOR_H: f32 = 1.85;
+const ANCHOR_H_BASE: f32 = 1.85;
 /// JS→Rust 카메라 점프 큐 — tf.panTo(x, z) 호출을 다음 프레임에 반영.
 /// 네이티브 미니맵 탭(ui/minimap.rs)도 같은 큐에 민다(동일 규약).
 #[derive(Resource, Default)]
@@ -107,7 +107,7 @@ pub fn overlay_feed(
         // 워프 공간 투영 — 카메라와 같은 공간의 GlobalTransform(글로브 모드
         // 정합. 평면에서는 Transform와 동일). up()=국소 법선(평면=Y).
         for (tag, gtr) in &q_agents {
-            let anchor = gtr.translation() + gtr.up() * ANCHOR_H;
+            let anchor = gtr.translation() + gtr.up() * (ANCHOR_H_BASE * crate::world::villager::villager_scale());
             let Ok(p) = cam.world_to_viewport(gt, anchor) else {
                 continue;
             };

@@ -18,7 +18,29 @@ const WALK_TIME: f32 = 0.85;
 /// 이력: CHIBI_REF(head 2.20) 1.94 → 2026-11-03 CHIBI_REF2(head 2.60·
 /// leg 0.44)로 가시 신장 ×1.085(qchar 5종 LBS 실측 평균, 망토 모델
 /// m-adventurer 제외) → 1.94/1.085 = 1.79.
-pub const VILLAGER_H: f32 = 1.79;
+/// 2026-11-04: 세계 물체(나무 7~8m·덤불 1.15m) 대비 주민이 작아 보여
+/// 주민만 ×VILLAGER_SCALE 상향(docs/villager-scale-up-spec.md).
+const VILLAGER_H_BASE: f32 = 1.79;
+
+/// 주민 크기 배율 기본값 — 가시 신장 1.72m × 1.6 ≈ 2.75m (2026-11-04 사용자 A/B 확정 — 1.4 시안에서 상향).
+pub const VILLAGER_SCALE_DEFAULT: f32 = 1.6;
+
+/// 주민 크기 배율 — `?tfdbg=vscale{f}`(예: vscale1.0·vscale1.5)로 A/B.
+/// 0.5~3.0 밖·파싱 실패는 기본값. 1회 계산 후 캐시.
+pub fn villager_scale() -> f32 {
+    static S: std::sync::OnceLock<f32> = std::sync::OnceLock::new();
+    *S.get_or_init(|| {
+        crate::net::dbg_gate::value("vscale")
+            .and_then(|v| v.parse::<f32>().ok())
+            .filter(|v| (0.5..=3.0).contains(v))
+            .unwrap_or(VILLAGER_SCALE_DEFAULT)
+    })
+}
+
+/// 주민 fit 목표(미터, 치비화 전 raw AABB 기준) = 기본 × 배율.
+pub fn villager_h() -> f32 {
+    VILLAGER_H_BASE * villager_scale()
+}
 
 /// 모델 전방 보정 — Quaternius 리깅는 +Z 전방(실측 후 조정)
 const MODEL_YAW: f32 = 0.0;

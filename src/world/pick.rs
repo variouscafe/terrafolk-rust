@@ -17,9 +17,9 @@ const CLICK_PX: f32 = 6.0;
 /// 터치 탭 판정 임계(논리 px)
 const TAP_PX: f32 = 9.0;
 /// 픽 히트 반경(월드 m) — 몸통 중심 기준
-const PICK_RADIUS: f32 = 0.8;
+const PICK_RADIUS_BASE: f32 = 0.8;
 /// 몸통 중심 높이(지면 기준 m)
-const TORSO_H: f32 = 0.8;
+const TORSO_H_BASE: f32 = 0.8;
 
 #[derive(Resource, Default)]
 pub struct Selection {
@@ -211,14 +211,14 @@ pub fn pick_agent(
     // 워프 공간 정합 — 광선(워프 카메라)과 같은 공간의 GlobalTransform으로
     // 판정(글로브 모드에서도 픽 정합. 평면에선 Transform와 동일).
     for (e, gtr, tag) in &q_agents {
-        let center = gtr.translation() + gtr.up() * TORSO_H;
+        let center = gtr.translation() + gtr.up() * (TORSO_H_BASE * crate::world::villager::villager_scale());
         let v = center - ray.origin;
         let along = v.dot(*ray.direction);
         if along <= 0.0 {
             continue;
         }
         let d = (v - *ray.direction * along).length();
-        if d > PICK_RADIUS {
+        if d > PICK_RADIUS_BASE * crate::world::villager::villager_scale() {
             continue;
         }
         let id = tag
