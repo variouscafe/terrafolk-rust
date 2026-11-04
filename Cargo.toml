@@ -1,6 +1,6 @@
 [package]
 name = "terrafolk_bevy"
-version = "0.8.60"
+version = "0.8.61"
 publish = false
 edition = "2024"
 exclude = ["dist", "build", "assets", "credits"]
