@@ -139,50 +139,9 @@
     return root;
   }
 
-  // ── 상단바 — 정보(시계·해시계·날씨·인구)는 bevy_ui 공용 HUD로 이관
-  // (2026-10-25 통일 2호). DOM은 ☰ 메뉴·모드 칩(관전/참가 — DOM 인증 전용
-  // 정보)·공지만 담는다 — 배경은 bevy HUD가 제공하므로 투명 라이트.
-  // 우측 클러스터(2026-11-04 상용화): 모드 칩=상태 점 필, ☰=글래스 스쿼클,
-  // 드롭다운=아이콘 칩 + 본문/시스템 구분선 + 등장 애니메이션.
-  function topbarHtml() {
-    var isUser = S.scope && S.scope.kind === 'user';
-    var login = !hasToken();
-    var item = function (m) {
-      var isLogin = m[0] === 'account' && login;
-      return '<button class="tf-menu-item' + (isLogin ? ' login' : '') + '" role="menuitem"' +
-        ' data-act="popup" data-key="' + m[0] + '">' +
-        '<span class="tf-menu-ico">' + svg(m[2], 15) + '</span>' +
-        '<span class="tf-menu-txt">' + esc(m[1]) + '</span></button>';
-    };
-    var menuItems =
-      [['chars', t('menu.chars'), ICONS.Users],
-       ['res', t('menu.resources'), ICONS.TreePine],
-       ['inventions', t('menu.civilization'), ICONS.Landmark],
-       ['log', t('menu.log'), ICONS.ScrollText]].map(item).join('') +
-      '<div class="tf-menu-sep" role="separator"></div>' +
-      [['set', t('menu.settings'), ICONS.Settings],
-       ['account', login ? t('menu.login') : t('menu.account'), login ? ICONS.LogIn : ICONS.User]]
-        .map(item).join('');
-    return (
-      '<div class="tf-topbar tf-topbar-lite">' +
-        '<span class="tf-chip tf-chip-mode' + (isUser ? ' tf-chip-user' : '') + '">' +
-          '<i class="dot' + (S.netLive ? '' : ' off') + '"></i>' +
-          esc(isUser ? t('world.joined') : t('world.spectate')) + '</span>' +
-        '<div class="tf-menu-anchor">' +
-          '<button class="tf-menu-btn' + (S.menuOpen ? ' on' : '') + '" data-act="menu"' +
-            ' aria-haspopup="menu" aria-expanded="' + (S.menuOpen ? 'true' : 'false') + '"' +
-            ' title="' + esc(t('menu.game')) + '">' +
-            svg(ICONS.Menu, 17) + '</button>' +
-          (S.menuOpen
-            ? '<div class="tf-menu" role="menu">' + menuItems + '</div>'
-            : '') +
-        '</div>' +
-        (S.notice
-          ? '<div class="tf-notice" data-act="clear-notice">' + esc(S.notice) + '</div>'
-          : '') +
-      '</div>'
-    );
-  }
+  // ── 상단 바·드롭다운 렌더 — tf-topbar.js로 분리(500줄 규칙, 2026-11-04).
+  //    조립은 hasToken 확정 후 아래 협력 모듈 영역에서. 드롭다운은 별도
+  //    'menu' 고정 슬롯 — topbar 재렌더와 수명이 독립이다.
 
   // ═══════════════ 팝업 ═══════════════
   var POPUP_META = {
@@ -198,6 +157,12 @@
   var rest = window.TF_REST.create({ S: S, t: t, I: I, schedule: schedule,
     liveSignature: function () { return Object.keys(S.live).sort().join(','); } });
   var hasToken = rest.hasToken;
+
+  // 상단 바·☰ 드롭다운 — tf-topbar.js(2026-11-04 분리). hasToken 확정 후 조립.
+  var topbarMod = window.TF_TOPBAR.create({ S: S, t: t, esc: esc, svg: svg,
+    ICONS: ICONS, hasToken: hasToken });
+  var topbarHtml = topbarMod.topbarHtml;
+  var menuHtml = topbarMod.menuHtml;
 
   // 문명 패널 — tf-civ.js로 분리(500줄 규칙·기능 분리, 2026-10-22).
   // 클로저 의존(S·t·esc…)은 생성 시점에 ctx로 주입한다.
@@ -319,7 +284,7 @@
   // 팝업(tf-fade-in)·히어로 카드(tf-hero-in·걷기)의 입장 애니메이션이
   // 매 틱 재시작돼 깜빡인다. 슬롯을 고정하고 바뀐 섹션만 교체하며, 팝업·
   // 히어로는 뼈대 유지 + 값 갱신(heroUpdate·popupUpdate)으로 렌더한다.
-  var SLOT_ORDER = ['topbar', 'hero', 'popup', 'credits', 'look'];
+  var SLOT_ORDER = ['topbar', 'menu', 'hero', 'popup', 'credits', 'look'];
   var slots = {};
   var slotHtml = {};   // name → 마지막으로 쓴 HTML — 문자열 비교로 교체 차단
   function ensureSlots(root) {
@@ -349,6 +314,7 @@
     var saved = collectScrolls(root);
     var focus = document.activeElement && document.activeElement.id;
     setSlot('topbar', topbarHtml());
+    setSlot('menu', menuHtml());
     charsPanel.heroUpdate();
     popupUpdate();
     setSlot('credits', S.creditsOpen ? creditsMod.html() : '');
@@ -369,7 +335,8 @@
   // ═══════════════ 이벤트 위임 ═══════════════
   document.addEventListener('click', function (ev) {
     var el = ev.target.closest ? ev.target.closest('[data-act]') : null;
-    if (S.menuOpen && !el && !ev.target.closest('.tf-menu-anchor')) {
+    // 메뉴는 별도 슬롯(버튼 앵커 밖)이라 닫기 판정에 .tf-menu도 포함
+    if (S.menuOpen && !el && !ev.target.closest('.tf-menu-anchor') && !ev.target.closest('.tf-menu')) {
       S.menuOpen = false;
       schedule();
       return;
@@ -501,7 +468,12 @@
     seedBacklogs: rest.loadBacklogs,
     notify: rest.notify,
     pushMine: rest.pushMine,
-    setNet: function (live) { S.netLive = live; },
+    // 상태 점(모드 칩·드롭다운 헤더)의 유일 데이터원 — 단절 중엔 feed
+    // 프레임이 끊겨 다른 렌더 유발이 없으므로 여기서 반드시 재렌더를 건다
+    // (2026-11-04 리뷰 1 — 단절 구간 내내 그린 펄스 사고).
+    setNet: function (live) {
+      if (S.netLive !== live) { S.netLive = live; schedule(); }
+    },
     render: schedule,
     // 소지 칩 아이콘 HTML — ui.js 우측 레일 소지품 패널이 재사용(동일 룩 유지)
     chipIcon: chipIconHtml,

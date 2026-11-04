@@ -115,9 +115,14 @@
   }
 
   // ── 접속 상태 — 하단 배지는 폐지(2026-10-25, 미니맵 칩이 초록/빨강으로
-  // 담당). 상단바 넷 표시(TF_UI.setNet)만 갱신.
+  // 담당). 상단바 넷 표시(TF_UI.setNet) + bevy 링크 배지(tf.setLink —
+  // 단절 시 '● LIVE'가 그린으로 굳는 것 방지, 2026-11-04).
   function setStatus(live) {
     if (window.TF_UI) window.TF_UI.setNet(live);
+    var tf = window.terrafolk;
+    if (tf && typeof tf.setLink === 'function') {
+      try { tf.setLink(live); } catch (e) { /* 브리지 미구버전 무시 */ }
+    }
   }
 
   // 재접속 안내 바(§17.29 UX 포트, 2026-11-03) — 레거시 useWorldConnection과

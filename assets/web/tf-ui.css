@@ -86,6 +86,11 @@
   background: rgba(124, 156, 255, .12);
 }
 .tf-chip.tf-chip-mode.tf-chip-user .dot { background: var(--accent); box-shadow: 0 0 6px rgba(124, 156, 255, .9); }
+/* 오프라인 레드 점은 참여 상태보다 우선 — 동일 specificity 동률에서
+ * user 규칙이 이겨 레드가 안 보이던 것(2026-11-04 리뷰 2). */
+.tf-chip.tf-chip-mode.tf-chip-user .dot.off {
+  background: #f87171; box-shadow: 0 0 6px rgba(248, 113, 113, .8); animation: none;
+}
 @keyframes tf-dot-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 
 .tf-menu-anchor { position: relative; flex-shrink: 0; }
@@ -106,9 +111,11 @@
 }
 
 /* ☰ 드롭다운 — 우상단 기준 등장 애니메이션, 아이콘 칩 행, 구분선으로
- * 본문(주민·자원·문명·기록)과 시스템(설정·계정) 그룹 분리(2026-11-04). */
+ * 본문(주민·자원·문명·기록)과 시스템(설정·계정) 그룹 분리(2026-11-04).
+ * 버튼 앵커가 아닌 고정 슬롯(tf-ui menuHtml) — topbar 재렌더(공지·netLive)
+ * 에도 열린 메뉴 노드가 재생되지 않는다(리뷰 11). */
 .tf-menu {
-  position: absolute; right: 0; top: calc(100% + .5rem); z-index: 30;
+  position: fixed; right: .5rem; top: calc(2.375rem + .375rem); z-index: 30;
   min-width: 13.25rem; padding: .375rem; overflow: hidden;
   border-radius: .875rem; border: 1px solid rgba(255, 255, 255, .09);
   background: rgba(13, 17, 24, .92); font-size: 13px;
@@ -121,6 +128,19 @@
   from { opacity: 0; transform: scale(.95) translateY(-.375rem); }
   to { opacity: 1; transform: none; }
 }
+/* 모드 헤더 — 모바일에서 레일 칩이 숨겨질 때의 유일한 관전/참여 표시 */
+.tf-menu-head {
+  display: flex; align-items: center; gap: .4375rem;
+  padding: .375rem .625rem .4375rem; color: var(--ink-300);
+  font-size: 11px; font-weight: 600; letter-spacing: .01em;
+}
+.tf-menu-head .dot {
+  flex-shrink: 0; width: 6px; height: 6px; border-radius: 999px;
+  background: #3ddc84; box-shadow: 0 0 6px rgba(61, 220, 132, .9);
+  animation: tf-dot-pulse 2.2s ease-in-out infinite;
+}
+.tf-menu-head .dot.off { background: #f87171; box-shadow: 0 0 6px rgba(248, 113, 113, .8); animation: none; }
+.tf-menu-head + .tf-menu-item { margin-top: .125rem; }
 .tf-menu-item {
   display: flex; width: 100%; align-items: center; gap: .625rem;
   padding: .4375rem .5rem; border-radius: .5625rem; text-align: left;

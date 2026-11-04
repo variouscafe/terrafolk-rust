@@ -6,10 +6,13 @@ const { launchLive, waitPrimed } = require('./lib.cjs');
   const { b, pg } = await launchLive({ width: 1280, height: 800 });
   const lines = [];
   pg.on('console', (m) => lines.push(`[${m.type()}] ${m.text().slice(0, 220)}`));
-  await pg.goto(url, { waitUntil: 'load', timeout: 60000 });
-  await waitPrimed(pg, 180000);
-  await pg.waitForTimeout(5000);
-  const uniq = [...new Set(lines)];
-  console.log(uniq.join('\n') || '(no console)');
-  await b.close();
+  try {
+    await pg.goto(url, { waitUntil: 'load', timeout: 60000 });
+    await waitPrimed(pg, 180000);
+    await pg.waitForTimeout(5000);
+    const uniq = [...new Set(lines)];
+    console.log(uniq.join('\n') || '(no console)');
+  } finally {
+    await b.close();
+  }
 })();

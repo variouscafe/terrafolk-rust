@@ -214,7 +214,7 @@ impl Plugin for NetPlugin {
 
 /// 브리지 기동 — JS에 sink 등록 + 접속 요청(wasm 전용, 네이티브는 데모 유지).
 #[cfg(target_arch = "wasm32")]
-fn connect_bridge(queue: Res<FrameQueue>) {
+fn connect_bridge(queue: Res<FrameQueue>, phase: Res<NetLinkPhase>) {
     use wasm_bindgen::closure::Closure;
     use wasm_bindgen::prelude::*;
     let q = std::sync::Arc::clone(&queue.inner);
@@ -227,6 +227,17 @@ fn connect_bridge(queue: Res<FrameQueue>) {
                 q.drain(0..len - 5);
             }
         }
+    });
+    // 링크 상태 역방향 브리지(2026-11-04 리뷰 9) — worldsim.setStatus가
+    // tf.setLink(live)로 알려온다. wasm에선 재접속 단계를 쓸 원자값 기록자가
+    // 없어(네이티브 전용) LIVE 배지가 단절 후에도 그린이었던 것을 고친다.
+    // 프레임이 흐르면 drain_frames가 CONNECTED로 되돌린다(단일 상태 유지).
+    let link_phase = std::sync::Arc::clone(&phase.0);
+    let set_link = Closure::<dyn Fn(bool)>::new(move |live: bool| {
+        link_phase.store(
+            if live { PHASE_CONNECTED } else { PHASE_RECONNECTING },
+            std::sync::atomic::Ordering::Relaxed,
+        );
     });
     // 브리지 부재는 패닉 대신 경고 후 단선(스피너 유지) — never-crash 벨트.
     let Some(window) = web_sys::window() else {
@@ -254,6 +265,8 @@ fn connect_bridge(queue: Res<FrameQueue>) {
     let sink_js = sink.as_js_value().clone();
     let _ = set.call1(&tf, &sink_js);
     sink.forget(); // 앱 수명 유지
+    let _ = js_sys::Reflect::set(&tf, &"setLink".into(), &set_link.as_js_value());
+    set_link.forget(); // 앱 수명 유지
     let _ = conn.call0(&tf); // 베이스 URL은 JS가 오리진으로 선택
 }
 
