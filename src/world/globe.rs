@@ -9,6 +9,10 @@
 //!   warp(p)=c+(u.x·R·sinθ, R·(cosθ−1), u.y·R·sinθ)+n·p.y
 //!   Q=from_axis_angle((u.y,0,−u.x), θ)          — +Y→n (엔티티: rot′=Q·rot)
 //! R_eff=R_planet/factor — factor<FACTOR_EPS(0.003)면 워프 스킵(줌인 픽셀 동일).
+//!
+//! 워프 계약 W1: 루트만 휘고 자식은 강체 추종 — 그룹 오브젝트의 루트
+//! translation은 지면 앵커(발판 중심)여야 하고 자식은 로컬 오프셋만 갖는다.
+//! 원점 루트+월드 좌표 자식은 글로브에서 접선 방향으로 하늘에 뜬다(v0.8.65 bld 발판 사고).
 
 use bevy::prelude::*;
 
