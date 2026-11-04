@@ -38,6 +38,7 @@ pub mod splat;
 pub mod terrain;
 pub mod villager;
 pub mod villager_spawn;
+pub mod tool_probe;
 pub mod villager_tools;
 pub mod water;
 pub mod reference_look;
@@ -165,6 +166,7 @@ impl Plugin for WorldPlugin {
         );
         // 발 앵커 계측(진단) — TF_FOOTDBG=1일 때만 로그, 평소 무음·무비용.
         app.add_systems(Update, (foot_probe::foot_probe, foot_probe::footdbg_camera));
+        app.add_systems(Update, tool_probe::tool_probe);
         app.add_systems(
             Update,
             (

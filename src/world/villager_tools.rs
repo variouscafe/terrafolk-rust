@@ -3,6 +3,8 @@
 //! 어로=작살, 물 긷기·마시기=물통. 발명품 model_url 보유 시 그 GLB로
 //! 대체하는 연동(§17.86)은 후속 — 지금은 프리미티브 부품표(에셋 의존 0).
 
+//! 부품 치수는 월드 미터(크레이트 계약 T1, ToolScale=주민 배율) — 본 스케일 무관.
+
 use bevy::prelude::*;
 
 use super::villager::Villager;
