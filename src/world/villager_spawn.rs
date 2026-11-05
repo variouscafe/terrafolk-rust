@@ -230,6 +230,8 @@ fn finish_villager_setup(
         crate::character::GroundActor,
         crate::character::AnimState(AnimKind::Idle),
         crate::character::tool::HeldTool::default(),
+        // 도구 월드 크기 = 주민 확대 비율(크레이트 계약 T1).
+        crate::character::tool::ToolScale(super::villager::villager_scale()),
         crate::character::Fall::default(),
         IdleFidget::new(entity.to_bits() as u64),
     ));
