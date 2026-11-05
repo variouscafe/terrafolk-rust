@@ -99,6 +99,62 @@ def recolor(j: dict, roof_override: dict):
     return j
 
 
+def _node_matrix(n):
+    """노드 로컬 4x4(행 우선 리스트) — matrix 또는 TRS."""
+    if "matrix" in n:
+        m = n["matrix"]  # column-major
+        return [[m[c * 4 + r] for c in range(4)] for r in range(4)]
+    tx, ty, tz = n.get("translation", [0, 0, 0])
+    x, y, z, w = n.get("rotation", [0, 0, 0, 1])
+    sx, sy, sz = n.get("scale", [1, 1, 1])
+    r = [
+        [1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+        [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+        [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)],
+    ]
+    s = (sx, sy, sz)
+    return [
+        [r[0][0] * s[0], r[0][1] * s[1], r[0][2] * s[2], tx],
+        [r[1][0] * s[0], r[1][1] * s[1], r[1][2] * s[2], ty],
+        [r[2][0] * s[0], r[2][1] * s[1], r[2][2] * s[2], tz],
+        [0, 0, 0, 1],
+    ]
+
+
+def _mm(a, b):
+    return [[sum(a[i][k] * b[k][j] for k in range(4)) for j in range(4)] for i in range(4)]
+
+
+def mesh_world_matrix(j: dict, mesh_idx: int):
+    """scene 루트→메시 노드 체인 합성 4x4(column-major 16개). 항등이면 None.
+
+    poly.pizza(Quaternius) GLB는 Z-up 메시에 노드 rotation -90°X(+scale)를 걸어
+    Y-up으로 만든다 — 병합 시 이 변환을 버리면 집이 누워 렌더된다(v0.8.67)."""
+    nodes = j.get("nodes", [])
+
+    def walk(i, acc):
+        m = _mm(acc, _node_matrix(nodes[i]))
+        if nodes[i].get("mesh") == mesh_idx:
+            return m
+        for c in nodes[i].get("children", []):
+            r = walk(c, m)
+            if r is not None:
+                return r
+        return None
+
+    ident = [[1.0 if r == c else 0.0 for c in range(4)] for r in range(4)]
+    for root in j["scenes"][j.get("scene", 0)]["nodes"]:
+        m = walk(root, ident)
+        if m is not None:
+            flat = [m[r][c] for c in range(4) for r in range(4)]  # column-major
+            flat = [0.0 if abs(v) < 1e-9 else v for v in flat]
+            id_flat = [1.0 if c == r else 0.0 for c in range(4) for r in range(4)]
+            if all(abs(a - b) < 1e-9 for a, b in zip(flat, id_flat)):
+                return None
+            return flat
+    raise ValueError(f"mesh {mesh_idx} not referenced by any node in scene")
+
+
 def merge(sources):
     """[(json, bin, mesh_name, node_name)] → 단일 (json, bin) — 인덱스 오프셋 병합."""
     out_j = {
@@ -135,7 +191,8 @@ def merge(sources):
             out_j["accessors"].append(acc)
         for mat in j.get("materials", []):
             out_j["materials"].append(mat)
-        for mesh in j.get("meshes", []):
+        for src_idx, mesh in enumerate(j.get("meshes", [])):
+            wm = mesh_world_matrix(j, src_idx)
             mesh = json.loads(json.dumps(mesh))
             for prim in mesh.get("primitives", []):
                 for key in ("indices",):
@@ -148,7 +205,10 @@ def merge(sources):
                     prim["material"] += n_mat
             mesh["name"] = mesh_name
             out_j["meshes"].append(mesh)
-            out_j["nodes"].append({"mesh": len(out_j["meshes"]) - 1, "name": node_name})
+            node = {"mesh": len(out_j["meshes"]) - 1, "name": node_name}
+            if wm is not None:
+                node["matrix"] = wm  # 원본 노드 월드 transform 보존(up축 포함)
+            out_j["nodes"].append(node)
             out_j["scenes"][0]["nodes"].append(len(out_j["nodes"]) - 1)
     out_j["buffers"].append({"byteLength": len(out_bin)})
     return out_j, bytes(out_bin)

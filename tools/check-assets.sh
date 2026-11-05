@@ -32,3 +32,5 @@ if missing:
     sys.exit(1)
 print(f'✓ 에셋 참조 정합 — src 참조 {len(refs)}건 전부 assets/에 실재')
 PY
+
+python3 "$R/tools/check_glb_upaxis.py" "$R/assets/models"
