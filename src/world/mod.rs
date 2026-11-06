@@ -43,6 +43,7 @@ pub mod terrain;
 pub mod villager;
 pub mod villager_spawn;
 pub mod tool_probe;
+pub mod wear_fit_probe;
 pub mod villager_tools;
 pub mod water;
 pub mod reference_look;
@@ -135,6 +136,10 @@ impl Plugin for WorldPlugin {
             .add_systems(
                 PostUpdate,
                 big_mesh_probe::big_mesh_probe.after(bevy::transform::TransformSystems::Propagate),
+            )
+            .add_systems(
+                PostUpdate,
+                wear_fit_probe::wear_fit_probe.after(bevy::transform::TransformSystems::Propagate),
             )
             .add_systems(
                 Startup,

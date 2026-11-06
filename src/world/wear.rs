@@ -77,8 +77,7 @@ impl WearSlot {
     /// 2026-11-06 덤프 실측. 스킨 조인트 GT가 ×85 확대돼 '하늘 가발'이 됐다).
     fn needs_anchor(self) -> bool {
         // 진단 게이트 ?tfdbg=wearnoanchor: 수정 전(스킨 헤어 직속 부착) 동작 재현 — 전후 비교용.
-        !(crate::net::dbg_gate::on("wearnoanchor")
-            && matches!(self, Self::Hair | Self::Beard3d))
+        !(crate::net::dbg_gate::on("wearnoanchor") && matches!(self, Self::Hair | Self::Beard3d))
     }
 
     /// 부착물 자체 스케일 — 원천 GLB 스케일 차이 흡수(필요 시 슬롯별 지정).
@@ -126,10 +125,9 @@ pub fn wear_asset(item_id: &str) -> Option<(&'static str, WearSlot)> {
         "facial_glasses" => Some(("models/lpc/facial_glasses.glb", WearSlot::Glasses)),
         "facial_glasses_nerd" => Some(("models/lpc/facial_glasses_nerd.glb", WearSlot::Glasses)),
         "facial_glasses_round" => Some(("models/lpc/facial_glasses_round.glb", WearSlot::Glasses)),
-        "facial_glasses_halfmoon" => Some((
-            "models/lpc/facial_glasses_halfmoon.glb",
-            WearSlot::Glasses,
-        )),
+        "facial_glasses_halfmoon" => {
+            Some(("models/lpc/facial_glasses_halfmoon.glb", WearSlot::Glasses))
+        }
         _ => None,
     }
 }
@@ -190,7 +188,9 @@ pub fn wear_ids_from_look(look: &str) -> Vec<String> {
         .pointer("/sex")
         .and_then(|v| v.as_str())
         .is_some_and(|s| s.starts_with('m') || s.starts_with('M') || s.starts_with('남'));
-    let h = uuid.bytes().fold(0u64, |a, b| a.wrapping_mul(31) + b as u64);
+    let h = uuid
+        .bytes()
+        .fold(0u64, |a, b| a.wrapping_mul(31) + b as u64);
 
     // 수염 — 편집값 우선, 없으면 남성 uuid 해시 35%에 기본 풀 분배.
     // 진단 게이트 ?tfdbg=wearbeard: 남성 전원 beard-full 강제(입체 수염
@@ -206,7 +206,11 @@ pub fn wear_ids_from_look(look: &str) -> Vec<String> {
         out.push(b);
     }
     // 안경 — 편집값 우선, 없으면 uuid 해시 25%(성별 무관, 슬롯은 해시 재파생).
+    // 진단 게이트 ?tfdbg=wearglasses: 전 주민 facial_glasses 강제(안경 위치 캘리브레이션 컷·프로브용).
     let glasses = part("glasses").filter(|g| g != "none").or_else(|| {
+        if crate::net::dbg_gate::on("wearglasses") {
+            return Some("facial_glasses".to_string());
+        }
         (h % 100 >= 25 && h % 100 < 50)
             .then(|| DEFAULT_GLASSES[(h / 7) as usize % DEFAULT_GLASSES.len()].to_string())
     });
@@ -228,15 +232,31 @@ pub fn apply_wears(
     q: Query<(Entity, &Wears), (With<Villager>, With<VillagerAnims>, Without<WearApplied>)>,
     children: Query<&Children>,
     names: Query<&Name>,
+    mat_names: Query<&bevy::gltf::GltfMaterialName>,
 ) {
     for (entity, wears) in &q {
         if wears.0.is_empty() {
             commands.entity(entity).insert(WearApplied);
             continue;
         }
-        // 본 엔티티 탐색 — 이 주민 서브트리 안의 이름 매칭(타 주민과 무관)
-        let wanted: Vec<WearSlot> = wears
+        // 내장 콧수염(재질명 Moustache — 예 m-worker Head)이 있으면 수염 wear 생략.
+        // 모델 경로 하드코딩 없이 씬 하위 재질명으로 판정(apply_wears는 씬 완결 후 실행).
+        let builtin_moustache = children.iter_descendants(entity).any(|c| {
+            mat_names
+                .get(c)
+                .is_ok_and(|m| m.0.to_lowercase().contains("moustache"))
+        });
+        let ids: Vec<&String> = wears
             .0
+            .iter()
+            .filter(|id| {
+                !(builtin_moustache
+                    && wear_asset(id)
+                        .is_some_and(|(_, s)| matches!(s, WearSlot::Beard | WearSlot::Beard3d)))
+            })
+            .collect();
+        // 본 엔티티 탐색 — 이 주민 서브트리 안의 이름 매칭(타 주민과 무관)
+        let wanted: Vec<WearSlot> = ids
             .iter()
             .filter_map(|id| wear_asset(id).map(|(_, s)| s))
             .collect();
@@ -246,9 +266,7 @@ pub fn apply_wears(
                 continue;
             };
             for slot in &wanted {
-                if slot.bones().contains(&name.as_str())
-                    && !bones.iter().any(|(b, _)| b == slot)
-                {
+                if slot.bones().contains(&name.as_str()) && !bones.iter().any(|(b, _)| b == slot) {
                     bones.push((*slot, child));
                 }
             }
@@ -259,7 +277,7 @@ pub fn apply_wears(
         }
         // 슬롯별 보정 앵커(정적 메시 슬롯만) — 같은 슬롯 여러 아이템은 앵커 공유.
         let mut anchors: Vec<(WearSlot, Entity)> = Vec::new();
-        for id in &wears.0 {
+        for id in ids {
             let Some((path, slot)) = wear_asset(id) else {
                 continue;
             };
