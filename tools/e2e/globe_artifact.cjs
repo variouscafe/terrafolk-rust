@@ -86,7 +86,7 @@ function detect(px, minArea = 1500) {
 /// G-A2 하늘 가발 판정: 하늘 영역(상단, HUD·미니맵·배지 제외)에서 행별 중앙색과의 RGB 거리>40 픽셀 수.
 /// 영역은 CSS px 기준(세로 폰: 제목 아래 띠 + 미니맵 우측 띠). TF_SKY="x0,y0,x1,y1;..."로 조정. 행 중앙색 기준이라 행 가로 지구 침범 시 오검출 가능 — 이미지 Read로 교차 확인.
 function skyCount(px, scale) {
-  const rects = (process.env.TF_SKY || '10,85,402,112;332,60,408,320').split(';');
+  const rects = (process.env.TF_SKY || '6,110,30,300;336,110,408,300').split(';');
   let n = 0, maxBlob = 0;
   for (const rc of rects) {
     const [x0, y0, x1, y1] = rc.split(',').map((v) => Math.round(+v * scale));
@@ -153,7 +153,7 @@ function skyCount(px, scale) {
     for (let i = 0; i < 24; i++) { await pg.mouse.wheel(0, 240); await pg.waitForTimeout(120); }
     await pg.waitForTimeout(4000);
     res.sky = [];
-    for (let i = 1; i <= 3; i++) {
+    for (let i = 1; i <= +(process.env.TF_SHOTS || 6); i++) {
       const f = `/tmp/globe_artifact_${tag}_W${i}.png`;
       const buf = await pg.screenshot(); fs.writeFileSync(f, buf);
       const px = pngPixels(buf);

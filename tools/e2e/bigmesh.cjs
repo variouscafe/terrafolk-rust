@@ -6,7 +6,7 @@ const { waitPrimed } = require('./lib.cjs');
 (async () => {
   const mode = process.argv[2] || 'globe';
   const base = process.argv[3] || 'https://terrafolk-3d.pages.dev/';
-  const url = `${base}?tfdbg=${mode === 'globe' ? 'globe,' : ''}bigmesh&cb=${Date.now()}`;
+  const url = `${base}?tfdbg=${mode === 'globe' ? 'globe,' : ''}bigmesh${process.env.TF_EXTRA ? ',' + process.env.TF_EXTRA : ''}&cb=${Date.now()}`;
   const b = await chromium.launch({ channel: 'chrome', headless: false, args: ['--disable-blink-features=AutomationControlled'] });
   const ctx = await b.newContext({ viewport: { width: 412, height: 732 }, deviceScaleFactor: 2.625,
     userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36' });
