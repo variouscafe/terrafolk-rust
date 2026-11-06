@@ -114,6 +114,41 @@ pub fn warp_static(
     }
 }
 
+/// 검증 프로브 `?tfdbg=gstatchk` — 워프 직후 정적 소품 Transform이 flat에서 기대하는 값과 일치하는지
+/// 120프레임마다 `[gstatchk]` 한 줄(최대 위치·회전 오차, 키 불일치 수). 꺼짐=조건 스킵.
+pub fn check_static(
+    mut n: Local<u32>,
+    world: Res<WorldData>,
+    rig: Res<CameraRig>,
+    q: Query<(&Transform, &GlobeStatic)>,
+) {
+    *n += 1;
+    if !(*n).is_multiple_of(120) {
+        return;
+    }
+    let frame = WarpFrame::active(&world, rig.zoom);
+    let key = frame.as_ref().map(WarpKey::of);
+    let (mut cnt, mut stale, mut max_t, mut max_r) = (0u32, 0u32, 0f32, 0f32);
+    for (tr, st) in &q {
+        cnt += 1;
+        stale += (st.applied != key) as u32;
+        let (t, r) = match &frame {
+            Some(f) => (
+                f.warp_point(st.flat.translation),
+                f.warp_quat(st.flat.translation.xz()) * st.flat.rotation,
+            ),
+            None => (st.flat.translation, st.flat.rotation),
+        };
+        max_t = max_t.max(tr.translation.distance(t));
+        max_r = max_r.max(tr.rotation.angle_between(r));
+    }
+    info!(
+        "[gstatchk] n={cnt} stale={stale} max_t={max_t:.6} max_r={max_r:.6} zoom={:.2} warp={}",
+        rig.zoom,
+        frame.is_some()
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

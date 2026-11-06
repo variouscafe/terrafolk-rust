@@ -144,6 +144,12 @@ impl Plugin for WorldPlugin {
                     .before(globe::apply_warp)
                     .before(bevy::transform::TransformSystems::Propagate),
             )
+            .add_systems(
+                PostUpdate,
+                globe_static::check_static
+                    .run_if(|| crate::net::dbg_gate::on("gstatchk"))
+                    .after(globe_static::warp_static),
+            )
             // 상태 배지 투영은 워프·전파가 끝난 렌더 공간 GT로(2026-11-06). W2 이후 Update의
             // GT는 평면이라, Update에서 투영하면 글로브 줌아웃 시 배지가 하늘에 뜬다.
             .add_systems(
