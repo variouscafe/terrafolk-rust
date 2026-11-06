@@ -102,6 +102,22 @@ impl Plugin for WorldPlugin {
             // 글로브 곡률 — 프레임 시작 복원(시뮬레이션은 항상 평면 좌표)·
             // 프레임 끝 워프(렌더는 구면 — 전파 직전에 적용해 자식·투영 정합).
             .add_systems(PreUpdate, globe::restore_flat)
+            // 글로브 계약 W2 — Update 구간 GlobalTransform은 평면이다(2026-11-06). restore_flat 직후
+            // 같은 PreUpdate에서 GT를 평면으로 재전파한다(bevy 0.19.1 transform::systems 3종, 플러그인
+            // 체인과 동일 순서). 직전 프레임에 워프가 있었을 때만 실행 — 평면 줌에선 비용 0.
+            // 렌더 전용 워프는 PostUpdate apply_warp. 이 재전파가 없으면 settle·ground_snap 등
+            // Update의 GT 소비자가 구면 값을 읽어 FootRig가 오염된다(주민 다리 늘어남).
+            .add_systems(
+                PreUpdate,
+                (
+                    bevy::transform::systems::mark_dirty_trees,
+                    bevy::transform::systems::propagate_parent_transforms,
+                    bevy::transform::systems::sync_simple_transforms,
+                )
+                    .chain()
+                    .after(globe::restore_flat)
+                    .run_if(|last: Res<globe::LastWarp>| last.0.is_some()),
+            )
             .add_systems(
                 PostUpdate,
                 // 워프는 평면 포즈 계산이 모두 끝난 뒤 마지막(2026-11-06): 크레이트의

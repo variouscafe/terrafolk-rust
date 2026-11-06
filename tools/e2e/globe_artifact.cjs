@@ -88,7 +88,10 @@ function detect(px, minArea = 1500) {
   const extra = process.argv[3] || '';
   const view = VIEWS[process.argv[4] || 'phone'];
   const base = process.env.TF_URL || 'https://terrafolk-3d.pages.dev/';
-  const url = `${base}?tfdbg=globe${extra ? ',' + extra : ''}&cb=${Date.now()}`;
+  const sf = process.argv[5]; // 'S'=글로브 중 스폰(?tfdbg=globe 부팅) · 'F'=평면 스폰 후 줌아웃 (A4-1)
+  const flags = sf === 'F' ? [extra] : ['globe', extra];
+  const q = flags.filter(Boolean).join(',');
+  const url = `${base}?${q ? 'tfdbg=' + q + '&' : ''}cb=${Date.now()}`;
   const b = await chromium.launch({ channel: 'chrome', headless: false, args: ['--disable-blink-features=AutomationControlled'] });
   const ctx = await b.newContext({ ...view, isMobile: false,
     userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36' });
@@ -109,6 +112,20 @@ function detect(px, minArea = 1500) {
     const tall = blobs.filter((x) => x.flat && x.bbox[3] - x.bbox[1] > px.h * 0.3 && x.area < px.w * px.h * 0.5);
     res.shots.push({ shot: f, exact: exactCount(px), classes: extra.includes('matcolor') ? classCounts(px) : undefined, tallFlat: tall.length, blobs });
   };
+  if (sf) {
+    const cx0 = view.viewport.width / 2, cy0 = view.viewport.height / 2;
+    await pg.mouse.move(cx0, cy0);
+    await pg.waitForTimeout(15000); // 프라임 후 총 20s 정착
+    if (sf === 'S') { await pg.mouse.wheel(0, 120); await pg.waitForTimeout(1500); await pg.mouse.wheel(0, -120); await pg.waitForTimeout(2500); }
+    else { for (let i = 0; i < 24; i++) { await pg.mouse.wheel(0, -240); await pg.waitForTimeout(120); } await pg.waitForTimeout(4000); }
+    for (let i = 1; i <= 3; i++) { await snap(i); await pg.waitForTimeout(2500); }
+    if (sf === 'S') { for (let i = 0; i < 24; i++) { await pg.mouse.wheel(0, 240); await pg.waitForTimeout(120); } await pg.waitForTimeout(3000); await snap(4); }
+    res.pass = res.shots.every((x) => x.exact < 200);
+    fs.writeFileSync(`/tmp/globe_artifact_${tag}.json`, JSON.stringify(res, null, 1));
+    console.log(`SF ${sf} ${tag} exact=${res.shots.map((x) => x.exact)}`);
+    await b.close();
+    return;
+  }
   await snap(1);
   const cx = view.viewport.width / 2, cy = view.viewport.height / 2;
   await pg.mouse.move(cx, cy);
