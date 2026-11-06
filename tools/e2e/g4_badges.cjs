@@ -6,13 +6,10 @@ const { waitPrimed } = require('./lib.cjs');
   const tag = process.argv[2] || 'x';
   const b = await chromium.launch({ channel: 'chrome', headless: false, args: ['--disable-blink-features=AutomationControlled'] });
   const pg = await (await b.newContext({ viewport: { width: 900, height: 700 } })).newPage();
-  await pg.addInitScript(() => {
-    const t = (window.terrafolk = window.terrafolk || {});
-    let last = null; let inner = null;
-    Object.defineProperty(t, 'onOverlay', { configurable: true, get() { return function (j) { last = j; window.__lastOv = j; return inner && inner(j); }; }, set(f) { inner = f; } });
-  });
   await pg.goto('https://terrafolk-3d.pages.dev/?tfdbg=globe&cb=' + Date.now(), { waitUntil: 'load', timeout: 60000 });
-  await waitPrimed(pg); await pg.waitForTimeout(15000);
+  await waitPrimed(pg); await pg.waitForTimeout(8000);
+  await pg.evaluate(() => { const t = window.terrafolk; const f = t.onOverlay; t.onOverlay = function (j) { window.__lastOv = j; return f && f.apply(this, arguments); }; });
+  await pg.waitForTimeout(4000);
   const r = await pg.evaluate(() => {
     const ov = JSON.parse(window.__lastOv || '{"a":[]}');
     const badges = [...document.querySelectorAll('.tf-wbadge')].filter((e) => e.style.display !== 'none').map((e) => { const r = e.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; });
