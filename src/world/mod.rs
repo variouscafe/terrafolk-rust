@@ -131,6 +131,12 @@ impl Plugin for WorldPlugin {
                     .after(chibi_character::tool::tool_anchor_fit)
                     .before(bevy::transform::TransformSystems::Propagate),
             )
+            // 상태 배지 투영은 워프·전파가 끝난 렌더 공간 GT로(2026-11-06). W2 이후 Update의
+            // GT는 평면이라, Update에서 투영하면 글로브 줌아웃 시 배지가 하늘에 뜬다.
+            .add_systems(
+                PostUpdate,
+                overlay::overlay_feed.after(bevy::transform::TransformSystems::Propagate),
+            )
             // 재질 색칠은 Update의 툰·바람 스왑이 끝난 뒤(PostUpdate)에 돌아야 재스왑에 지지 않는다.
             .add_systems(PostUpdate, mat_color_probe::mat_color_probe)
             .add_systems(
@@ -249,7 +255,6 @@ impl Plugin for WorldPlugin {
             (
                 overlay::apply_pan_to,
                 camera_rig::camera_control,
-                overlay::overlay_feed,
                 daynight::advance_time,
                 daynight::apply_sky,
                 prop_fit::fit_props,
