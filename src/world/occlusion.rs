@@ -10,9 +10,10 @@
 use bevy::prelude::*;
 
 use super::data::PropKind;
+use super::globe_static::{GlobeStatic, flat_pos};
 use super::models::PropRoot;
-use super::prop_fit::Fitted;
 use super::pick::Selection;
+use super::prop_fit::Fitted;
 use super::villager::Villager;
 
 /// 은닉 대상 종 — 시야를 가리는 큰 식물과 건물. 모닥불·유물 등 소형은 유지.
@@ -52,21 +53,34 @@ pub fn conceal_occluders(
     time: Res<Time>,
     sel: Res<Selection>,
     q_villager: Query<&Transform, With<Villager>>,
-    q_root: Query<(Entity, &Transform, &PropRoot), (With<Fitted>, Without<Concealer>)>,
-    mut q_hide: Query<(Entity, &Transform, &mut Concealer, &mut Visibility, &PropRoot)>,
+    q_root: Query<
+        (Entity, &Transform, &PropRoot, Option<&GlobeStatic>),
+        (With<Fitted>, Without<Concealer>),
+    >,
+    mut q_hide: Query<(
+        Entity,
+        &Transform,
+        &mut Concealer,
+        &mut Visibility,
+        &PropRoot,
+        Option<&GlobeStatic>,
+    )>,
     cull: Option<Res<super::globe_cull::CullStage>>,
     mut commands: Commands,
 ) {
     let focus = sel
         .entity
         .and_then(|e| q_villager.get(e).ok().map(|t| t.translation));
-    let inside = |tr: &Transform| focus.is_some_and(|f| tr.translation.distance(f) < HIDE_R);
+    // 정적 소품은 글로브에서 Update에도 구면 Transform — 평면 정본으로 판정(globe_static)
+    let inside = |tr: &Transform, st: Option<&GlobeStatic>| {
+        focus.is_some_and(|f| flat_pos(tr, st).distance(f) < HIDE_R)
+    };
     let dt = time.delta_secs().max(1e-4);
 
     // ── 진입 — 반경 안 새 오브젝트 숨김(컴포넌트는 다음 프레임부터 추적)
     if focus.is_some() {
-        for (root_e, tr, prop) in &q_root {
-            if !occludes(prop.kind) || !inside(tr) {
+        for (root_e, tr, prop, st) in &q_root {
+            if !occludes(prop.kind) || !inside(tr, st) {
                 continue;
             }
             commands
@@ -78,8 +92,8 @@ pub fn conceal_occluders(
     // ── 갱신 — 수명 상한·이탈·선택 없음 복원
     let mut finished: Vec<Entity> = Vec::new();
     let cull_stage = cull.map_or(0, |c| c.0);
-    for (root_e, tr, mut hide, mut vis, prop) in &mut q_hide {
-        let in_r = inside(tr);
+    for (root_e, tr, mut hide, mut vis, prop, st) in &mut q_hide {
+        let in_r = inside(tr, st);
         if in_r && focus.is_some() {
             hide.held += dt;
         } else {

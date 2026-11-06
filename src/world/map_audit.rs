@@ -7,6 +7,7 @@
 use bevy::prelude::*;
 
 use super::data::{PropKind, WorldData};
+use super::globe_static::{GlobeStatic, flat_tf};
 use super::ground::WATER_STAND_Y;
 use super::models::PropRoot;
 
@@ -23,7 +24,11 @@ fn is_building(k: PropKind) -> bool {
     matches!(k, PropKind::Hut | PropKind::StorageHut | PropKind::Tent)
 }
 
-pub fn map_audit(mut frame: Local<u32>, world: Res<WorldData>, q: Query<(&PropRoot, &Transform)>) {
+pub fn map_audit(
+    mut frame: Local<u32>,
+    world: Res<WorldData>,
+    q: Query<(&PropRoot, &Transform, Option<&GlobeStatic>)>,
+) {
     if !crate::net::dbg_gate::on("mapaudit") {
         return;
     }
@@ -38,7 +43,8 @@ pub fn map_audit(mut frame: Local<u32>, world: Res<WorldData>, q: Query<(&PropRo
     let mut edge_kinds: Vec<String> = Vec::new();
     let mut builds: Vec<Vec3> = Vec::new();
     let mut decor: Vec<Vec3> = Vec::new();
-    for (p, t) in &q {
+    for (p, t, st) in &q {
+        let t = &flat_tf(t, st); // 정적 소품은 평면 정본(globe_static)
         n += 1;
         let (x, z, y) = (t.translation.x, t.translation.z, t.translation.y);
         let kind = format!("{:?}", p.kind);
