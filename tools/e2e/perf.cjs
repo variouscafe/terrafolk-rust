@@ -8,7 +8,60 @@ const { waitPrimed } = require('./lib.cjs');
 const pct = (a, p) => { if (!a.length) return 0; const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(s.length * p))]; };
 const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
 
+// 교차 A/B 모드: node perf.cjs ab <tag> <flagsA> <flagsB> [pairs=5] [url_base]  (예: "globe" "globe,no_globe_cull")
+// 최대 줌아웃 한 장면만 ABAB… 로 번갈아 pairs쌍 — 각 15s(앞 3s 버림). 결과 /tmp/perf_ab_<tag>.json
+async function ab() {
+  const [, , , tag, fa, fb, np, ub] = process.argv;
+  const pairs = +(np || 5);
+  const base = ub || process.env.TF_URL || 'https://terrafolk-3d.pages.dev/';
+  const one = async (label, fl, i) => {
+    const b = await chromium.launch({ channel: 'chrome', headless: false, args: ['--disable-blink-features=AutomationControlled'] });
+    const ctx = await b.newContext({ viewport: { width: 412, height: 732 }, deviceScaleFactor: 2.625,
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36' });
+    const pg = await ctx.newPage();
+    const logs = [];
+    pg.on('console', (m) => {
+      const t = m.text(); const j = t.indexOf('[perf] ');
+      if (j < 0) return;
+      let s = t.slice(j + 7); const k = s.indexOf('}'); if (k > 0) s = s.slice(0, k + 1);
+      try { logs.push(JSON.parse(s.trim())); } catch (e) { /* skip */ }
+    });
+    await pg.goto(`${base}?tfdbg=perf,${fl}&cb=${Date.now()}`, { waitUntil: 'load', timeout: 60000 });
+    await waitPrimed(pg);
+    await pg.waitForTimeout(8000);
+    const cdp = await ctx.newCDPSession(pg);
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+    await pg.evaluate(() => { window.__ft = []; let l = performance.now(); const f = (t) => { window.__ft.push(t - l); l = t; requestAnimationFrame(f); }; requestAnimationFrame(f); });
+    await pg.mouse.move(206, 366);
+    for (let k = 0; k < 40; k++) { await pg.mouse.wheel(0, 240); await pg.waitForTimeout(100); }
+    await pg.waitForTimeout(3000);
+    await pg.evaluate(() => { window.__ft.length = 0; });
+    logs.length = 0;
+    await pg.waitForTimeout(15000);
+    const ft = await pg.evaluate(() => window.__ft.slice());
+    const vis = mean(logs.map((x) => x.vis_mesh ?? 0));
+    await pg.screenshot({ path: `/tmp/perf_ab_${tag}_${label}${i}.png` });
+    await b.close();
+    return { label, i, p50: +pct(ft, 0.5).toFixed(1), p95: +pct(ft, 0.95).toFixed(1), vis_mesh: Math.round(vis), n: ft.length };
+  };
+  const rows = [];
+  for (let i = 0; i < pairs; i++) { rows.push(await one('A', fa, i)); rows.push(await one('B', fb, i)); }
+  const med = (a) => pct(a, 0.5);
+  const A = rows.filter((r) => r.label === 'A'), B = rows.filter((r) => r.label === 'B');
+  console.log(`pair  A(${fa}) p50 p95 vis | B(${fb}) p50 p95 vis | dP50(B-A) dP95`);
+  const d50 = [], d95 = [];
+  for (let i = 0; i < pairs; i++) {
+    d50.push(B[i].p50 - A[i].p50); d95.push(B[i].p95 - A[i].p95);
+    console.log(i, A[i].p50, A[i].p95, A[i].vis_mesh, '|', B[i].p50, B[i].p95, B[i].vis_mesh, '|', d50[i].toFixed(1), d95[i].toFixed(1));
+  }
+  const neg = d50.filter((x) => x < 0).length;
+  const mA = med(A.map((r) => r.p50)), mB = med(B.map((r) => r.p50));
+  console.log(`median p50 A=${mA} B=${mB} improvement(B vs A)=${(((mA - mB) / mA) * 100).toFixed(1)}% ; B<A in ${neg}/${pairs} pairs ; median p95 A=${med(A.map((r) => r.p95))} B=${med(B.map((r) => r.p95))}`);
+  fs.writeFileSync(`/tmp/perf_ab_${tag}.json`, JSON.stringify({ tag, fa, fb, rows }, null, 1));
+}
+
 (async () => {
+  if (process.argv[2] === 'ab') return ab();
   const tag = process.argv[2] || 'base';
   const extra = process.argv[3] || '';
   const runs = +(process.argv[4] || 2);
@@ -25,7 +78,7 @@ const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
     pg.on('console', (m) => {
       const t = m.text(); const i = t.indexOf('[perf] ');
       if (i < 0) return;
-      let s = t.slice(i + 7); const k = s.indexOf('%c'); if (k > 0) s = s.slice(0, k);
+      let s = t.slice(i + 7); const k = s.indexOf('}'); if (k > 0) s = s.slice(0, k + 1);
       try { const o = JSON.parse(s.trim()); o.scene = scene; logs.push(o); } catch (e) { /* skip */ }
     });
     await pg.goto(`${base}?tfdbg=${flags}&cb=${Date.now()}`, { waitUntil: 'load', timeout: 60000 });

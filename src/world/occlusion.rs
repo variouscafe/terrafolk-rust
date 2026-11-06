@@ -53,7 +53,8 @@ pub fn conceal_occluders(
     sel: Res<Selection>,
     q_villager: Query<&Transform, With<Villager>>,
     q_root: Query<(Entity, &Transform, &PropRoot), (With<Fitted>, Without<Concealer>)>,
-    mut q_hide: Query<(Entity, &Transform, &mut Concealer, &mut Visibility)>,
+    mut q_hide: Query<(Entity, &Transform, &mut Concealer, &mut Visibility, &PropRoot)>,
+    cull: Option<Res<super::globe_cull::CullStage>>,
     mut commands: Commands,
 ) {
     let focus = sel
@@ -76,7 +77,8 @@ pub fn conceal_occluders(
 
     // ── 갱신 — 수명 상한·이탈·선택 없음 복원
     let mut finished: Vec<Entity> = Vec::new();
-    for (root_e, tr, mut hide, mut vis) in &mut q_hide {
+    let cull_stage = cull.map_or(0, |c| c.0);
+    for (root_e, tr, mut hide, mut vis, prop) in &mut q_hide {
         let in_r = inside(tr);
         if in_r && focus.is_some() {
             hide.held += dt;
@@ -85,11 +87,14 @@ pub fn conceal_occluders(
         }
         let capped = hide.held >= HIDE_HOLD_MAX;
         let should_hide = in_r && focus.is_some() && !capped;
-        *vis = if should_hide {
-            Visibility::Hidden
-        } else {
-            Visibility::Visible
-        };
+        // 글로브 소형 소품 숨김(globe_cull)이 쓰는 루트는 건드리지 않는다 — 덮어쓰기 경합 방지
+        if !super::globe_cull::hides(prop.kind, prop.target_h, cull_stage) {
+            *vis = if should_hide {
+                Visibility::Hidden
+            } else {
+                Visibility::Visible
+            };
+        }
         if !in_r || focus.is_none() {
             finished.push(root_e); // 반경 밖·선택 없음 — 컴포넌트 정리(재진입 허용)
         }
