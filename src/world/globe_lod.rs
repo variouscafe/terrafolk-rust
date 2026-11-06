@@ -53,7 +53,6 @@ pub fn far_ink(
 }
 
 /// 크레이트 Lod 컴포넌트 부여(미부여=Tier 0 호환) — 발 리그 보유 액터에.
-#[allow(clippy::type_complexity)] // Bevy 시스템 쿼리 — 프로젝트 관례
 pub fn attach_lod(
     mut commands: Commands,
     q: Query<Entity, (Or<(Added<FootRig>, Added<LegIkBind>)>, Without<Lod>)>,
