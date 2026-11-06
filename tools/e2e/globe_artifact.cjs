@@ -6,6 +6,25 @@ const { chromium } = require('playwright');
 const fs = require('fs');
 const { pngPixels, waitPrimed } = require('./lib.cjs');
 
+/// matcolor 계열색 픽셀 수(순색 ±12) — 마젠타(std-unlit)·노랑(std-lit)·초록(툰)·빨강(잉크)·시안(바람)
+function classCounts(px) {
+  // 톤맵·블룸으로 순색이 눌리므로 채널 우세(포화) 기준: 가장 큰 두 채널 대비 최소 채널 비율로 분류
+  const out = { magenta: 0, yellow: 0, green: 0, red: 0, cyan: 0 };
+  for (let i = 0; i < px.w * px.h; i++) {
+    const o = i * px.ch;
+    const r = px.data[o], g = px.data[o + 1], b = px.data[o + 2];
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    if (mx < 90 || mn > mx * 0.35) continue; // 어둡거나 무채색
+    const hi = (v) => v > mx * 0.75;
+    if (hi(r) && hi(b) && !hi(g)) out.magenta++;
+    else if (hi(r) && hi(g) && !hi(b)) out.yellow++;
+    else if (hi(g) && hi(b) && !hi(r)) out.cyan++;
+    else if (hi(r) && !hi(g) && !hi(b)) out.red++;
+    else if (hi(g) && !hi(r) && !hi(b)) out.green++;
+  }
+  return out;
+}
+
 /// 정확색 게이트(분기 V 회귀): 주민 다리 늘어남 판 = (117,165,212)±1 단색. 밤낮 무관.
 function exactCount(px) {
   let n = 0;
@@ -88,7 +107,7 @@ function detect(px, minArea = 1500) {
     const blobs = detect(px);
     // 형태 판정: 화면 높이 30% 초과 세로 길이의 단색 블롭(조명 의존 색 대비)
     const tall = blobs.filter((x) => x.flat && x.bbox[3] - x.bbox[1] > px.h * 0.3 && x.area < px.w * px.h * 0.5);
-    res.shots.push({ shot: f, exact: exactCount(px), tallFlat: tall.length, blobs });
+    res.shots.push({ shot: f, exact: exactCount(px), classes: extra.includes('matcolor') ? classCounts(px) : undefined, tallFlat: tall.length, blobs });
   };
   await snap(1);
   const cx = view.viewport.width / 2, cy = view.viewport.height / 2;

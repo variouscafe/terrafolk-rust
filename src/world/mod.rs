@@ -19,6 +19,7 @@ pub mod grav_probe;
 pub mod ground;
 pub mod night_glow;
 pub mod map_audit;
+pub mod mat_color_probe;
 pub mod materials_guard;
 pub mod models;
 pub mod prop_fit;
@@ -112,6 +113,8 @@ impl Plugin for WorldPlugin {
                     .after(chibi_character::tool::tool_anchor_fit)
                     .before(bevy::transform::TransformSystems::Propagate),
             )
+            // 재질 색칠은 Update의 툰·바람 스왑이 끝난 뒤(PostUpdate)에 돌아야 재스왑에 지지 않는다.
+            .add_systems(PostUpdate, mat_color_probe::mat_color_probe)
             .add_systems(
                 PostUpdate,
                 big_mesh_probe::big_mesh_probe.after(bevy::transform::TransformSystems::Propagate),
