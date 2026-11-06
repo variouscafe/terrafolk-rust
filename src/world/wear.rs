@@ -159,15 +159,6 @@ const DEFAULT_GLASSES: &[&str] = &[
     "facial_glasses_round",
     "facial_glasses_halfmoon",
 ];
-/// 봇 기본 헤어 해시 풀 — qubase GLB 5종(Head 본 리깅 동일 리그).
-const DEFAULT_HAIRS: &[&str] = &[
-    "hair-long",
-    "hair-buns",
-    "hair-buzzed",
-    "hair-buzzed-f",
-    "hair-parted",
-];
-
 /// lookJson(원문)에서 부착형 착용 item 추출. 현재 서버 정본 의상 슬롯
 /// (top/bottom/feet — 치비 변형이 담당)엔 부착물이 없어 대부분 비고,
 /// wears에 등록된 액세서리 키가 늘어나면 여기 매칭만 확장한다.
@@ -222,26 +213,8 @@ pub fn wear_ids_from_look(look: &str) -> Vec<String> {
     if let Some(g) = glasses {
         out.push(g);
     }
-    // 헤어 — 편집 슬롯이 qubase id 그대로면 존중, 아니면 스타일 문자열
-    // 해시로 5종 분배(전 주민 — 스타일명·uuid 어느 쪽이어도 결정론).
-    // 진단 게이트 ?tfdbg=wearhair: 전 주민 hair-buns 강제(글로브 하늘 가발 결정적 재현).
-    let hair = if crate::net::dbg_gate::on("wearhair") {
-        "hair-buns".to_string()
-    } else {
-        part("hair").unwrap_or_else(|| uuid.clone())
-    };
-    if hair.starts_with("hair-") {
-        out.push(hair);
-    } else {
-        let hh = hair.bytes().fold(0u64, |a, b| a.wrapping_mul(31) + b as u64);
-        out.push(DEFAULT_HAIRS[(hh % DEFAULT_HAIRS.len() as u64) as usize].to_string());
-    }
-    // 눈썹 — 전 주민, 성별 변형(Head 본 부착 — 헤어와 동일 경로).
-    out.push(if male {
-        "brows-regular".to_string()
-    } else {
-        "brows-female".to_string()
-    });
+    // qchar Head에 헤어·눈썹 내장 — 2026-11-06 (wear 헤어·눈썹은 중복·전신 공간 정점이라 부유.
+    // parts.hair/brows 편집값도 착용하지 않는다. 레지스트리 hair-*/brows-* 항목은 보존).
     out
 }
 

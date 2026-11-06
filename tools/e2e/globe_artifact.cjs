@@ -122,7 +122,6 @@ function skyCount(px, scale) {
   const base = process.env.TF_URL || 'https://terrafolk-3d.pages.dev/';
   const sf = process.argv[5]; // 'S'=글로브 중 스폰(?tfdbg=globe 부팅) · 'F'=평면 스폰 후 줌아웃 (A4-1)
   const flags = sf === 'F' ? [extra] : ['globe', extra];
-  if (sf === "W" && !extra.includes('wearhair') && process.env.TF_NOFORCE !== '1') flags.push('wearhair');
   const q = flags.filter(Boolean).join(',');
   const url = `${base}?${q ? 'tfdbg=' + q + '&' : ''}cb=${Date.now()}`;
   const b = await chromium.launch({ channel: 'chrome', headless: false, args: ['--disable-blink-features=AutomationControlled'] });
