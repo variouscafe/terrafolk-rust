@@ -267,4 +267,4 @@ build-apk.sh 빌드 전에 강제**한다. 복구 후 실측: 프라임 3초·�
 - **라이브 맵 원본**: `ssh aiserver` → backend `PYTHONPATH=src .venv/bin/python` 에서
   `db._query("SELECT id,map_data FROM worldsim_worlds")`(Tiled JSON 128×128, layer `terrain`, GID 1=water).
 - **웹 DOM 스크립트 위치**: `assets/web/`(tf-*.js) — 루트 `web/` 디렉터리 없음.
-- **하늘 가발·성능 게이트(2026-11-06)**: `?tfdbg=wearhair`(전 주민 hair-buns 강제)·`wearnoanchor`(수정 전 헤어 직속 부착 재현 — 전후 비교)·`perf`(2초 `[perf]` JSON: FPS·p50/p95·엔티티·가시 메시·구간 ms; 꺼짐=비용 0, `world/perf_probe.rs`). 스크립트 `tools/e2e/perf.cjs`(CPU 4x 스로틀·3장면 15s·JSON)·`bigmesh.cjs`(G-A1: wear-* extent·joint_spread≤3m)·`globe_artifact.cjs <tag> "" phone W`(G-A2 하늘 영역). 스킨 헤어 GLB(qubase) Armature는 scale 1 — 본 ×100 상쇄 없음, 전 wear 슬롯 ToolAnchor 필수.
+- **하늘 가발·성능 게이트(2026-11-06; wearhair 게이트는 qchar 내장 헤어로 폐지)**: `?tfdbg=wearnoanchor`(수정 전 헤어 직속 부착 재현 — 전후 비교)·`perf`(2초 `[perf]` JSON: FPS·p50/p95·엔티티·가시 메시·구간 ms; 꺼짐=비용 0, `world/perf_probe.rs`). 스크립트 `tools/e2e/perf.cjs`(CPU 4x 스로틀·3장면 15s·JSON)·`bigmesh.cjs`(G-A1: wear-* extent·joint_spread≤3m)·`globe_artifact.cjs <tag> "" phone W`(G-A2 하늘 영역). 스킨 헤어 GLB(qubase) Armature는 scale 1 — 본 ×100 상쇄 없음, 전 wear 슬롯 ToolAnchor 필수.

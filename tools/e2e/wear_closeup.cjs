@@ -7,6 +7,7 @@ const CASES = {
   none: { hair: 'hair-parted', beard: 'none', glasses: 'none' },
   beard: { hair: 'hair-parted', beard: 'beards_beard', glasses: 'none' },
   glasses: { hair: 'hair-parted', beard: 'none', glasses: 'facial_glasses_round' },
+  beard3d: { hair: 'hair-parted', beard: 'beard-full', glasses: 'facial_glasses' },
   both: { hair: 'hair-parted', beard: 'beards_beard', glasses: 'facial_glasses_round' },
 };
 (async () => {
@@ -37,12 +38,13 @@ const CASES = {
     await pg.evaluate((id) => { window.terrafolk.selectAgent(id); window.terrafolk.setLookFocus(true); }, id);
     await pg.waitForTimeout(4000);
     for (const [name, parts] of Object.entries(CASES)) {
+      if (process.env.TF_CASES && !process.env.TF_CASES.split(',').includes(name)) continue;
       await pg.evaluate(([id, p]) => window.terrafolk.setLocalLook(id, JSON.stringify(p)), [id, parts]);
       await pg.waitForTimeout(6000);
       // 주민이 걷는 중이라 프레임이 흔들림 — 짧은 간격 연사 후 사람이(Read) 정면 컷을 고른다.
       await pg.evaluate((id) => window.terrafolk.selectAgent(id), id);
-      for (let n = 0; n < 8; n++) {
-        await pg.screenshot({ path: `/tmp/wear_closeup_${tag}_${who}_${name}_${n}.png` });
+      for (let n = 0; n < (+process.env.TF_SHOTS || 4); n++) {
+        await pg.screenshot({ clip: process.env.TF_CLIP ? JSON.parse(process.env.TF_CLIP) : undefined, path: `/tmp/wear_closeup_${tag}_${who}_${name}_${n}.png` });
         await pg.waitForTimeout(600);
       }
     }
