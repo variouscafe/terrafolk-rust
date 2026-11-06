@@ -72,6 +72,14 @@ impl WearSlot {
         }
     }
 
+    /// 뼈대 없는 정적 GLB 슬롯 — 본 ×100 스케일 상쇄 앵커가 필요(스킨 헤어 계열은 불요).
+    fn needs_anchor(self) -> bool {
+        matches!(
+            self,
+            Self::Eyes | Self::Beard | Self::Glasses | Self::HandRight | Self::HandLeft
+        )
+    }
+
     /// 부착물 자체 스케일 — 원천 GLB 스케일 차이 흡수(필요 시 슬롯별 지정).
     fn scale(self) -> f32 {
         match self {
@@ -270,12 +278,39 @@ pub fn apply_wears(
         if !wanted.iter().all(|w| bones.iter().any(|(b, _)| b == w)) {
             continue;
         }
+        // 슬롯별 보정 앵커(정적 메시 슬롯만) — 같은 슬롯 여러 아이템은 앵커 공유.
+        let mut anchors: Vec<(WearSlot, Entity)> = Vec::new();
         for id in &wears.0 {
             let Some((path, slot)) = wear_asset(id) else {
                 continue;
             };
             let Some((_, bone_e)) = bones.iter().find(|(b, _)| *b == slot) else {
                 continue;
+            };
+            // 머리 본 월드 스케일이 ×100(qchar CharacterArmature)이라 뼈대 없는 정적 GLB(수염·
+            // 안경·눈·손 도구)를 본에 직접 붙이면 35~115m 거인이 되어 낮은 지대에서 파란
+            // 다각형으로 솟는다(2026-11-06 A5). 크레이트 ToolAnchor(계약 T1: 앵커 월드 스케일 =
+            // 액터 ToolScale)를 중간에 끼워 본 스케일을 상쇄한다. 스킨 헤어·눈썹·입체 수염은
+            // 자체 아마추어(Armature ×0.01)가 상쇄하므로 본 직속 유지.
+            let parent_e = if slot.needs_anchor() {
+                match anchors.iter().find(|(sl, _)| *sl == slot) {
+                    Some((_, a)) => *a,
+                    None => {
+                        let a = commands
+                            .spawn((
+                                Name::new(format!("wear-anchor-{slot:?}")),
+                                crate::character::tool::ToolAnchor { actor: entity },
+                                Transform::default(),
+                                Visibility::Hidden,
+                            ))
+                            .id();
+                        commands.entity(*bone_e).add_child(a);
+                        anchors.push((slot, a));
+                        a
+                    }
+                }
+            } else {
+                *bone_e
             };
             let scene = assets.load(GltfAssetLabel::Scene(0).from_asset(path));
             let wear_e = commands
@@ -288,7 +323,7 @@ pub fn apply_wears(
                     Visibility::Hidden,
                 ))
                 .id();
-            commands.entity(*bone_e).add_child(wear_e);
+            commands.entity(parent_e).add_child(wear_e);
         }
         commands.entity(entity).insert(WearApplied);
     }
