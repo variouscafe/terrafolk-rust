@@ -30,11 +30,14 @@ const { waitPrimed } = require('./lib.cjs');
   fs.writeFileSync(`/tmp/bigmesh${mode === 'globe' ? '' : '_' + mode}.json`, JSON.stringify(rows, null, 1));
   // A5 게이트: wear-* 조상 항목 extent > 3.0m 0건(flat·globe 공통). 프로브는 extent>8 항목만 로그하므로 0건이면 통과.
   const dec = (r) => { try { return JSON.parse(r.raw.replace(/\} color:.*$/, '}')); } catch (e) { return r; } };
-  let wearBad = 0;
+  let wearBad = 0, wearRendered = 0;
   for (const r of rows) {
     const o = r.top ? r : dec(r);
-    for (const t of o.top || []) if (t.ancestors.some((a) => a.startsWith('wear-')) && t.extent > 3.0) wearBad++;
+    for (const t of o.top || []) {
+      const isWear = t.ancestors.some((a) => a.startsWith('wear-'));
+      if (isWear && t.extent > 3.0) { wearBad++; if (t.view_vis) wearRendered++; }
+    }
   }
-  console.log('wearBad(>3m, 프로브는 >8m만 로그)', wearBad, wearBad === 0 ? 'PASS' : 'FAIL');
+  console.log('wearBad(>3m, 프로브는 >8m만 로그)', wearBad, '그중 view_vis(실제 렌더 대상)', wearRendered, wearBad === 0 ? 'PASS' : 'FAIL');
   console.log(rows.length, 'rows');
 })();

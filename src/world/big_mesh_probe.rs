@@ -34,6 +34,8 @@ pub fn big_mesh_probe(
             Option<&MeshMaterial3d<InkMaterial>>,
             Option<&MeshMaterial3d<WaterMaterial>>,
             Option<&Visibility>,
+            Option<&ViewVisibility>,
+            Option<&InheritedVisibility>,
         ),
         (Without<TerrainMesh>, Without<WaterMesh>),
     >,
@@ -52,7 +54,7 @@ pub fn big_mesh_probe(
     }
     *shots += 1;
     let mut rows: Vec<(f32, String)> = Vec::new();
-    for (e, mh, gt, skin, std_m, toon_m, ink_m, water_m, vis) in &q {
+    for (e, mh, gt, skin, std_m, toon_m, ink_m, water_m, vis, view_vis, inh_vis) in &q {
         // 조상 체인(루트까지, 최대 8) + 하늘 제외
         let mut chain = vec![
             names
@@ -108,6 +110,36 @@ pub fn big_mesh_probe(
             }
         }
         // 스킨 메시의 실제 월드 범위 — 렌더는 Σ w·(조인트GT·IBM)·p (메시 자체 GT 무시).
+        // 스킨 경로 진단 — 'ok'면 조인트 행렬 수식 적용, 아니면 실패 원인(ibm/pos/ji/jw)
+        let skin_path = match skin {
+            None => "unskinned",
+            Some(sk) if ibms.get(&sk.inverse_bindposes).is_none() => "no-ibm",
+            Some(_)
+                if !matches!(
+                    mesh.attribute(Mesh::ATTRIBUTE_POSITION),
+                    Some(VertexAttributeValues::Float32x3(_))
+                ) =>
+            {
+                "pos-fmt"
+            }
+            Some(_)
+                if !matches!(
+                    mesh.attribute(Mesh::ATTRIBUTE_JOINT_INDEX),
+                    Some(VertexAttributeValues::Uint16x4(_))
+                ) =>
+            {
+                "ji-fmt"
+            }
+            Some(_)
+                if !matches!(
+                    mesh.attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT),
+                    Some(VertexAttributeValues::Float32x4(_))
+                ) =>
+            {
+                "jw-fmt"
+            }
+            Some(_) => "ok",
+        };
         if let Some(sk) = skin
             && let Some(ib) = ibms.get(&sk.inverse_bindposes)
             && let Some(VertexAttributeValues::Float32x3(pos)) =
@@ -186,10 +218,12 @@ pub fn big_mesh_probe(
             ("Other", [0.0; 3], false, String::new())
         };
         let visible = !matches!(vis, Some(Visibility::Hidden));
+        let in_view = view_vis.is_some_and(|v| v.get());
+        let inherited = inh_vis.is_some_and(|v| v.get());
         rows.push((
             extent,
             format!(
-                "{{\"name\":{:?},\"ancestors\":{:?},\"root_has_villager\":{has_vill},\"extent\":{extent:.2},\"joint_spread\":{spread:.2},\"joint_reach\":{reach:.2},\"skinned\":{},\"mat\":{{\"kind\":\"{kind}\",\"base_srgb\":[{:.3},{:.3},{:.3}],\"unlit\":{unlit},\"alpha_mode\":{alpha:?}}},\"visible\":{visible}}}",
+                "{{\"name\":{:?},\"ancestors\":{:?},\"root_has_villager\":{has_vill},\"extent\":{extent:.2},\"joint_spread\":{spread:.2},\"joint_reach\":{reach:.2},\"skinned\":{},\"skin_path\":\"{skin_path}\",\"mat\":{{\"kind\":\"{kind}\",\"base_srgb\":[{:.3},{:.3},{:.3}],\"unlit\":{unlit},\"alpha_mode\":{alpha:?}}},\"visible\":{visible},\"inherited_vis\":{inherited},\"view_vis\":{in_view}}}",
                 chain[0],
                 chain,
                 skin.is_some(),
