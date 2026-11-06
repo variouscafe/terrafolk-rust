@@ -23,7 +23,7 @@ async function ab() {
     pg.on('console', (m) => {
       const t = m.text(); const j = t.indexOf('[perf] ');
       if (j < 0) return;
-      let s = t.slice(j + 7); const k = s.indexOf('%c'); if (k > 0) s = s.slice(0, k);
+      let s = t.slice(j + 7); const k = s.indexOf('}'); if (k > 0) s = s.slice(0, k + 1);
       try { logs.push(JSON.parse(s.trim())); } catch (e) { /* skip */ }
     });
     await pg.goto(`${base}?tfdbg=perf,${fl}&cb=${Date.now()}`, { waitUntil: 'load', timeout: 60000 });
@@ -78,7 +78,7 @@ async function ab() {
     pg.on('console', (m) => {
       const t = m.text(); const i = t.indexOf('[perf] ');
       if (i < 0) return;
-      let s = t.slice(i + 7); const k = s.indexOf('%c'); if (k > 0) s = s.slice(0, k);
+      let s = t.slice(i + 7); const k = s.indexOf('}'); if (k > 0) s = s.slice(0, k + 1);
       try { const o = JSON.parse(s.trim()); o.scene = scene; logs.push(o); } catch (e) { /* skip */ }
     });
     await pg.goto(`${base}?tfdbg=${flags}&cb=${Date.now()}`, { waitUntil: 'load', timeout: 60000 });

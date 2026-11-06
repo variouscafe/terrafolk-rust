@@ -268,3 +268,5 @@ build-apk.sh 빌드 전에 강제**한다. 복구 후 실측: 프라임 3초·�
   `db._query("SELECT id,map_data FROM worldsim_worlds")`(Tiled JSON 128×128, layer `terrain`, GID 1=water).
 - **웹 DOM 스크립트 위치**: `assets/web/`(tf-*.js) — 루트 `web/` 디렉터리 없음.
 - **하늘 가발·성능 게이트(2026-11-06; wearhair 게이트는 qchar 내장 헤어로 폐지)**: `?tfdbg=wearnoanchor`(수정 전 헤어 직속 부착 재현 — 전후 비교)·`perf`(2초 `[perf]` JSON: FPS·p50/p95·엔티티·가시 메시·구간 ms; 꺼짐=비용 0, `world/perf_probe.rs`). 스크립트 `tools/e2e/perf.cjs`(CPU 4x 스로틀·3장면 15s·JSON)·`bigmesh.cjs`(G-A1: wear-* extent·joint_spread≤3m)·`globe_artifact.cjs <tag> "" phone W`(G-A2 하늘 영역). 스킨 헤어 GLB(qubase) Armature는 scale 1 — 본 ×100 상쇄 없음, 전 wear 슬롯 ToolAnchor 필수.
+- **글로브 소형 소품 숨김(2026-11-06, `world/globe_cull.rs`)**: 줌아웃 가시 메시 −68%(5355→1710). 킬스위치 `?tfdbg=no_globe_cull`(기능 전체 끔), `?tfdbg=globe_cull_s_only`(S단계만: target_h<0.7 @zoom≥5.0). 임계=`CULL_S_MAX_H`/`CULL_M_MAX_H`(target_h), 모닥불·유물 제외, occlusion과 Visibility 경합은 `hides()`로 회피. 게이트 `tools/e2e/globe_cull_gate.cjs`(G1/G2).
+- **perf 교차 A/B 모드**: `node tools/e2e/perf.cjs ab <tag> <flagsA> <flagsB> [pairs=5]` — 최대 줌아웃 15s(앞 3s 버림) ABAB 교차, 쌍별 p50/p95/가시 메시·부호 일관성 출력(`/tmp/perf_ab_<tag>.json`). `[perf]` 콘솔 파싱은 첫 `}`에서 절단.
