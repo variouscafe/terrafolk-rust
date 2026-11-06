@@ -58,6 +58,7 @@ pub fn report(
     inks: Query<(), With<MeshMaterial3d<InkMaterial>>>,
     props: Query<(), With<super::models::PropRoot>>,
     statics: Query<(), With<super::globe_static::GlobeStatic>>,
+    conc: Query<(), With<super::occlusion::Concealer>>,
 ) {
     c.t[6] = Some(Instant::now());
     let spans = [
@@ -87,7 +88,7 @@ pub fn report(
     let fps = c.frames as f32 / c.since_log;
     let frame_avg = c.since_log as f64 / n * 1000.0;
     info!(
-        "[perf] {{\"fps\":{fps:.1},\"p50\":{:.1},\"p95\":{:.1},\"ents\":{},\"vis_mesh\":{},\"skins\":{},\"ink\":{},\"props\":{},\"gstat\":{},\"pre\":{:.2},\"update\":{:.2},\"post_pre\":{:.2},\"warp\":{:.2},\"post_rest\":{:.2},\"main\":{main:.2},\"rest\":{:.2}}}",
+        "[perf] {{\"fps\":{fps:.1},\"p50\":{:.1},\"p95\":{:.1},\"ents\":{},\"vis_mesh\":{},\"skins\":{},\"ink\":{},\"props\":{},\"gstat\":{},\"conc\":{},\"pre\":{:.2},\"update\":{:.2},\"post_pre\":{:.2},\"warp\":{:.2},\"post_rest\":{:.2},\"main\":{main:.2},\"rest\":{:.2}}}",
         pct(0.5),
         pct(0.95),
         ents.iter().count(),
@@ -96,6 +97,7 @@ pub fn report(
         inks.iter().count(),
         props.iter().count(),
         statics.iter().count(),
+        conc.iter().count(),
         ms(0),
         ms(1),
         ms(2),
