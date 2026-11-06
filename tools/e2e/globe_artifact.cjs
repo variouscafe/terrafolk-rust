@@ -83,6 +83,38 @@ function detect(px, minArea = 1500) {
   return blobs;
 }
 
+/// G-A2 하늘 가발 판정: 하늘 영역(상단, HUD·미니맵·배지 제외)에서 행별 중앙색과의 RGB 거리>40 픽셀 수.
+/// 영역은 CSS px 기준(세로 폰: 제목 아래 띠 + 미니맵 우측 띠). TF_SKY="x0,y0,x1,y1;..."로 조정. 행 중앙색 기준이라 행 가로 지구 침범 시 오검출 가능 — 이미지 Read로 교차 확인.
+function skyCount(px, scale) {
+  const rects = (process.env.TF_SKY || '10,85,402,112;332,60,408,320').split(';');
+  let n = 0, maxBlob = 0;
+  for (const rc of rects) {
+    const [x0, y0, x1, y1] = rc.split(',').map((v) => Math.round(+v * scale));
+    const W = x1 - x0, H = y1 - y0, mask = new Uint8Array(W * H);
+    for (let y = y0; y < y1; y++) {
+      const rs = [], gs = [], bs = [];
+      for (let x = x0; x < x1; x++) { const o = (y * px.w + x) * px.ch; rs.push(px.data[o]); gs.push(px.data[o + 1]); bs.push(px.data[o + 2]); }
+      const med = (a) => a.slice().sort((p, q) => p - q)[a.length >> 1];
+      const mr = med(rs), mg = med(gs), mb = med(bs);
+      for (let i = 0; i < rs.length; i++) if (Math.hypot(rs[i] - mr, gs[i] - mg, bs[i] - mb) > 40) { mask[(y - y0) * W + i] = 1; n++; }
+    }
+    // 연결 성분 최대 면적 — 'z' 수면 표시(작은 DOM 글리프)와 거대 메시를 구분
+    const seen = new Uint8Array(W * H);
+    for (let s0 = 0; s0 < W * H; s0++) {
+      if (!mask[s0] || seen[s0]) continue;
+      let area = 0; const st = [s0]; seen[s0] = 1;
+      while (st.length) {
+        const p = st.pop(); area++;
+        const x = p % W, y = (p / W) | 0;
+        for (const q of [x > 0 ? p - 1 : -1, x < W - 1 ? p + 1 : -1, y > 0 ? p - W : -1, y < H - 1 ? p + W : -1])
+          if (q >= 0 && mask[q] && !seen[q]) { seen[q] = 1; st.push(q); }
+      }
+      maxBlob = Math.max(maxBlob, area);
+    }
+  }
+  return { n, maxBlob };
+}
+
 (async () => {
   const tag = process.argv[2] || 'base';
   const extra = process.argv[3] || '';
@@ -90,6 +122,7 @@ function detect(px, minArea = 1500) {
   const base = process.env.TF_URL || 'https://terrafolk-3d.pages.dev/';
   const sf = process.argv[5]; // 'S'=글로브 중 스폰(?tfdbg=globe 부팅) · 'F'=평면 스폰 후 줌아웃 (A4-1)
   const flags = sf === 'F' ? [extra] : ['globe', extra];
+  if (sf === "W" && !extra.includes('wearhair') && process.env.TF_NOFORCE !== '1') flags.push('wearhair');
   const q = flags.filter(Boolean).join(',');
   const url = `${base}?${q ? 'tfdbg=' + q + '&' : ''}cb=${Date.now()}`;
   const b = await chromium.launch({ channel: 'chrome', headless: false, args: ['--disable-blink-features=AutomationControlled'] });
@@ -112,6 +145,28 @@ function detect(px, minArea = 1500) {
     const tall = blobs.filter((x) => x.flat && x.bbox[3] - x.bbox[1] > px.h * 0.3 && x.area < px.w * px.h * 0.5);
     res.shots.push({ shot: f, exact: exactCount(px), classes: extra.includes('matcolor') ? classCounts(px) : undefined, tallFlat: tall.length, blobs });
   };
+  if (sf === 'W') {
+    // 최대 줌아웃(글로브) 후 하늘 영역 픽셀 계수 — 3회 연사
+    const cx0 = view.viewport.width / 2, cy0 = view.viewport.height / 2;
+    await pg.mouse.move(cx0, cy0);
+    await pg.waitForTimeout(8000);
+    for (let i = 0; i < 24; i++) { await pg.mouse.wheel(0, 240); await pg.waitForTimeout(120); }
+    await pg.waitForTimeout(4000);
+    res.sky = [];
+    for (let i = 1; i <= 3; i++) {
+      const f = `/tmp/globe_artifact_${tag}_W${i}.png`;
+      const buf = await pg.screenshot(); fs.writeFileSync(f, buf);
+      const px = pngPixels(buf);
+      res.sky.push({ shot: f, ...skyCount(px, view.deviceScaleFactor), exact: exactCount(px) });
+      await pg.waitForTimeout(2500);
+    }
+    const thr = +(process.env.TF_SKY_MAX || 1500);
+    res.pass = res.sky.every((x) => x.maxBlob < thr);
+    fs.writeFileSync(`/tmp/globe_artifact_${tag}.json`, JSON.stringify(res, null, 1));
+    console.log(`W ${tag} skyPx=${res.sky.map((x) => x.n)} maxBlob=${res.sky.map((x) => x.maxBlob)} exact=${res.sky.map((x) => x.exact)} thr=${thr} ${res.pass ? 'PASS' : 'FAIL'}`);
+    await b.close();
+    return;
+  }
   if (sf) {
     const cx0 = view.viewport.width / 2, cy0 = view.viewport.height / 2;
     await pg.mouse.move(cx0, cy0);

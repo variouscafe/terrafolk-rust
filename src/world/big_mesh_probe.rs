@@ -1,6 +1,6 @@
 //! 거대 메시 프로브 — `?tfdbg=bigmesh` (평시 비용 0). 글로브 파란 조각 범인 특정용.
 //! PostUpdate(전파 이후) 120프레임마다(최대 30회) Mesh3d 전수의 월드 범위를 재서
-//! extent>8 | joint_spread>3 | joint_reach>4 인 상위 10개를 `[bigmesh] {json}` 한 줄로 출력.
+//! extent>8(wear-* 하위는 3) | joint_spread>3 | joint_reach>4 인 상위 10개를 `[bigmesh] {json}` 한 줄로 출력.
 
 use bevy::mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
 use bevy::mesh::{Mesh, VertexAttributeValues};
@@ -66,9 +66,11 @@ pub fn big_mesh_probe(
         let mut root = e;
         let mut sky = exempt.get(e).is_ok();
         let mut has_vill = villagers.get(e).is_ok();
+        let mut is_wear = names.get(e).is_ok_and(|n| n.starts_with("wear-"));
         while let Ok(p) = parents.get(cur) {
             cur = p.parent();
             root = cur;
+            is_wear |= names.get(cur).is_ok_and(|n| n.starts_with("wear-"));
             sky |= exempt.get(cur).is_ok();
             has_vill |= villagers.get(cur).is_ok();
             if chain.len() < 8 {
@@ -195,7 +197,8 @@ pub fn big_mesh_probe(
         if ink_m.is_some() {
             continue; // 잉크 헐은 본체 메시와 동일 스켈레톤 — 본체 행만 본다
         }
-        if extent <= 8.0 {
+        // wear-* 하위는 G-A1 게이트(3m)를 위해 임계를 낮춘다(extent·joint_spread 3m 초과).
+        if extent <= 8.0 && !(is_wear && (extent > 3.0 || spread > 3.0)) {
             continue;
         }
         let (kind, rgb, unlit, alpha) = if let Some(h) = std_m {
@@ -223,7 +226,7 @@ pub fn big_mesh_probe(
         rows.push((
             extent,
             format!(
-                "{{\"name\":{:?},\"ancestors\":{:?},\"root_has_villager\":{has_vill},\"extent\":{extent:.2},\"joint_spread\":{spread:.2},\"joint_reach\":{reach:.2},\"skinned\":{},\"skin_path\":\"{skin_path}\",\"mat\":{{\"kind\":\"{kind}\",\"base_srgb\":[{:.3},{:.3},{:.3}],\"unlit\":{unlit},\"alpha_mode\":{alpha:?}}},\"visible\":{visible},\"inherited_vis\":{inherited},\"view_vis\":{in_view}}}",
+                "{{\"name\":{:?},\"ancestors\":{:?},\"root_has_villager\":{has_vill},\"wear\":{is_wear},\"extent\":{extent:.2},\"joint_spread\":{spread:.2},\"joint_reach\":{reach:.2},\"skinned\":{},\"skin_path\":\"{skin_path}\",\"mat\":{{\"kind\":\"{kind}\",\"base_srgb\":[{:.3},{:.3},{:.3}],\"unlit\":{unlit},\"alpha_mode\":{alpha:?}}},\"visible\":{visible},\"inherited_vis\":{inherited},\"view_vis\":{in_view}}}",
                 chain[0],
                 chain,
                 skin.is_some(),

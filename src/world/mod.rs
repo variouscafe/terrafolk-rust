@@ -3,6 +3,7 @@
 
 pub mod animal_anim;
 pub mod big_mesh_probe;
+pub mod perf_probe;
 pub mod bld;
 pub mod bld_spawn;
 pub mod chat_action;
@@ -161,6 +162,33 @@ impl Plugin for WorldPlugin {
         // 데모 월드 제거(2026-10-23 사용자 결정) — 네이티브도 라이브 전제.
         // 이전: 레거시 맵 임베드 데모가 네이티브에서 구동(바이너리 용량 부담).
         app.add_systems(Update, animal_anim::play_animal_idles);
+        // 성능 프로브(?tfdbg=perf) — 게이트 꺼짐이면 리소스가 없어 전 시스템 run_if로 스킵(비용 0).
+        if perf_probe::enabled() {
+            use bevy::transform::systems as ts;
+            app.init_resource::<perf_probe::PerfClock>();
+            app.add_systems(First, perf_probe::stamp::<0>.run_if(perf_probe::perf_on));
+            app.add_systems(
+                PreUpdate,
+                perf_probe::stamp::<1>
+                    .after(globe::restore_flat)
+                    .after(ts::sync_simple_transforms)
+                    .run_if(perf_probe::perf_on),
+            );
+            app.add_systems(SpawnScene, perf_probe::stamp::<2>.run_if(perf_probe::perf_on));
+            app.add_systems(
+                PostUpdate,
+                (
+                    perf_probe::stamp::<3>
+                        .after(chibi_character::leg_ik::leg_ik)
+                        .after(chibi_character::tool::tool_anchor_fit)
+                        .before(perf_probe::stamp::<4>),
+                    perf_probe::stamp::<4>.before(globe::apply_warp),
+                    perf_probe::stamp::<5>.after(globe::apply_warp),
+                )
+                    .run_if(perf_probe::perf_on),
+            );
+            app.add_systems(Last, perf_probe::report.run_if(perf_probe::perf_on));
+        }
         // 캐릭터 프레임워크(비율·접지·발바닥 수평) — 게임 무관 계층
         // (2026-10-24 P1, docs/character-module-redesign.md). 표면장=WorldData.
         // 비율 룩 = 레퍼런스 치비 v2(2026-11-03 비율 감사 — CHIBI_REF2:
