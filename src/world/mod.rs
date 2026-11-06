@@ -2,6 +2,7 @@
 //! 계약: 서버는 정사각 그리드를 주고 클라이언트가 투영(docs/data-contract.md).
 
 pub mod animal_anim;
+pub mod big_mesh_probe;
 pub mod bld;
 pub mod bld_spawn;
 pub mod chat_action;
@@ -17,6 +18,7 @@ pub mod globe;
 pub mod grav_probe;
 pub mod ground;
 pub mod night_glow;
+pub mod map_audit;
 pub mod materials_guard;
 pub mod models;
 pub mod prop_fit;
@@ -101,7 +103,18 @@ impl Plugin for WorldPlugin {
             .add_systems(PreUpdate, globe::restore_flat)
             .add_systems(
                 PostUpdate,
-                globe::apply_warp.before(bevy::transform::TransformSystems::Propagate),
+                // 워프는 평면 포즈 계산이 모두 끝난 뒤 마지막(2026-11-06): 크레이트의
+                // 발 체인(gait_blend→foot_lock→leg_ik)과 손 도구 앵커 refit은 루트
+                // Transform을 평면으로 가정한다. 순서가 모호해 워프가 먼저 돌면 다리가
+                // 평면 목표로 늘어나 데님 거대 판이 된다(분기 V, globe-blue-chunk).
+                globe::apply_warp
+                    .after(chibi_character::leg_ik::leg_ik)
+                    .after(chibi_character::tool::tool_anchor_fit)
+                    .before(bevy::transform::TransformSystems::Propagate),
+            )
+            .add_systems(
+                PostUpdate,
+                big_mesh_probe::big_mesh_probe.after(bevy::transform::TransformSystems::Propagate),
             )
             .add_systems(
                 Startup,
@@ -166,7 +179,10 @@ impl Plugin for WorldPlugin {
         );
         // 발 앵커 계측(진단) — TF_FOOTDBG=1일 때만 로그, 평소 무음·무비용.
         app.add_systems(Update, (foot_probe::foot_probe, foot_probe::footdbg_camera));
-        app.add_systems(Update, tool_probe::tool_probe);
+        app.add_systems(Update, (
+                tool_probe::tool_probe,
+                map_audit::map_audit,
+            ));
         app.add_systems(
             Update,
             (
