@@ -3,7 +3,6 @@
 
 pub mod animal_anim;
 pub mod big_mesh_probe;
-pub mod globe_lod;
 pub mod perf_probe;
 pub mod bld;
 pub mod bld_spawn;
@@ -163,16 +162,6 @@ impl Plugin for WorldPlugin {
         // 데모 월드 제거(2026-10-23 사용자 결정) — 네이티브도 라이브 전제.
         // 이전: 레거시 맵 임베드 데모가 네이티브에서 구동(바이너리 용량 부담).
         app.add_systems(Update, animal_anim::play_animal_idles);
-        app.init_resource::<globe_lod::FarState>().add_systems(
-            Update,
-            (
-                globe_lod::update_far,
-                globe_lod::far_ink,
-                globe_lod::attach_lod,
-                globe_lod::far_lod,
-            )
-                .chain(),
-        );
         // 성능 프로브(?tfdbg=perf) — 게이트 꺼짐이면 리소스가 없어 전 시스템 run_if로 스킵(비용 0).
         if perf_probe::enabled() {
             use bevy::transform::systems as ts;

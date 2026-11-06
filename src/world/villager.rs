@@ -362,17 +362,14 @@ pub fn animate_states(
 /// 이미 동작하므로 이 시스템은 CPU 애님 비용만 담당.
 pub fn throttle_offscreen_anims(
     rig: Res<super::camera_rig::CameraRig>,
-    far: Res<super::globe_lod::FarState>,
     q: Query<(&Transform, &VillagerAnims)>,
     mut players: Query<&mut AnimationPlayer>,
 ) {
-    // 글로브 원거리(주민 몇 픽셀)면 전원 정지 — 킬스위치 no_gl_anim.
-    let far = far.0 && !crate::net::dbg_gate::off("no_gl_anim");
     // 시야 반경 근사 — 세로 시야(VIEW_H×zoom)의 대각 여유 계수. 줌아웃
     // (zoom 최대 4.2 → ~74m)까지 커버한다.
     let view_r = super::camera_rig::VIEW_H * rig.zoom * 0.8;
     for (tr, anims) in &q {
-        let off = far || tr.translation.xz().distance(rig.target) > view_r;
+        let off = tr.translation.xz().distance(rig.target) > view_r;
         if let Ok(mut player) = players.get_mut(anims.player_e) {
             // 0.19은 애님별 pause — 재생 중 전체에 일괄 적용(전환 중 복수 클립).
             let any_live = player.playing_animations().any(|(_, a)| !a.is_paused());

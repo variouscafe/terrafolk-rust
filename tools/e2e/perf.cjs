@@ -17,7 +17,7 @@ const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
   const out = { tag, extra, runs: [] };
   for (let r = 0; r < runs; r++) {
     const b = await chromium.launch({ channel: 'chrome', headless: false, args: ['--disable-blink-features=AutomationControlled'] });
-    const ctx = await b.newContext({ viewport: { width: 412, height: 732 }, deviceScaleFactor: +(process.env.TF_DPR || 2.625),
+    const ctx = await b.newContext({ viewport: { width: 412, height: 732 }, deviceScaleFactor: 2.625,
       userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36' });
     const pg = await ctx.newPage();
     const logs = [];
@@ -26,7 +26,6 @@ const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
       const t = m.text(); const i = t.indexOf('[perf] ');
       if (i < 0) return;
       let s = t.slice(i + 7); const k = s.indexOf('%c'); if (k > 0) s = s.slice(0, k);
-      s = s.replace(/\} color:.*$/s, '}');
       try { const o = JSON.parse(s.trim()); o.scene = scene; logs.push(o); } catch (e) { /* skip */ }
     });
     await pg.goto(`${base}?tfdbg=${flags}&cb=${Date.now()}`, { waitUntil: 'load', timeout: 60000 });
