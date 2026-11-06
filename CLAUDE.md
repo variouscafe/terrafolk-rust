@@ -252,3 +252,18 @@ tf-api CORS 허용목록(../terrafolk `backend/src/terrafolk_api/config.py`)
 build-apk.sh 빌드 전에 강제**한다. 복구 후 실측: 프라임 3초·낮 지형
 초록 68%·panic 0.
 
+
+## 탐색 지름길(토큰 절약, 2026-11-06)
+
+- **글로브 렌더 파일 지도**: 수식 계약 3곳 = `src/world/globe.rs`(CPU 엔티티 워프)·
+  `assets/shaders/terrain_globe_vertex.wgsl`·`assets/shaders/water.wgsl`(버텍스).
+  수면 메시 = `world/water.rs`(3×size 평면·128분할·y=−0.18). 지형 = `world/terrain.rs`
+  (하프타일·셰이더 discard 없음). 프롭 핏 = `world/prop_fit.rs`(AABB는 로컬 체인
+  `chain_matrix` — 워프 무관). 코티지 = `models/CottageHouses.glb`(노드 ×100 행렬, RoofTiles 청색).
+- **화면 이물 색 판별(PIL)**: 영역 σ=0 단색 = 툰/언릿 재질(toon.wgsl 밴드), 수면은
+  노이즈로 σ>0. 수면 deep=(0.16,0.50,0.66)·shallow=(0.38,0.76,0.80), 낮 ClearColor=크림.
+- **렌더 이분 게이트**: `?tfdbg=no_water,no_huts,no_terrain,no_villagers,no_animals,no_scaffold,no_sky,no_wind`
+  (목록 원천 `src/net/dbg_gate.rs`). 프로브: hutprobe·toolprobe·globe·vscale.
+- **라이브 맵 원본**: `ssh aiserver` → backend `PYTHONPATH=src .venv/bin/python` 에서
+  `db._query("SELECT id,map_data FROM worldsim_worlds")`(Tiled JSON 128×128, layer `terrain`, GID 1=water).
+- **웹 DOM 스크립트 위치**: `assets/web/`(tf-*.js) — 루트 `web/` 디렉터리 없음.
