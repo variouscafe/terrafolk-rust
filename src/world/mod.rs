@@ -16,6 +16,7 @@ pub mod daynight;
 pub mod fish;
 pub mod foot_probe;
 pub mod globe;
+pub mod globe_cull;
 pub mod grav_probe;
 pub mod ground;
 pub mod night_glow;
@@ -173,6 +174,13 @@ impl Plugin for WorldPlugin {
         // 데모 월드 제거(2026-10-23 사용자 결정) — 네이티브도 라이브 전제.
         // 이전: 레거시 맵 임베드 데모가 네이티브에서 구동(바이너리 용량 부담).
         app.add_systems(Update, animal_anim::play_animal_idles);
+        // 글로브 줌아웃 소형 소품 숨김(?tfdbg=no_globe_cull로 전체 비활성).
+        if globe_cull::enabled() {
+            app.init_resource::<globe_cull::CullStage>().add_systems(
+                Update,
+                globe_cull::globe_cull.after(camera_rig::camera_control),
+            );
+        }
         // 성능 프로브(?tfdbg=perf) — 게이트 꺼짐이면 리소스가 없어 전 시스템 run_if로 스킵(비용 0).
         if perf_probe::enabled() {
             use bevy::transform::systems as ts;
