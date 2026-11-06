@@ -13,6 +13,8 @@
 //! 워프 계약 W1: 루트만 휘고 자식은 강체 추종 — 그룹 오브젝트의 루트
 //! translation은 지면 앵커(발판 중심)여야 하고 자식은 로컬 오프셋만 갖는다.
 //! 원점 루트+월드 좌표 자식은 글로브에서 접선 방향으로 하늘에 뜬다(v0.8.65 bld 발판 사고).
+//! 워프 계약 W2: Update 구간 GlobalTransform은 평면 — PreUpdate에서 restore_flat 직후 GT를
+//! 재전파한다(mod.rs). 렌더 전용 워프는 PostUpdate apply_warp(2026-11-06).
 
 use bevy::prelude::*;
 

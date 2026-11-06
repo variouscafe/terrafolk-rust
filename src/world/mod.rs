@@ -2,6 +2,7 @@
 //! 계약: 서버는 정사각 그리드를 주고 클라이언트가 투영(docs/data-contract.md).
 
 pub mod animal_anim;
+pub mod big_mesh_probe;
 pub mod bld;
 pub mod bld_spawn;
 pub mod chat_action;
@@ -17,6 +18,8 @@ pub mod globe;
 pub mod grav_probe;
 pub mod ground;
 pub mod night_glow;
+pub mod map_audit;
+pub mod mat_color_probe;
 pub mod materials_guard;
 pub mod models;
 pub mod prop_fit;
@@ -99,9 +102,38 @@ impl Plugin for WorldPlugin {
             // 글로브 곡률 — 프레임 시작 복원(시뮬레이션은 항상 평면 좌표)·
             // 프레임 끝 워프(렌더는 구면 — 전파 직전에 적용해 자식·투영 정합).
             .add_systems(PreUpdate, globe::restore_flat)
+            // 글로브 계약 W2 — Update 구간 GlobalTransform은 평면이다(2026-11-06). restore_flat 직후
+            // 같은 PreUpdate에서 GT를 평면으로 재전파한다(bevy 0.19.1 transform::systems 3종, 플러그인
+            // 체인과 동일 순서). 직전 프레임에 워프가 있었을 때만 실행 — 평면 줌에선 비용 0.
+            // 렌더 전용 워프는 PostUpdate apply_warp. 이 재전파가 없으면 settle·ground_snap 등
+            // Update의 GT 소비자가 구면 값을 읽어 FootRig가 오염된다(주민 다리 늘어남).
+            .add_systems(
+                PreUpdate,
+                (
+                    bevy::transform::systems::mark_dirty_trees,
+                    bevy::transform::systems::propagate_parent_transforms,
+                    bevy::transform::systems::sync_simple_transforms,
+                )
+                    .chain()
+                    .after(globe::restore_flat)
+                    .run_if(|last: Res<globe::LastWarp>| last.0.is_some()),
+            )
             .add_systems(
                 PostUpdate,
-                globe::apply_warp.before(bevy::transform::TransformSystems::Propagate),
+                // 워프는 평면 포즈 계산이 모두 끝난 뒤 마지막(2026-11-06): 크레이트의
+                // 발 체인(gait_blend→foot_lock→leg_ik)과 손 도구 앵커 refit은 루트
+                // Transform을 평면으로 가정한다. 순서가 모호해 워프가 먼저 돌면 다리가
+                // 평면 목표로 늘어나 데님 거대 판이 된다(분기 V, globe-blue-chunk).
+                globe::apply_warp
+                    .after(chibi_character::leg_ik::leg_ik)
+                    .after(chibi_character::tool::tool_anchor_fit)
+                    .before(bevy::transform::TransformSystems::Propagate),
+            )
+            // 재질 색칠은 Update의 툰·바람 스왑이 끝난 뒤(PostUpdate)에 돌아야 재스왑에 지지 않는다.
+            .add_systems(PostUpdate, mat_color_probe::mat_color_probe)
+            .add_systems(
+                PostUpdate,
+                big_mesh_probe::big_mesh_probe.after(bevy::transform::TransformSystems::Propagate),
             )
             .add_systems(
                 Startup,
@@ -166,7 +198,10 @@ impl Plugin for WorldPlugin {
         );
         // 발 앵커 계측(진단) — TF_FOOTDBG=1일 때만 로그, 평소 무음·무비용.
         app.add_systems(Update, (foot_probe::foot_probe, foot_probe::footdbg_camera));
-        app.add_systems(Update, tool_probe::tool_probe);
+        app.add_systems(Update, (
+                tool_probe::tool_probe,
+                map_audit::map_audit,
+            ));
         app.add_systems(
             Update,
             (

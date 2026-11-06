@@ -201,8 +201,10 @@ pub fn fit_props(
         if !s.is_finite() {
             continue;
         }
-        // 방어 클램프 — 병리 데이터로 거대화 차단(원천 0.05~5배)
-        let clamped = s.clamp(0.02, 6.0);
+        // 방어 클램프 — 병리 데이터로 거대화 차단. 하한 0.002(2026-11-06, 설계자 승인): cm 단위 GLB인
+        // AnimalBoar(필요 0.009)·AnimalSquirrel(필요 0.010)이 구 하한 0.02에 걸려 목표 대비 ~2배
+        // 크게 렌더되고 루트가 +0.9m 떠 보였다.
+        let clamped = s.clamp(0.002, 6.0);
         #[cfg(target_arch = "wasm32")]
         if (s - clamped).abs() > 1e-6 {
             web_sys::console::log_1(
