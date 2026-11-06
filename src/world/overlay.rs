@@ -166,6 +166,7 @@ pub fn hover_res(
         &Transform,
         Option<&super::bld::SiteRect>,
         Option<&super::models::PropRoot>,
+        Option<&super::globe_static::GlobeStatic>,
     )>,
     mut last_id: Local<Option<u32>>,
 ) {
@@ -197,7 +198,7 @@ pub fn hover_res(
         let (tx, tz) = (g.x.floor() as i32, g.z.floor() as i32);
         let mut hit: Option<u32> = None;
         let mut best_d = f32::MAX;
-        for (tag, tr, rect, prop) in &q_res {
+        for (tag, tr, rect, prop, st) in &q_res {
             if let Some(rect) = rect
                 && rect.contains(tx, tz)
             {
@@ -211,7 +212,8 @@ pub fn hover_res(
                 )
             });
             if interactive {
-                let d = (tr.translation.x - g.x).powi(2) + (tr.translation.z - g.z).powi(2);
+                let p = super::globe_static::flat_pos(tr, st);
+                let d = (p.x - g.x).powi(2) + (p.z - g.z).powi(2);
                 if d < 1.1 * 1.1 && d < best_d {
                     best_d = d;
                     hit = Some(tag.0);

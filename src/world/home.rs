@@ -107,6 +107,7 @@ pub fn flag_local(root: &Transform, world_pos: Vec3, world_rot: Quat) -> Transfo
 /// 지붕에 올리브 깃발(깃대+천). 로그아웃·소유 변경은 즉시 철거.
 /// 건물 수가 적어(마을 규모 ~수십) 매 프레임 전수 판정이 저렴하다 —
 /// res_sig 재스폰한 건물도 다음 프레임에 자동으로 다시 꽂힌다.
+#[allow(clippy::type_complexity)] // Bevy 쿼리 타입 — 건물 루트 혼합 컴포넌트
 pub fn home_flags(
     mine: Res<MineAgent>,
     mut commands: Commands,
@@ -117,6 +118,7 @@ pub fn home_flags(
             Entity,
             &BldOwner,
             &Transform,
+            Option<&crate::world::globe_static::GlobeStatic>,
             Option<&HomeFlag>,
             Option<&Children>,
         ),
@@ -129,7 +131,9 @@ pub fn home_flags(
             .as_deref()
             .is_some_and(|o| mine.0.iter().any(|m| m == o))
     };
-    for (root, bld, tr, flagged, children) in &q_root {
+    for (root, bld, tr, st, flagged, children) in &q_root {
+        // 정적 소품은 글로브에서 구면 Transform — 깃발 로컬 변환은 평면 정본 기준(globe_static)
+        let tr = &crate::world::globe_static::flat_tf(tr, st);
         let mine_now = is_mine(&bld.owner);
         if mine_now && flagged.is_none() {
             let base = tr.translation;

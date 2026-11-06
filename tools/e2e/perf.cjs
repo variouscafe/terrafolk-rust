@@ -42,7 +42,8 @@ async function ab() {
     const vis = mean(logs.map((x) => x.vis_mesh ?? 0));
     await pg.screenshot({ path: `/tmp/perf_ab_${tag}_${label}${i}.png` });
     await b.close();
-    return { label, i, p50: +pct(ft, 0.5).toFixed(1), p95: +pct(ft, 0.95).toFixed(1), vis_mesh: Math.round(vis), n: ft.length };
+    const sec = {}; for (const k of ['pre', 'update', 'post_pre', 'warp', 'post_rest', 'main', 'props', 'gstat']) sec[k] = +mean(logs.map((x) => x[k] ?? 0)).toFixed(2);
+    return { label, i, p50: +pct(ft, 0.5).toFixed(1), p95: +pct(ft, 0.95).toFixed(1), vis_mesh: Math.round(vis), n: ft.length, sec };
   };
   const rows = [];
   for (let i = 0; i < pairs; i++) { rows.push(await one('A', fa, i)); rows.push(await one('B', fb, i)); }
@@ -54,6 +55,10 @@ async function ab() {
     d50.push(B[i].p50 - A[i].p50); d95.push(B[i].p95 - A[i].p95);
     console.log(i, A[i].p50, A[i].p95, A[i].vis_mesh, '|', B[i].p50, B[i].p95, B[i].vis_mesh, '|', d50[i].toFixed(1), d95[i].toFixed(1));
   }
+  console.log('[perf] 구간 ms (pair label pre update post_pre warp post_rest main | props gstat)');
+  for (let i = 0; i < pairs; i++) for (const r of [A[i], B[i]]) { const q = r.sec; console.log(i, r.label, q.pre, q.update, q.post_pre, q.warp, q.post_rest, q.main, '|', q.props, q.gstat); }
+  const msA = (k) => med(A.map((r) => r.sec[k])), msB = (k) => med(B.map((r) => r.sec[k]));
+  console.log('구간 중앙값 ms A→B:', ['pre', 'post_pre', 'warp', 'post_rest', 'main'].map((k) => `${k} ${msA(k)}→${msB(k)}`).join(' · '));
   const neg = d50.filter((x) => x < 0).length;
   const mA = med(A.map((r) => r.p50)), mB = med(B.map((r) => r.p50));
   console.log(`median p50 A=${mA} B=${mB} improvement(B vs A)=${(((mA - mB) / mA) * 100).toFixed(1)}% ; B<A in ${neg}/${pairs} pairs ; median p95 A=${med(A.map((r) => r.p95))} B=${med(B.map((r) => r.p95))}`);

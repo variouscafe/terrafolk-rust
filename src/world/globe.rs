@@ -15,6 +15,8 @@
 //! 원점 루트+월드 좌표 자식은 글로브에서 접선 방향으로 하늘에 뜬다(v0.8.65 bld 발판 사고).
 //! 워프 계약 W2: Update 구간 GlobalTransform은 평면 — PreUpdate에서 restore_flat 직후 GT를
 //! 재전파한다(mod.rs). 렌더 전용 워프는 PostUpdate apply_warp(2026-11-06).
+//! W2 예외: GlobeStatic 소품은 Update 구간에도 구면 Transform이며 평면 정본은 GlobeStatic.flat
+//! (globe_static.rs — 소비자는 flat_pos/flat_tf; 동적 엔티티는 기존 W2 그대로).
 
 use bevy::prelude::*;
 
@@ -180,6 +182,7 @@ pub fn apply_warp(
             Without<WaterMesh>,
             Without<DirectionalLight>,
             Without<GlobeExempt>,
+            Without<super::globe_static::GlobeStatic>,
         ),
     >,
 ) {

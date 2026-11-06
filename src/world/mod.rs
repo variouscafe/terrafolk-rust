@@ -17,6 +17,7 @@ pub mod fish;
 pub mod foot_probe;
 pub mod globe;
 pub mod globe_cull;
+pub mod globe_static;
 pub mod grav_probe;
 pub mod ground;
 pub mod night_glow;
@@ -132,6 +133,17 @@ impl Plugin for WorldPlugin {
                     .after(chibi_character::tool::tool_anchor_fit)
                     .before(bevy::transform::TransformSystems::Propagate),
             )
+            // 정적 소품 워프 캐시(?tfdbg=no_globe_static로 끔) — 부착(싱크 포인트)→워프 순.
+            .add_systems(
+                PostUpdate,
+                (globe_static::tag_static, globe_static::warp_static)
+                    .chain()
+                    .run_if(globe_static::enabled)
+                    .after(chibi_character::leg_ik::leg_ik)
+                    .after(chibi_character::tool::tool_anchor_fit)
+                    .before(globe::apply_warp)
+                    .before(bevy::transform::TransformSystems::Propagate),
+            )
             // 상태 배지 투영은 워프·전파가 끝난 렌더 공간 GT로(2026-11-06). W2 이후 Update의
             // GT는 평면이라, Update에서 투영하면 글로브 줌아웃 시 배지가 하늘에 뜬다.
             .add_systems(
@@ -201,8 +213,12 @@ impl Plugin for WorldPlugin {
                         .after(chibi_character::leg_ik::leg_ik)
                         .after(chibi_character::tool::tool_anchor_fit)
                         .before(perf_probe::stamp::<4>),
-                    perf_probe::stamp::<4>.before(globe::apply_warp),
-                    perf_probe::stamp::<5>.after(globe::apply_warp),
+                    perf_probe::stamp::<4>
+                        .before(globe::apply_warp)
+                        .before(globe_static::tag_static),
+                    perf_probe::stamp::<5>
+                        .after(globe::apply_warp)
+                        .after(globe_static::warp_static),
                 )
                     .run_if(perf_probe::perf_on),
             );
