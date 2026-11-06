@@ -6,7 +6,7 @@ const { waitPrimed } = require('./lib.cjs');
 (async () => {
   const mode = process.argv[2] || 'globe';
   const base = process.argv[3] || 'https://terrafolk-3d.pages.dev/';
-  const url = `${base}?tfdbg=${mode === 'globe' ? 'globe,' : ''}bigmesh&cb=${Date.now()}`;
+  const url = `${base}?tfdbg=${mode === 'globe' ? 'globe,' : ''}bigmesh${process.env.TF_EXTRA ? ',' + process.env.TF_EXTRA : ''}&cb=${Date.now()}`;
   const b = await chromium.launch({ channel: 'chrome', headless: false, args: ['--disable-blink-features=AutomationControlled'] });
   const ctx = await b.newContext({ viewport: { width: 412, height: 732 }, deviceScaleFactor: 2.625,
     userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36' });
@@ -28,16 +28,16 @@ const { waitPrimed } = require('./lib.cjs');
   await pg.screenshot({ path: `/tmp/bigmesh_${mode}.png` });
   await b.close();
   fs.writeFileSync(`/tmp/bigmesh${mode === 'globe' ? '' : '_' + mode}.json`, JSON.stringify(rows, null, 1));
-  // A5 게이트: wear-* 조상 항목 extent > 3.0m 0건(flat·globe 공통). 프로브는 extent>8 항목만 로그하므로 0건이면 통과.
+  // G-A1 게이트: wear-* 조상 항목 extent·joint_spread > 3.0m 0건(flat·globe 공통). 프로브는 wear 하위를 3m 초과부터 로그(v0.8.80+).
   const dec = (r) => { try { return JSON.parse(r.raw.replace(/\} color:.*$/, '}')); } catch (e) { return r; } };
   let wearBad = 0, wearRendered = 0;
   for (const r of rows) {
     const o = r.top ? r : dec(r);
     for (const t of o.top || []) {
-      const isWear = t.ancestors.some((a) => a.startsWith('wear-'));
-      if (isWear && t.extent > 3.0) { wearBad++; if (t.view_vis) wearRendered++; }
+      const isWear = t.wear || t.ancestors.some((a) => a.startsWith('wear-'));
+      if (isWear && (t.extent > 3.0 || t.joint_spread > 3.0)) { wearBad++; if (t.view_vis) wearRendered++; }
     }
   }
-  console.log('wearBad(>3m, 프로브는 >8m만 로그)', wearBad, '그중 view_vis(실제 렌더 대상)', wearRendered, wearBad === 0 ? 'PASS' : 'FAIL');
+  console.log('wearBad(extent|joint_spread>3m)', wearBad, '그중 view_vis(실제 렌더 대상)', wearRendered, wearBad === 0 ? 'PASS' : 'FAIL');
   console.log(rows.length, 'rows');
 })();

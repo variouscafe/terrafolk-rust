@@ -72,12 +72,13 @@ impl WearSlot {
         }
     }
 
-    /// 뼈대 없는 정적 GLB 슬롯 — 본 ×100 스케일 상쇄 앵커가 필요(스킨 헤어 계열은 불요).
+    /// 본 ×100 스케일 상쇄 앵커 필요 여부 — 전 슬롯 true. 스킨 헤어·눈썹·입체 수염도
+    /// 포함(qubase GLB의 Armature 노드에는 scale이 없어(=1) 본 ×100을 상쇄하지 못한다 —
+    /// 2026-11-06 덤프 실측. 스킨 조인트 GT가 ×85 확대돼 '하늘 가발'이 됐다).
     fn needs_anchor(self) -> bool {
-        matches!(
-            self,
-            Self::Eyes | Self::Beard | Self::Glasses | Self::HandRight | Self::HandLeft
-        )
+        // 진단 게이트 ?tfdbg=wearnoanchor: 수정 전(스킨 헤어 직속 부착) 동작 재현 — 전후 비교용.
+        !(crate::net::dbg_gate::on("wearnoanchor")
+            && matches!(self, Self::Hair | Self::Beard3d))
     }
 
     /// 부착물 자체 스케일 — 원천 GLB 스케일 차이 흡수(필요 시 슬롯별 지정).
@@ -223,7 +224,12 @@ pub fn wear_ids_from_look(look: &str) -> Vec<String> {
     }
     // 헤어 — 편집 슬롯이 qubase id 그대로면 존중, 아니면 스타일 문자열
     // 해시로 5종 분배(전 주민 — 스타일명·uuid 어느 쪽이어도 결정론).
-    let hair = part("hair").unwrap_or_else(|| uuid.clone());
+    // 진단 게이트 ?tfdbg=wearhair: 전 주민 hair-buns 강제(글로브 하늘 가발 결정적 재현).
+    let hair = if crate::net::dbg_gate::on("wearhair") {
+        "hair-buns".to_string()
+    } else {
+        part("hair").unwrap_or_else(|| uuid.clone())
+    };
     if hair.starts_with("hair-") {
         out.push(hair);
     } else {
@@ -290,8 +296,8 @@ pub fn apply_wears(
             // 머리 본 월드 스케일이 ×100(qchar CharacterArmature)이라 뼈대 없는 정적 GLB(수염·
             // 안경·눈·손 도구)를 본에 직접 붙이면 35~115m 거인이 되어 낮은 지대에서 파란
             // 다각형으로 솟는다(2026-11-06 A5). 크레이트 ToolAnchor(계약 T1: 앵커 월드 스케일 =
-            // 액터 ToolScale)를 중간에 끼워 본 스케일을 상쇄한다. 스킨 헤어·눈썹·입체 수염은
-            // 자체 아마추어(Armature ×0.01)가 상쇄하므로 본 직속 유지.
+            // 액터 ToolScale)를 중간에 끼워 본 스케일을 상쇄한다. 스킨 헤어·눈썹·입체 수염도
+            // 동일 — qubase GLB Armature는 scale 1이라 자체 상쇄가 없다(실측), 전 슬롯 앵커.
             let parent_e = if slot.needs_anchor() {
                 match anchors.iter().find(|(sl, _)| *sl == slot) {
                     Some((_, a)) => *a,
