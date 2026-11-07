@@ -71,5 +71,16 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let amb_c = lights.ambient_color.rgb / ab;
     col += albedo * amb_c * clamp(ab / 280.0, 0.0, 1.0) * 0.38;
 
+    // 수동 원근 안개 — terrain_splat.wgsl과 동일 축·상수, 계수는 낮게(0.62):
+    // 툰 재질(베이크 명암·카드 소품 포함)은 안개에 잠기면 청록 실루엣으로
+    // 가라앉는다(구 라인 폰 세로 프레임 실측 2026-10-30) — 원거리 정합은
+    // 유지하되 색 식별을 지형(0.75)보다 보존. 근거리(캐릭터 통상 프레임)는
+    // fog_f=0이라 셀 룩에 무영향.
+    let view_dir = vec3<f32>(-0.5792, -0.5736, -0.5792);
+    let axis = dot(in.world_position.xyz - view.world_position, view_dir) - 140.0;
+    let fog_f = smoothstep(42.0, 125.0, axis);
+    let fog_col = vec3<f32>(0.72, 0.81, 0.92);
+    col = mix(col, fog_col, fog_f * 0.62);
+
     return vec4<f32>(col, alpha);
 }

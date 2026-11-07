@@ -30,6 +30,7 @@ pub mod occlusion;
 pub mod outfit;
 pub mod outline;
 pub mod toon;
+pub mod toon_props;
 pub mod look_tint;
 pub mod look_edit;
 pub mod overlay;
@@ -79,6 +80,7 @@ impl Plugin for WorldPlugin {
         // 바람 재질 플러그인 제거(2026-10-22) — 효과 비활성, 소품은 StandardMaterial
         app.add_plugins(night_glow::plugin);
         app.add_plugins(toon::plugin);
+        app.add_plugins(toon_props::plugin);
         app.add_plugins(outline::plugin);
         app.add_systems(Update, water::water_night_dim);
         app.insert_resource(ClearColor(Color::srgb(0.30, 0.48, 0.68)))
@@ -280,6 +282,9 @@ impl Plugin for WorldPlugin {
             ),
         );
         app.add_systems(Update, materials_guard::guard_blend_materials);
+        // 지붕 테라코타 잠금 — 툰 스왑 전 PBR 경로(스왑은 lock_roof_color 동일
+        // 규칙 사용)·툰 킬스위치 시에도 지붕 팔레트 유지.
+        app.add_systems(Update, materials_guard::lock_roof_palette);
         app.add_systems(
             Update,
             (
