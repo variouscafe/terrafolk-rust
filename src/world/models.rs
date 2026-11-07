@@ -17,6 +17,10 @@ pub struct ModelSpec {
     pub path: &'static str,
     pub target_h: f32,
     pub variants: &'static [&'static str],
+    /// 절출 카드 프롭(assetgen meshgen 산출) — 정면(+Z)이 그림면이라
+    /// 결정론 회전 대신 요 0 고정(카메라 요 0°와 정렬, 구 folk 라인
+    /// 카드 나무 계약). 회전하면 빈 옆면이 보인다.
+    pub card: bool,
 }
 
 impl PropKind {
@@ -27,16 +31,19 @@ impl PropKind {
                 path: "models/clay_pot.glb",
                 target_h: 1.4,
                 variants: &[],
+                card: false,
             },
             PropKind::TreeBroadleaf => ModelSpec {
                 path: "models/qnature/tree-0.glb",
                 target_h: 7.2,
                 variants: &[],
+                card: false,
             },
             PropKind::TreePine => ModelSpec {
                 path: "models/qnature/pine-1.glb",
                 target_h: 8.0,
                 variants: &[],
+                card: false,
             },
             PropKind::TreePalm => ModelSpec {
                 path: "models/PalmTrees.glb",
@@ -48,77 +55,98 @@ impl PropKind {
                     "PalmTree_4",
                     "PalmTree_5",
                 ],
+                card: false,
             },
             PropKind::TreeSapling => ModelSpec {
                 path: "models/qnature/fern-0.glb",
                 target_h: 1.4,
                 variants: &[],
+                card: false,
             },
             PropKind::TreeDead => ModelSpec {
                 path: "models/qnature/dead-tree-0.glb",
                 target_h: 6.4,
                 variants: &[],
+                card: false,
             },
             PropKind::BerryBush => ModelSpec {
                 path: "models/qnature/bush-with-flowers-0.glb",
                 target_h: 1.15,
                 variants: &[],
+                card: false,
             },
             PropKind::Boulder => ModelSpec {
-                path: "models/qnature/rock-medium-0.glb",
+                // 셀 카툰 카드(2026-11-07) — 구본 qnature/rock-medium-0
+                path: "models/celprops/boulder.glb",
                 target_h: 1.5,
                 variants: &[],
+                card: true,
             },
             PropKind::GoldVein => ModelSpec {
-                path: "models/qnature/rock-medium-2.glb",
+                // 셀 카툰 카드(2026-11-07) — 구본 qnature/rock-medium-2
+                path: "models/celprops/gold_vein.glb",
                 target_h: 1.05,
                 variants: &[],
+                card: true,
             },
             PropKind::FlowerClump => ModelSpec {
                 path: "models/qnature/flower-group-0.glb",
                 target_h: 0.6,
                 variants: &[],
+                card: false,
             },
             PropKind::GrassClump => ModelSpec {
                 path: "models/qnature/grass-0.glb",
                 target_h: 0.55,
                 variants: &[],
+                card: false,
             },
             PropKind::Hut => ModelSpec {
-                // 코티지 3변형(테라코타·청색·주황 지붕) — fetch_village_glbs.py 산출
-                path: "models/CottageHouses.glb",
+                // 셀 카툰 카드(2026-11-07 소품 카툰 통일 3단계) — Qwen Image 2.1
+                // 셀 카툭 스프라이트(assetgen qwenprop·celprep 절출). 구본
+                // CottageHouses 3변형은 git 히스토리 참조.
+                path: "models/celprops/hut.glb",
                 target_h: 4.2,
-                variants: &["House_1", "House_2", "House_4"],
+                variants: &[],
+                card: true,
             },
             PropKind::StorageHut => ModelSpec {
                 path: "models/Barn.glb",
                 target_h: 3.4,
                 variants: &[],
+                card: false,
             },
             PropKind::Tent => ModelSpec {
                 path: "models/Tent.glb",
                 target_h: 2.5,
                 variants: &[],
+                card: false,
             },
             PropKind::Campfire => ModelSpec {
-                path: "models/Bonfire.glb",
+                // 셀 카툰 카드(2026-11-07) — 구본 Bonfire.glb. 불꽃·라이트는
+                // 형제 엔티티(spawn_campfire_fire)라 카드와 무관하게 유지.
+                path: "models/celprops/bonfire.glb",
                 target_h: 1.15,
                 variants: &[],
+                card: true,
             },
             PropKind::Windbreak => ModelSpec {
                 path: "models/Fence.glb",
                 target_h: 1.05,
                 variants: &[],
+                card: false,
             },
             PropKind::Grave => ModelSpec {
                 path: "models/Grave.glb",
                 target_h: 1.3,
                 variants: &[],
+                card: false,
             },
             PropKind::Stash => ModelSpec {
                 path: "models/CubeCrate.glb",
                 target_h: 1.0,
                 variants: &[],
+                card: false,
             },
             PropKind::Relic => ModelSpec {
                 // 임시 룩 — 자연 바위(RockLarge)와 구별되는 상자. 발명 GLB 보유
@@ -126,37 +154,44 @@ impl PropKind {
                 path: "models/CubeCrate.glb",
                 target_h: 1.1,
                 variants: &[],
+                card: false,
             },
             PropKind::WoodLog => ModelSpec {
                 path: "models/WoodLog.glb",
                 target_h: 0.9,
                 variants: &[],
+                card: false,
             },
             // 동물 — Poly by Google CC-BY(stylized flat) · Kenta Imai(niwatori)
             PropKind::AnimalBoar => ModelSpec {
                 path: "models/AnimalBoar.glb",
                 target_h: 0.85,
                 variants: &[],
+                card: false,
             },
             PropKind::AnimalDeer => ModelSpec {
                 path: "models/qanimal/deer.glb",
                 target_h: 1.7,
                 variants: &[],
+                card: false,
             },
             PropKind::AnimalWaterDeer => ModelSpec {
                 path: "models/qanimal/stag.glb",
                 target_h: 1.1,
                 variants: &[],
+                card: false,
             },
             PropKind::AnimalSquirrel => ModelSpec {
                 path: "models/AnimalSquirrel.glb",
                 target_h: 0.38,
                 variants: &[],
+                card: false,
             },
             PropKind::AnimalPheasant => ModelSpec {
                 path: "models/AnimalPheasant.glb",
                 target_h: 0.55,
                 variants: &[],
+                card: false,
             },
         }
     }
@@ -244,7 +279,12 @@ pub fn spawn_one_prop(
     let ground = world.height_at(p.x as i32, p.y as i32);
     let h1 = pos_hash(p.x, p.y, 1);
     let h2 = pos_hash(p.x, p.y, 2);
-    let rot_y = (h1 % 3600) as f32 / 3600.0 * std::f32::consts::TAU;
+    // 카드 프롭은 요 0 고정(정면 +Z = 카메라 정면) — 회전하면 빈 옆면 노출.
+    let rot_y = if spec.card {
+        0.0
+    } else {
+        (h1 % 3600) as f32 / 3600.0 * std::f32::consts::TAU
+    };
     let scale_jitter = 0.92 + (h2 % 1000) as f32 / 1000.0 * 0.16;
     commands.spawn((
         WorldAssetRoot(scene),

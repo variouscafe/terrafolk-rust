@@ -471,14 +471,22 @@ pub fn sync_resources(
         let vis = true;
         let sig = res_sig(r, vis);
         let ground = world.height_at(r.x as i32, r.y as i32);
-        let variants = crate::world::models::prop_model(kind).1;
+        let (variants, card) = {
+            let spec = kind.model();
+            (spec.variants, spec.card)
+        };
         let e = commands
             .spawn((
                 crate::world::models::PropRoot {
                     kind,
                     target_h,
                     ground_y: ground,
-                    rot_y: (r.id % 360) as f32 / 360.0 * std::f32::consts::TAU,
+                    // 카드 프롭은 요 0 고정(정면 +Z = 카메라) — models.rs 계약
+                    rot_y: if card {
+                        0.0
+                    } else {
+                        (r.id % 360) as f32 / 360.0 * std::f32::consts::TAU
+                    },
                     scale_jitter: 1.0,
                     variants,
                 },

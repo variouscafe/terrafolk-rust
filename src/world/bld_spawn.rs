@@ -107,7 +107,10 @@ pub fn spawn_live_hut(
                     DynProp {
                         target_h: 1.4,
                         ground_y: ground,
-                        rot_y: (r.id % 4) as f32 * std::f32::consts::FRAC_PI_2,
+                        // meshgen 절출 카드 — 정면(+Z) 고정(요 회전 시 옆면 노출,
+                        // 2026-11-07 celprop 카드 계약과 동일. 구 (id%4)*90°는
+                        // 발명 카드 50%가 옆면이던 잠복 결함)
+                        rot_y: 0.0,
                     },
                     WorldAssetRoot(scene),
                     LiveResourceTag(r.id),
@@ -116,13 +119,19 @@ pub fn spawn_live_hut(
                 ))
                 .id();
         } else {
+            let card = kind.model().card;
             commands
                 .spawn((
                     PropRoot {
                         kind,
                         target_h,
                         ground_y: ground,
-                        rot_y: (r.id % 4) as f32 * std::f32::consts::FRAC_PI_2,
+                        // 카드 프롭은 요 0 고정(정면 +Z) — 그 외 종결정론 회전
+                        rot_y: if card {
+                            0.0
+                        } else {
+                            (r.id % 4) as f32 * std::f32::consts::FRAC_PI_2
+                        },
                         scale_jitter: 1.0,
                         variants: prop_model(kind).1,
                     },

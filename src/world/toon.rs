@@ -32,6 +32,13 @@ impl Material for ToonMaterial {
     fn fragment_shader() -> ShaderRef {
         "shaders/toon.wgsl".into()
     }
+    /// 알파 컷아웃(2026-11-07) — 절출 카드 프롭(셀 카툭 hut·바위·모닥불·
+    /// 발명품)의 실루엣 구멍(불꽃 사이·통나무 틈)을 자른다. 기본 Opaque는
+    /// 투명 픽셀을 검은 사각형으로 렌더했다(모닥불 실측). 주민 텍스처는
+    /// 전면 불투명이라 Mask(0.5)가 무해 — 재질 공유 유지.
+    fn alpha_mode(&self) -> AlphaMode {
+        AlphaMode::Mask(0.5)
+    }
 }
 
 /// 툰 교체 완료 마커(메시 단위) — 재스왑 방지.
