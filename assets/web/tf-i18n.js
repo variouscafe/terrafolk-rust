@@ -75,7 +75,7 @@
     '으로': function (s) { return hasBatchim(s) ? '으로' : '로'; },
     '이': function (s) { return hasBatchim(s) ? '이' : '가'; },
   };
-  function resolveParams(tmpl, params, locale) {
+  function resolveParams(tmpl, params, locale, mtFn) {
     var out = tmpl;
     Object.keys(params || {}).forEach(function (name) {
       var raw = params[name];
@@ -85,6 +85,7 @@
       else if (name === 'species') val = label4('sp', s, locale);
       else if (name === 'dir') val = label4('dir', s, locale);
       else if (name === 'skill') val = D['act.' + s] ? translate(locale, 'act.' + s) : s;
+      else if (name === 'inv') val = mtFn ? mtFn(s) : s;   // 발명품 이름 — 브레인 영문 정본, 표시 MT(§17.51)
       else if (name === 'cat') val = label4('invcat', s, locale);
       else if (name === 'era') val = label4('era', s, locale);
       else if (name === 'stage') {
@@ -120,21 +121,22 @@
     });
     return out;
   }
-  function renderEventKey(key, params, locale, fallback) {
+  function renderEventKey(key, params, locale, fallback, mtFn) {
     var entry = DATA.EVENT_DICT[key];
     if (!entry) return fallback || '';
     var idx = IDX[locale] != null ? IDX[locale] : 1;
     var tmpl = entry[idx] != null ? entry[idx] : entry[0];
-    return resolveParams(tmpl, params, locale);
+    return resolveParams(tmpl, params, locale, mtFn);
   }
-  /** 이벤트 payload → 문장 — key 우선, think는 goalKey, 없으면 text(영문 정본). */
-  function eventText(p, locale, fb) {
+  /** 이벤트 payload → 문장 — key 우선, think는 goalKey, 없으면 text(영문 정본).
+   * mtFn(선택) = 표시 MT 래퍼 — {inv} 발명품 이름을 로케일로(첫 렌더 원문→캐시 후 재렌더). */
+  function eventText(p, locale, fb, mtFn) {
     if (p.key) {
-      var out = renderEventKey(p.key, p.params, locale, '');
+      var out = renderEventKey(p.key, p.params, locale, '', mtFn);
       if (out) return out;
     }
     if (p.goalKey) {
-      var out2 = renderEventKey(p.goalKey, p.goalParams, locale, '');
+      var out2 = renderEventKey(p.goalKey, p.goalParams, locale, '', mtFn);
       if (out2) return out2;
     }
     return String(p.text != null ? p.text : (p.goal != null ? p.goal : (fb || '')));
@@ -285,34 +287,34 @@
     var p = e.payload || {};
     var who = e.agent_id ? o.nameOf(e.agent_id) : '';
     var icon = '', text = '';
-    if (e.kind === 'relation') { icon = '💖'; text = eventText(p, o.locale); who = ''; }
-    else if (e.kind === 'trade' && p.ok) { icon = '🤝'; text = eventText(p, o.locale); }
-    else if (e.kind === 'give' && p.ok) { icon = '💝'; text = eventText(p, o.locale); }
-    else if (e.kind === 'skill') { icon = '⭐'; text = eventText(p, o.locale); }
-    else if (e.kind === 'teach' && p.ok) { icon = '🎓'; text = eventText(p, o.locale); }
-    else if (e.kind === 'inherit') { icon = '🤲'; text = eventText(p, o.locale); who = ''; }
-    else if (e.kind === 'birth' && p.ok) { icon = '👶'; text = eventText(p, o.locale); who = ''; }
-    else if (e.kind === 'routine') { icon = '🧭'; text = eventText(p, o.locale); who = ''; }
-    else if (e.kind === 'perform' && p.ok) { icon = '🎭'; text = eventText(p, o.locale); }
-    else if (e.kind === 'chronicle') { icon = '📜'; text = eventText(p, o.locale); who = ''; }
-    else if (e.kind === 'home') { icon = '🏡'; text = eventText(p, o.locale); who = ''; }
+    if (e.kind === 'relation') { icon = '💖'; text = eventText(p, o.locale, '', o.mt); who = ''; }
+    else if (e.kind === 'trade' && p.ok) { icon = '🤝'; text = eventText(p, o.locale, '', o.mt); }
+    else if (e.kind === 'give' && p.ok) { icon = '💝'; text = eventText(p, o.locale, '', o.mt); }
+    else if (e.kind === 'skill') { icon = '⭐'; text = eventText(p, o.locale, '', o.mt); }
+    else if (e.kind === 'teach' && p.ok) { icon = '🎓'; text = eventText(p, o.locale, '', o.mt); }
+    else if (e.kind === 'inherit') { icon = '🤲'; text = eventText(p, o.locale, '', o.mt); who = ''; }
+    else if (e.kind === 'birth' && p.ok) { icon = '👶'; text = eventText(p, o.locale, '', o.mt); who = ''; }
+    else if (e.kind === 'routine') { icon = '🧭'; text = eventText(p, o.locale, '', o.mt); who = ''; }
+    else if (e.kind === 'perform' && p.ok) { icon = '🎭'; text = eventText(p, o.locale, '', o.mt); }
+    else if (e.kind === 'chronicle') { icon = '📜'; text = eventText(p, o.locale, '', o.mt); who = ''; }
+    else if (e.kind === 'home') { icon = '🏡'; text = eventText(p, o.locale, '', o.mt); who = ''; }
     else if (e.kind === 'spawn') { icon = '👋'; text = (String(p.name || '') + ' — ' + who).trim(); }
-    else if (e.kind === 'result' && p.action === 'campfire' && p.ok) { icon = '🔥'; text = eventText(p, o.locale); }
-    else if (e.kind === 'result' && (p.action === 'drink' || p.action === 'fetch') && p.ok) { icon = '💧'; text = eventText(p, o.locale); }
-    else if (e.kind === 'result' && p.action === 'thirst' && !p.ok) { icon = '🥵'; text = eventText(p, o.locale); }
-    else if (e.kind === 'result' && (p.action === 'store' || p.action === 'withdraw') && p.ok) { icon = '📦'; text = eventText(p, o.locale); }
-    else if (e.kind === 'result' && (p.action === 'drop' || p.action === 'pickup') && p.ok) { icon = '🎒'; text = eventText(p, o.locale); }
-    else if (p.carry) { icon = '⚖️'; text = eventText(p, o.locale); }
-    else if (e.kind === 'result' && p.action === 'wear' && p.ok) { icon = '🧥'; text = eventText(p, o.locale); }
-    else if (e.kind === 'result' && p.action === 'build' && p.ok) { icon = '🏠'; text = eventText(p, o.locale); }
-    else if (e.kind === 'invention') { icon = '🛠'; text = eventText(p, o.locale); who = ''; }
-    else if (e.kind === 'talk') { icon = '💡'; text = eventText(p, o.locale); who = ''; }
+    else if (e.kind === 'result' && p.action === 'campfire' && p.ok) { icon = '🔥'; text = eventText(p, o.locale, '', o.mt); }
+    else if (e.kind === 'result' && (p.action === 'drink' || p.action === 'fetch') && p.ok) { icon = '💧'; text = eventText(p, o.locale, '', o.mt); }
+    else if (e.kind === 'result' && p.action === 'thirst' && !p.ok) { icon = '🥵'; text = eventText(p, o.locale, '', o.mt); }
+    else if (e.kind === 'result' && (p.action === 'store' || p.action === 'withdraw') && p.ok) { icon = '📦'; text = eventText(p, o.locale, '', o.mt); }
+    else if (e.kind === 'result' && (p.action === 'drop' || p.action === 'pickup') && p.ok) { icon = '🎒'; text = eventText(p, o.locale, '', o.mt); }
+    else if (p.carry) { icon = '⚖️'; text = eventText(p, o.locale, '', o.mt); }
+    else if (e.kind === 'result' && p.action === 'wear' && p.ok) { icon = '🧥'; text = eventText(p, o.locale, '', o.mt); }
+    else if (e.kind === 'result' && p.action === 'build' && p.ok) { icon = '🏠'; text = eventText(p, o.locale, '', o.mt); }
+    else if (e.kind === 'invention') { icon = '🛠'; text = eventText(p, o.locale, '', o.mt); who = ''; }
+    else if (e.kind === 'talk') { icon = '💡'; text = eventText(p, o.locale, '', o.mt); who = ''; }
     else if (e.kind === 'death') {
       icon = '🕯';
-      text = eventText(p, o.locale) || String(p.name || '') + ' (aged ' + (p.age != null ? p.age : '?') + ')';
+      text = eventText(p, o.locale, '', o.mt) || String(p.name || '') + ' (aged ' + (p.age != null ? p.age : '?') + ')';
       who = '';
     }
-    else if (e.kind === 'system' && p.weather) { icon = WEATHER_ICON[String(p.weather)] || '🌤'; text = eventText(p, o.locale); who = ''; }
+    else if (e.kind === 'system' && p.weather) { icon = WEATHER_ICON[String(p.weather)] || '🌤'; text = eventText(p, o.locale, '', o.mt); who = ''; }
     if (!icon || (!text && !who)) return null;
     return { icon: icon, who: who, text: text };
   }

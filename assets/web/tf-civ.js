@@ -125,7 +125,7 @@
               return '<span class="tf-chipbox"' +
                 (i.last_perform_day != null ? ' title="' + esc(t('civ.living.last', { d: i.last_perform_day })) + '"' : '') + '>' +
                 '<span style="font-size:14px;line-height:1">' + (i.icon && i.icon.tpl ? chipIconHtml(i.name, 20) : invCatEmoji(i.category)) + '</span>' +
-                '<span class="tf-chipbox-nm">' + esc(i.name) + '</span>' +
+                '<span class="tf-chipbox-nm">' + esc(mt(i.name)) + '</span>' +
                 '<span class="tf-qty" style="color:#fcd34d">' + esc(t('civ.living.holds', { n: n, d: depth })) + '</span>' +
                 '</span>';
             }).join('') + '</div>') +
@@ -134,7 +134,7 @@
 
     // 마을 연대기 — kind='chronicle' 최근 12행(최신 우선)
     var chron = S.events.filter(function (e) { return e.kind === 'chronicle'; })
-      .map(function (e) { return I.eventText(e.payload || {}, I.getLocale()); })
+      .map(function (e) { return I.eventText(e.payload || {}, I.getLocale(), '', mt); })
       .filter(Boolean).slice(-12).reverse();
     var chronHtml =
       '<section class="tf-card"><h4>📜 ' + esc(t('civ.story')) + '</h4>' +
@@ -178,8 +178,8 @@
       '<span class="tf-invrow-icon">' + invIconHtml(i, 22) + '</span>' +
       '<span class="tf-invrow-main">' +
         '<span class="tf-invrow-line1">' +
-          '<span class="tf-invrow-name">' + esc(i.name) + '</span>' +
-          (i.based_on ? '<span class="tf-amber-up" title="' + esc(t('relic.card.improved', { x: i.based_on })) + '">↑</span>' : '') +
+          '<span class="tf-invrow-name">' + esc(mt(i.name)) + '</span>' +
+          (i.based_on ? '<span class="tf-amber-up" title="' + esc(t('relic.card.improved', { x: mt(i.based_on) })) + '">↑</span>' : '') +
           '<span class="tf-invrow-year">' + esc(t('civ.inv.year', { y: year })) + '</span>' +
         '</span>' +
         '<span class="tf-invrow-line2">' + invCatEmoji(i.category) + ' ' + esc(tOr('invcat.' + cat, cat || '—')) +
@@ -191,7 +191,7 @@
   function invDetailHtml(sel) {
     var cal = I.dateOf(sel.day || 0);
     var mat = sel.materials
-      ? Object.keys(sel.materials).map(function (it) { return it + '×' + sel.materials[it]; }).join(' · ')
+      ? Object.keys(sel.materials).map(function (it) { return tOr('item.' + it, it) + '×' + sel.materials[it]; }).join(' · ')
       : '';
     var cat = invCatId(sel.category);
     // §17.86 생성 스프라이트 — 핸드페인트 래스터: 부드러운 샘플링·contain.
@@ -213,8 +213,8 @@
         '<div class="tf-invdetail-icon">' + invIconHtml(sel, 32) + '</div>' +
         '<div style="min-width:0;flex:1 1 0%">' +
           '<div style="display:flex;align-items:center;gap:.375rem">' +
-            '<h3 class="tf-invdetail-name">' + esc(sel.name) + '</h3>' +
-            (sel.based_on ? '<span class="tf-improved">' + esc(t('relic.card.improved', { x: sel.based_on })) + '</span>' : '') +
+            '<h3 class="tf-invdetail-name">' + esc(mt(sel.name)) + '</h3>' +
+            (sel.based_on ? '<span class="tf-improved">' + esc(t('relic.card.improved', { x: mt(sel.based_on) })) + '</span>' : '') +
           '</div>' +
           '<div class="tf-invdetail-meta">' +
             '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(t('relic.card.by')) + ' · ' + esc(sel.inventor || '—') + '</span>' +

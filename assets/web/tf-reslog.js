@@ -68,8 +68,8 @@
       relic =
         '<section class="tf-card amber">' +
           '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem">' +
-            '<h3 class="tf-h-amber"><span>⚒</span> ' + esc(S.selRelic.name) +
-              (S.selRelic.basedOn ? ' <span class="tf-improved">' + esc(t('relic.card.improved', { x: S.selRelic.basedOn })) + '</span>' : '') +
+            '<h3 class="tf-h-amber"><span>⚒</span> ' + esc(mt(S.selRelic.name)) +
+              (S.selRelic.basedOn ? ' <span class="tf-improved">' + esc(t('relic.card.improved', { x: mt(S.selRelic.basedOn) })) + '</span>' : '') +
             '</h3>' +
             '<button class="tf-close-x" data-act="close-relic" aria-label="' + esc(t('btn.close')) + '">✕</button>' +
           '</div>' +
@@ -105,8 +105,8 @@
       ? invNames.map(function (name) {
           var inv = S.inventions[name];
           return '<span class="tf-chipbox" title="' + esc(inv.inventor ? inv.inventor + ' — ' + mt(inv.purpose || '') : (mt(inv.purpose || '') || '')) + '">' +
-            chipIconHtml(name) + esc(name) +
-            (inv.based_on ? '<span class="tf-amber-up" title="' + esc(t('relic.card.improved', { x: inv.based_on })) + '">↑</span>' : '') +
+            chipIconHtml(name) + esc(mt(name)) +
+            (inv.based_on ? '<span class="tf-amber-up" title="' + esc(t('relic.card.improved', { x: mt(inv.based_on) })) + '">↑</span>' : '') +
             '</span>';
         }).join('')
       : '<div class="tf-empty">' + esc(t('res.inventions.empty')) + '</div>';
@@ -125,10 +125,11 @@
       var h = I.highlightOf(e, {
         locale: I.getLocale(),
         tOr: tOr,
+        mt: mt,
         nameOf: function (id) { return (S.live[id] && S.live[id].name) || ''; },
       });
       var p = e.payload || {};
-      var text = (h && h.text) || I.eventText(p, I.getLocale()) || String(p.goal != null ? p.goal : '');
+      var text = (h && h.text) || I.eventText(p, I.getLocale(), '', mt) || String(p.goal != null ? p.goal : '');
       var who = (h && h.who) || (e.agent_id ? ((S.live[e.agent_id] && S.live[e.agent_id].name) || '') : '');
       var icon = (h && h.icon) || I.EV_KIND_ICON[e.kind] || '•';
       return { e: e, h: h, text: text, who: who, icon: icon, cat: I.EV_CAT_OF[e.kind] || 'world' };

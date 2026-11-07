@@ -355,6 +355,7 @@
       var h = i18n.highlightOf(e, {
         locale: i18n.getLocale(),
         tOr: function (k, fb, p) { return i18n.tOr(k, fb, p); },
+        mt: mtTip,   // {inv} 발명품 이름 — 캐시 충전, 이번 틱은 원문(FE mtTooltip 패턴)
         nameOf: function (id) {
           var a = T.state.live[id];
           return a ? a.name : '';
