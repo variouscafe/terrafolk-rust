@@ -121,15 +121,48 @@ pub fn toonify_props(
                         tint: tint.to_vec4(),
                     })
                 });
+                // try 계열(무음) — 라이브 자원 리스폰 철거와 같은 프레임에 걸리면
+                // 자식이 이미 디스폰돼 있어, 기본 커맨드 에러 핸들러는 패닉이라
+                // 부팅이 죽는다(2026-11-07 v0.8.92 라이브 'Entity despawned'
+                // RuntimeError 실측). 살아있는 프레임이면 다음 스캔이 다시 잡는다.
                 commands
                     .entity(k)
-                    .remove::<MeshMaterial3d<StandardMaterial>>()
-                    .insert((MeshMaterial3d(handle.clone()), ToonSwapped));
+                    .try_remove::<MeshMaterial3d<StandardMaterial>>()
+                    .try_insert((MeshMaterial3d(handle.clone()), ToonSwapped));
             }
         }
     }
 }
 
+/// 소품 루트에 잉크 아웃라인 옵트인 — 캐릭터와 동일한 크레이트 헐 체인
+/// (InkPlugin이 Added<Ink> 루트의 자손 메시를 자동 처리). 툰 스왑과 같은
+/// 제외 규칙(유기 형태 제외)로 카툰 통일을 '셀+잉크'까지 완성한다.
+/// **기본 끔** — `?tfdbg=prop_ink`로만 켠다(2026-11-07 로컬 검증 후
+/// 기본 전환 예정. 크레이트 헐 체인의 프레임 경합을 실측한 뒤 상시화).
+fn inkify_props(
+    mut commands: Commands,
+    roots: Query<
+        (Entity, Option<&super::models::PropRoot>, Has<crate::character::Ink>),
+        Or<(With<super::models::PropRoot>, With<super::prop_fit::DynProp>)>,
+    >,
+) {
+    if !crate::net::dbg_gate::on("prop_ink") {
+        return;
+    }
+    for (root, pr, has_ink) in roots.iter() {
+        if has_ink {
+            continue;
+        }
+        if let Some(pr) = pr {
+            if organic(pr.kind) {
+                continue;
+            }
+        }
+        // try_insert — 리스폰 철거 경합 시 패닉 방지(toonify 주석 참조).
+        commands.entity(root).try_insert(crate::character::Ink);
+    }
+}
+
 pub fn plugin(app: &mut App) {
-    app.add_systems(Update, toonify_props);
+    app.add_systems(Update, (toonify_props, inkify_props));
 }
