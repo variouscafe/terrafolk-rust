@@ -30,6 +30,7 @@ pub mod occlusion;
 pub mod outfit;
 pub mod outline;
 pub mod toon;
+pub mod cel_probe;
 pub mod toon_props;
 pub mod look_tint;
 pub mod look_edit;
@@ -81,6 +82,7 @@ impl Plugin for WorldPlugin {
         app.add_plugins(night_glow::plugin);
         app.add_plugins(toon::plugin);
         app.add_plugins(toon_props::plugin);
+        app.add_plugins(cel_probe::plugin);
         app.add_plugins(outline::plugin);
         app.add_systems(Update, water::water_night_dim);
         app.insert_resource(ClearColor(Color::srgb(0.30, 0.48, 0.68)))
