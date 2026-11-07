@@ -137,8 +137,8 @@ pub fn toonify_props(
 /// 소품 루트에 잉크 아웃라인 옵트인 — 캐릭터와 동일한 크레이트 헐 체인
 /// (InkPlugin이 Added<Ink> 루트의 자손 메시를 자동 처리). 툰 스왑과 같은
 /// 제외 규칙(유기 형태 제외)로 카툰 통일을 '셀+잉크'까지 완성한다.
-/// **기본 끔** — `?tfdbg=prop_ink`로만 켠다(2026-11-07 로컬 검증 후
-/// 기본 전환 예정. 크레이트 헐 체인의 프레임 경합을 실측한 뒤 상시화).
+/// 2026-11-07 실측으로 상시화: 헐 441생성·가시 +27·FPS 불변(52.4 양측)·
+/// 리스폰 철거 경합 무패닉. 킬스위치 `?tfdbg=no_prop_ink`.
 fn inkify_props(
     mut commands: Commands,
     roots: Query<
@@ -146,7 +146,7 @@ fn inkify_props(
         Or<(With<super::models::PropRoot>, With<super::prop_fit::DynProp>)>,
     >,
 ) {
-    if !crate::net::dbg_gate::on("prop_ink") {
+    if crate::net::dbg_gate::off("no_prop_ink") {
         return;
     }
     for (root, pr, has_ink) in roots.iter() {
