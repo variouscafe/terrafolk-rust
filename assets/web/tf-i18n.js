@@ -169,10 +169,16 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ texts: texts, target: locale }),
-      }).then(function (r) { return r.ok ? r.json() : null; }).then(function (data) {
+      }).then(function (r) {
+        if (!r.ok) throw new Error('http ' + r.status);   // HTTP 실패도 캐시 금지 경로로
+        return r.json();
+      }).then(function (data) {
         var map = (data && data.texts) || {};
-        rows.forEach(function (r) { r.resolve(map[r.text] || r.text); });
+        // 정상 응답 — 서버가 내려준 값(항등 포함: 이미 그 로케일 문장)을 캐시
+        rows.forEach(function (r) { r.store(map[r.text] || r.text); });
       }).catch(function () {
+        // 네트워크·서버 실패 — 이번 렌더는 원문 폴백하되 캐시하지 않는다:
+        // 굳히면 세션이 끝날 때까지 재시도 없이 영어로 남는다(§17.100 정신)
         rows.forEach(function (r) { r.resolve(r.text); });
       });
     });
@@ -194,7 +200,9 @@
     var p = new Promise(function (resolve) {
       mtQueue.push({
         locale: locale, text: text,
-        resolve: function (s) { mtCache.set(key, s); mtPending.delete(key); resolve(s); },
+        // store = 정상 응답 캐시, resolve = 캐시 없이 확정(실패 폴백 전용)
+        resolve: function (s) { mtPending.delete(key); resolve(s); },
+        store: function (s) { mtCache.set(key, s); mtPending.delete(key); resolve(s); },
       });
       if (!mtTimer) mtTimer = setTimeout(mtFlush, 350);
     });
