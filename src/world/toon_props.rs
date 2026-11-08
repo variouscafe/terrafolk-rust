@@ -94,6 +94,11 @@ pub fn toonify_props(
             if organic(pr.kind) {
                 continue;
             }
+            // 셀 카드(평면) — 잉크가 스프라이트에 베이크됐다(2026-11-08).
+            // 헐 잉크를 겹치면 이중 선. (발명품 DynProp은 절출 카드라 헐 유지)
+            if pr.kind.model().card {
+                continue;
+            }
         }
         let mut stack = vec![root];
         while let Some(e) = stack.pop() {
