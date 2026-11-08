@@ -483,7 +483,7 @@ pub fn sync_resources(
                     ground_y: ground,
                     // 카드 프롭은 요 0 고정(정면 +Z = 카메라) — models.rs 계약
                     rot_y: if card {
-                        0.0
+                        crate::world::models::CARD_YAW
                     } else {
                         (r.id % 360) as f32 / 360.0 * std::f32::consts::TAU
                     },

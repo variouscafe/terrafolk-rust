@@ -45,7 +45,7 @@ fn celprobe(
                 kind,
                 target_h: spec.target_h,
                 ground_y: ground,
-                rot_y: 0.0,
+                rot_y: super::models::CARD_YAW,
                 scale_jitter: 1.0,
                 variants: spec.variants,
             },

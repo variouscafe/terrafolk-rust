@@ -107,10 +107,10 @@ pub fn spawn_live_hut(
                     DynProp {
                         target_h: 1.4,
                         ground_y: ground,
-                        // meshgen 절출 카드 — 정면(+Z) 고정(요 회전 시 옆면 노출,
-                        // 2026-11-07 celprop 카드 계약과 동일. 구 (id%4)*90°는
-                        // 발명 카드 50%가 옆면이던 잠복 결함)
-                        rot_y: 0.0,
+                        // meshgen 절출 카드 — CARD_YAW로 카메라(+X) 정면
+                        // (구 (id%4)*90°는 발명 카드 75%가 옆면/뒷면이던 결함,
+                        // 2026-11-08 요 0도 옆면임이 실측 — +90°로 확정)
+                        rot_y: crate::world::models::CARD_YAW,
                     },
                     WorldAssetRoot(scene),
                     LiveResourceTag(r.id),
@@ -128,7 +128,7 @@ pub fn spawn_live_hut(
                         ground_y: ground,
                         // 카드 프롭은 요 0 고정(정면 +Z) — 그 외 종결정론 회전
                         rot_y: if card {
-                            0.0
+                            crate::world::models::CARD_YAW
                         } else {
                             (r.id % 4) as f32 * std::f32::consts::FRAC_PI_2
                         },

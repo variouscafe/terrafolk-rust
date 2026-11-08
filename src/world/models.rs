@@ -12,6 +12,11 @@ use std::collections::HashMap;
 
 use super::data::{PropKind, WorldData};
 
+/// 절출 카드의 정면 요 — 카메라(CAM_YAW 0°)는 +X축에서 -X를 주시하므로
+/// 카드 법선(+Z)을 +X로 돌려야 정면이 보인다(2026-11-08 실측 — 요 0은
+/// 시선과 수직=완전 옆면). 요 0 가정은 구 folk 라인 계약의 이식 오류.
+pub const CARD_YAW: f32 = std::f32::consts::FRAC_PI_2;
+
 /// 소품 → GLB 명세. variants: 번들 내 메시명(빈 배열=통째 사용).
 pub struct ModelSpec {
     pub path: &'static str,
@@ -281,7 +286,7 @@ pub fn spawn_one_prop(
     let h2 = pos_hash(p.x, p.y, 2);
     // 카드 프롭은 요 0 고정(정면 +Z = 카메라 정면) — 회전하면 빈 옆면 노출.
     let rot_y = if spec.card {
-        0.0
+        CARD_YAW
     } else {
         (h1 % 3600) as f32 / 3600.0 * std::f32::consts::TAU
     };
