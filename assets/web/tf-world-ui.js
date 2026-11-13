@@ -23,8 +23,8 @@
   var LABEL_ZOOM_MAX = 1.9;   // 이 줌(월드 약 42m 시야)보다 멀면 이름 숨김(FE zoom<0.85)
   var BUBBLE_LIFE = 4100;     // 3.4s 노출 + 0.7s 페이드(FE 트윈 동일)
   var BUBBLE_FADE = 700;
-  var TOAST_LIFE = 6000;      // FE 6s 후 제거
-  var TOAST_MAX = 4;
+  var BUBBLE_MT_MIN_MS = 3000;   // 번역 교체 시점부터 최소 노출(§17.121)
+  var BUBBLE_MT_WAIT_MS = 8000;  // 이후 도착한 번역은 무시(말풍선은 이미 사라짐)
 
   // ── 스타일 — 팔레트는 tf-ui.css 시맨틱과 동일값(ink/accent) ──
   var st = document.createElement('style');
@@ -135,7 +135,7 @@
     n = nodes[id] = {
       el: el, name: name, badge: badge, zzz: zzz, alert: alert_,
       badgeSvg: null, badgeIcon: null, lastIcon: '', lastRing: -1,
-      nameText: '', bubble: null, bubbleTimer: 0, bubbleText: '',
+      nameText: '', bubble: null, bubbleTimer: 0, byeTimer: 0, bubbleKey: '', bubbleSeq: 0, bubbleEnd: 0,
     };
     return n;
   }
@@ -279,64 +279,54 @@
     var isUser = String(m.speaker || '').indexOf('@') >= 0 || m.speaker === 'user' ||
       (!!a && String(m.speaker || '') !== a.name);
     var tag = isUser ? '⟪' + String(m.speaker || '').split('@')[0] + '⟫ ' : '';
-    var text = tag + String(m.text || m.text_en || '').slice(0, 60);
-    if (n.bubbleText === text && n.bubble) return;   // 에코 확정 재방송 — 무변화
-    if (n.bubbleTimer) { clearTimeout(n.bubbleTimer); n.bubbleTimer = 0; }
+    // §17.121 — 표시 규칙 단일(chatView): 캐시 히트는 번역문 즉시, 미스는 원문 후 도착 시 교체.
+    // 자르기는 마지막(번역 원천·캐시 키는 전체 문장). 에코 가드는 원문 기준 키.
+    var i18n = I();
+    var loc = i18n ? i18n.getLocale() : 'en';
+    var key = m.agent_id + '|' + String(m.orig != null ? m.orig : (m.text || m.text_en || ''));
+    if (n.bubbleKey === key && n.bubble) return;   // 에코 확정 재방송 — 무변화
+    var v = i18n ? i18n.chatView(m, loc) : { text: String(m.text || m.text_en || ''), mtSource: null };
     if (!n.bubble) {
       n.bubble = document.createElement('div');
       n.el.insertBefore(n.bubble, n.el.firstChild);
     }
-    n.bubble.className = 'tf-wbubble' + (isUser ? ' user' : '');
-    n.bubble.textContent = text;
-    n.bubbleText = text;
+    var b = n.bubble;
+    b.className = 'tf-wbubble' + (isUser ? ' user' : '');
+    b.textContent = tag + v.text.slice(0, 60);
+    n.bubbleKey = key;
+    var seq = n.bubbleSeq = (n.bubbleSeq || 0) + 1;
+    armBubble(n, b, BUBBLE_LIFE - BUBBLE_FADE);
+    if (!v.mtSource) return;
+    var t0 = Date.now();
+    i18n.translateText(loc, v.mtSource).then(function (tr) {
+      // 새 말이 덮었거나 이미 사라졌거나 너무 늦으면 무시
+      if (n.bubbleSeq !== seq || n.bubble !== b || Date.now() - t0 > BUBBLE_MT_WAIT_MS) return;
+      if (!tr || tr === v.mtSource) return;
+      b.textContent = tag + tr.slice(0, 60);
+      // 교체 시점부터 최소 BUBBLE_MT_MIN_MS 노출(페이드 중이면 취소하고 재표시)
+      armBubble(n, b, Math.max(BUBBLE_MT_MIN_MS, n.bubbleEnd - Date.now()));
+    }).catch(function () {});
+  }
+
+  /** 말풍선 수명 타이머 — visibleMs 뒤 페이드 시작, 이어서 제거. 재호출 시 페이드 취소. */
+  function armBubble(n, b, visibleMs) {
+    clearTimeout(n.bubbleTimer);
+    clearTimeout(n.byeTimer);
+    b.classList.remove('bye');
+    n.bubbleEnd = Date.now() + visibleMs;
     n.bubbleTimer = setTimeout(function () {
-      if (!n.bubble) return;
-      n.bubble.classList.add('bye');
-      var b = n.bubble;
-      setTimeout(function () {
+      if (n.bubble !== b) return;
+      b.classList.add('bye');
+      n.byeTimer = setTimeout(function () {
         b.remove();
-        if (n.bubble === b) { n.bubble = null; n.bubbleText = ''; }
+        if (n.bubble === b) { n.bubble = null; n.bubbleKey = ''; }
       }, BUBBLE_FADE);
-      if (n.bubble === b) n.bubbleTimer = 0;
-    }, BUBBLE_LIFE - BUBBLE_FADE);
+    }, visibleMs);
   }
 
   // ═══════════ 하이라이트 토스트 — TF_UI.feed.event wrap ═══════════
-  var toastHost = document.createElement('div');
-  toastHost.id = 'tf-toasts';
-  document.body.appendChild(toastHost);
-
-  function pushToast(h) {
-    var el = document.createElement('div');
-    el.className = 'tf-toast';
-    var ic = document.createElement('span');
-    ic.className = 'ic';
-    ic.textContent = h.icon || '✦';
-    var body = document.createElement('span');
-    if (h.who) {
-      var who = document.createElement('span');
-      who.className = 'who';
-      who.textContent = h.who + ' — ';
-      body.appendChild(who);
-    }
-    var txtNode = document.createTextNode(h.text || '');
-    body.appendChild(txtNode);
-    // 자유문 토스트 MT 패치(레거시 useWorldConnection 동일) — 템플릿문은
-    // 이미 로케일 렌더라 번역이 제자리로 돌아온다.
-    (function () {
-      var i = window.TF_I18N;
-      var loc = i && i.getLocale();
-      if (!i || loc === 'en' || !h.text) return;
-      i.translateText(loc, h.text).then(function (tr) {
-        if (tr && tr !== h.text) txtNode.textContent = tr;
-      }).catch(function () {});
-    })();
-    el.appendChild(ic);
-    el.appendChild(body);
-    toastHost.appendChild(el);
-    while (toastHost.children.length > TOAST_MAX) toastHost.removeChild(toastHost.firstChild);
-    setTimeout(function () { el.remove(); }, TOAST_LIFE);
-  }
+  // 토스트 DOM 렌더는 tf-feed.js(TF_FEED.pushToast) — 500줄 규칙으로 이관(§17.121)
+  function pushToast(h) { if (window.TF_FEED) window.TF_FEED.pushToast(h); }
 
   // ── feed wrap — tf-ui.js 로드 이후 원본을 감싸 함께 소비한다 ──
   function wrapFeed() {

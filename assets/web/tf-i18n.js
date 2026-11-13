@@ -75,6 +75,17 @@
     '으로': function (s) { return hasBatchim(s) ? '으로' : '로'; },
     '이': function (s) { return hasBatchim(s) ? '이' : '가'; },
   };
+  // 주민 이름 집합 — 번역 금지. 누적만(사망·퇴장 주민이 과거 이벤트에 남는다).
+  // 집합이 비었거나 한글만으로 된 짧은 값(고유명사 규칙; 발명품 이름은 영문 정본)이면 이름으로 취급.
+  var agentNames = new Set();
+  function setAgentNames(iter) {
+    if (!iter) return;
+    Array.from(iter).forEach(function (n) { if (n) agentNames.add(String(n)); });
+  }
+  function isPersonName(s) {
+    if (!agentNames.size || agentNames.has(s)) return true;
+    return /[가-힣]/.test(s) && !/[A-Za-z]/.test(s);
+  }
   function resolveParams(tmpl, params, locale, mtFn) {
     var out = tmpl;
     Object.keys(params || {}).forEach(function (name) {
@@ -86,6 +97,8 @@
       else if (name === 'dir') val = label4('dir', s, locale);
       else if (name === 'skill') val = D['act.' + s] ? translate(locale, 'act.' + s) : s;
       else if (name === 'inv') val = mtFn ? mtFn(s) : s;   // 발명품 이름 — 브레인 영문 정본, 표시 MT(§17.51)
+      else if (name === 'bld') val = label4('bld', s, locale);   // 건물 타입 ID → 로케일 라벨(원시 "HUT" 노출 방지)
+      else if (name === 'name') val = (mtFn && s && !isPersonName(s)) ? mtFn(s) : s;   // 발명품 이름일 때만 MT — 주민 이름 불변
       else if (name === 'cat') val = label4('invcat', s, locale);
       else if (name === 'era') val = label4('era', s, locale);
       else if (name === 'stage') {
@@ -210,6 +223,31 @@
     return p;
   }
 
+  /** FE chatText.isAlreadyKorean 포트 — §17.51 한글 원문 재번역 방지(단일 구현) */
+  function isAlreadyKorean(s) {
+    s = String(s == null ? '' : s);
+    var h = (s.match(/[가-힣]/g) || []).length;
+    var l = (s.match(/[A-Za-z]/g) || []).length;
+    return h > 0 && h >= l * 3;
+  }
+  /** 채팅 표시 규칙 단일 함수(§17.121) — 로그·레일·말풍선 공통.
+   * 반환 text는 즉시 표시할 문장, mtSource가 있으면 translateText(locale, mtSource)로
+   * 도착 후 교체. 번역 원천은 영문 정본(비영문 행이면 text_en) — 사용자 입력 원문을 직접 MT하지 않는다. */
+  function chatView(row, locale) {
+    row = row || {};
+    var src = String(row.orig != null ? row.orig : (row.text != null ? row.text : (row.text_en != null ? row.text_en : '')));
+    var lang = row.lang || 'en';
+    if (locale === lang) return { text: src, mtSource: null };
+    if (locale === 'en') {
+      return row.text_en ? { text: String(row.text_en), mtSource: null } : { text: src, mtSource: src || null };
+    }
+    if (locale === 'ko' && isAlreadyKorean(src)) return { text: src, mtSource: null };
+    var source = (lang !== 'en' && row.text_en) ? String(row.text_en) : src;
+    if (!source) return { text: src, mtSource: null };
+    var cached = cachedText(locale, source);
+    return { text: cached != null ? cached : src, mtSource: cached != null ? null : source };
+  }
+
   // ---- 태양력 달력(FE solar.ts dateOf 포트) ----
   var YEAR_DAYS = DATA.CALENDAR.yearDays;
   var MONTH_CUM = DATA.CALENDAR.monthCum;
@@ -324,7 +362,9 @@
     }
     else if (e.kind === 'system' && p.weather) { icon = WEATHER_ICON[String(p.weather)] || '🌤'; text = eventText(p, o.locale, '', o.mt); who = ''; }
     if (!icon || (!text && !who)) return null;
-    return { icon: icon, who: who, text: text };
+    // §17.121 — 키 템플릿 문장은 이미 로케일 렌더 → MT 금지. 키 없는 자유문(영문 정본)만 원천 전달.
+    var keyed = (p.key && DATA.EVENT_DICT[p.key]) || (p.goalKey && DATA.EVENT_DICT[p.goalKey]);
+    return { icon: icon, who: who, text: text, mtSource: (!keyed && e.kind !== 'spawn') ? text : null };
   }
 
   // ---- 공용 상수(FE parts.tsx) ----
@@ -408,6 +448,7 @@
     eventText: eventText, renderEventKey: renderEventKey,
     translateText: translateText,
     cachedText: cachedText,
+    chatView: chatView, isAlreadyKorean: isAlreadyKorean, setAgentNames: setAgentNames,
     dateOf: dateOf, clockText: clockText, dayDialSvg: dayDialSvg,
     highlightOf: highlightOf, agentColor: agentColor,
     EV_CAT_OF: EV_CAT_OF, EV_CATS: EV_CATS, EV_KIND_ICON: EV_KIND_ICON, EVENT_COLOR: EVENT_COLOR,

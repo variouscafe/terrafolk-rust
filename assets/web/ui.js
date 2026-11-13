@@ -93,13 +93,6 @@
       { name: nameOf(id), actType: '', status: '' };
   }
 
-  /** FE chatText.isAlreadyKorean 포트 — §17.51 한글 원문 재번역 방지 */
-  function isAlreadyKorean(s) {
-    var h = (s.match(/[가-힣]/g) || []).length;
-    var l = (s.match(/[A-Za-z]/g) || []).length;
-    return h > 0 && h >= l * 3;
-  }
-
   /** FE isHumanRow 포트 — speaker=이메일 로컬파트(또는 주민명 불일치)로 판정 */
   function isHumanRow(r) {
     if (r.speaker && r.speaker.indexOf('@') >= 0) return true;
@@ -143,19 +136,13 @@
       if (r.sys) {
         tx.textContent = r.text;
       } else {
-        // §17.67 — 동기 결과는 즉시, 나머지 로케일 조합은 MT 후 패치
-        var lang = r.lang || 'en';
-        var src = String(r.text || r.text_en || '');
-        if (loc === lang) tx.textContent = src;
-        else if (loc === 'en' && r.text_en) tx.textContent = String(r.text_en);
-        else if (loc === 'ko' && isAlreadyKorean(src)) tx.textContent = src;
-        else {
-          tx.textContent = src;
-          if (i18n) {
-            i18n.translateText(loc, src).then(function (out) {
-              if (out !== src && tx.textContent === src) tx.textContent = out;
-            });
-          }
+        // §17.121 — 표시 규칙 단일(TF_I18N.chatView): 동기 결과 즉시, 원천이 있으면 MT 후 패치
+        var v = i18n ? i18n.chatView(r, loc) : { text: String(r.text || r.text_en || ''), mtSource: null };
+        tx.textContent = v.text;
+        if (v.mtSource) {
+          i18n.translateText(loc, v.mtSource).then(function (out) {
+            if (out !== v.text && tx.textContent === v.text) tx.textContent = out;
+          });
         }
       }
       c.log.appendChild(row);

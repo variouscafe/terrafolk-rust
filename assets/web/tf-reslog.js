@@ -1,7 +1,7 @@
 // Terrafolk 자원·기록 패널 — tf-ui.js에서 기능 분리(500줄 규칙, 2026-10-22).
 // 자원 팝업(FE popups res 포트 — relic 상세 포함)과 기록(이벤트 로그) 렌더.
 // 자원 이용가능 판정(resUsable·resStats — FE civ.ts 포트)과 채팅 로그 표기
-// 헬퍼(isHumanRow·isAlreadyKorean·chatDisplayText)도 이 모듈이 소유한다
+// 헬퍼(isHumanRow·chatDisplayText)도 이 모듈이 소유한다
 // (2026-11-03 tf-ui에서 이관 — 이 패널 전용).
 // TF_RESLOG.create(ctx) 주입 — tf-ui.js보다 먼저 로드.
 (function () {
@@ -47,19 +47,9 @@
       var a = S.live[c.agent_id];
       return String(c.speaker || '').indexOf('@') >= 0 || (a !== undefined && c.speaker !== a.name);
     }
-    function isAlreadyKorean(s) {
-      var h = (String(s).match(/[가-힣]/g) || []).length;
-      var l = (String(s).match(/[A-Za-z]/g) || []).length;
-      return h > 0 && h >= l * 3;
-    }
     function chatDisplayText(cm) {
-      var src = cm.orig != null ? cm.orig : cm.text;
-      var lang = cm.lang || 'en';
-      var locale = I.getLocale();
-      if (locale === lang) return src;
-      if (locale === 'en' && cm.text_en) return String(cm.text_en);
-      if (locale === 'ko' && isAlreadyKorean(src)) return src;
-      return mt(src);
+      var v = I.chatView(cm, I.getLocale());
+      return v.mtSource ? mt(v.mtSource) : v.text;   // 미스는 mt()가 원문 반환 후 캐시 충전
     }
   // ── 캐릭터 팝업(FE CharsPopup 포트) ──
   function resHtml() {

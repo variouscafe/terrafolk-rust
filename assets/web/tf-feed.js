@@ -52,6 +52,8 @@
         };
       });
       Object.keys(S.live).forEach(function (k) { if (!seen[k]) delete S.live[k]; });
+      // 주민 이름 집합 주입 — resolveParams {name}이 이름을 MT하지 않게(§17.121)
+      if (I.setAgentNames) I.setAgentNames(Object.keys(S.live).map(function (k) { return S.live[k].name; }));
       // 자원 — 스냅숏 시드
       S.resMap = {};
       (f.resources || []).forEach(function (r) {
@@ -89,6 +91,7 @@
       if (e.kind === 'spawn' && e.agent_id && e.payload && e.payload.name) {
         var cur = S.live[e.agent_id];
         if (cur && cur.name !== String(e.payload.name)) cur.name = String(e.payload.name);
+        if (I.setAgentNames) I.setAgentNames([e.payload.name]);
       }
       if (S.popup === 'log' || S.popup === 'inventions') schedule();
     }
@@ -129,5 +132,45 @@
 
     return { frame: frame, event: event, chat: chat, scope: scope, pickAt: pickAt };
   }
-  window.TF_FEED = { create: create };
+  // 하이라이트 토스트(우하단) DOM — tf-world-ui가 호출. 상수는 FE 동일(6s 후 제거, 최대 4개).
+  var TOAST_LIFE = 6000;
+  var TOAST_MAX = 4;
+  var toastHost = null;   // 지연 생성 — 스크립트가 body 이전에 로드돼도 안전
+
+  function pushToast(h) {
+    if (!toastHost) {
+      toastHost = document.createElement('div');
+      toastHost.id = 'tf-toasts';
+      document.body.appendChild(toastHost);
+    }
+    var el = document.createElement('div');
+    el.className = 'tf-toast';
+    var ic = document.createElement('span');
+    ic.className = 'ic';
+    ic.textContent = h.icon || '✦';
+    var body = document.createElement('span');
+    if (h.who) {
+      var who = document.createElement('span');
+      who.className = 'who';
+      who.textContent = h.who + ' — ';
+      body.appendChild(who);
+    }
+    var txtNode = document.createTextNode(h.text || '');
+    body.appendChild(txtNode);
+    // 자유문 토스트 MT 패치 — h.mtSource(키 없는 영문 정본)일 때만.
+    (function () {
+      var i = window.TF_I18N;
+      var loc = i && i.getLocale();
+      if (!i || loc === 'en' || !h.mtSource) return;   // 템플릿 문장은 이미 로케일 렌더 — 재번역 금지(§17.121)
+      i.translateText(loc, h.mtSource).then(function (tr) {
+        if (tr && tr !== h.text) txtNode.textContent = tr;
+      }).catch(function () {});
+    })();
+    el.appendChild(ic);
+    el.appendChild(body);
+    toastHost.appendChild(el);
+    while (toastHost.children.length > TOAST_MAX) toastHost.removeChild(toastHost.firstChild);
+    setTimeout(function () { el.remove(); }, TOAST_LIFE);
+  }
+  window.TF_FEED = { create: create, pushToast: pushToast };
 })();
