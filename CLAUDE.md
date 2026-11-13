@@ -276,3 +276,7 @@ build-apk.sh 빌드 전에 강제**한다. 복구 후 실측: 프라임 3초·�
 - 서버 데이터는 영문 정본(주민 이름만 한글 고유명사). 네이티브 bevy_ui 패널의 자유 텍스트(발명 이름·purpose, goal, 채팅, 기억, 기록)는 `src/net/mt.rs` `MtCache`로 화면 로케일(`ui::i18n::ui_locale()`, 현재 ko 고정)에 번역해 표시한다.
 - 자유 텍스트는 반드시 `i18n::free()`(전역 MT) 또는 `i18n::chat_body`·`item_label`을 경유한다. 주민 이름에는 쓰지 않는다. 캐시 미스는 원문 즉시 표시 + 백그라운드 배치 요청(250ms 디바운스·40개·지수 백오프).
 - 패널 재빌드는 `Res<MtCache>::generation()` 변화로만(서명에 섞기) — 매 프레임 재빌드 금지. wasm은 DOM(`tf-i18n.js`)이 담당하므로 mt.rs는 네이티브 전용.
+
+## 채팅 표시 단일 규칙 (§17.121)
+- 채팅 문장은 반드시 `TF_I18N.chatView(row, locale)`(`{text, mtSource}`)로 표시한다 — 로그(ui.js)·기록(tf-reslog.js)·말풍선(tf-world-ui.js) 공통. 비영문 행의 번역 원천은 영문 정본 `text_en`이며 사용자 입력 원문을 직접 MT하지 않는다. 새 표시 지점에서 규칙을 복제하지 말 것.
+- 말풍선은 캐시 히트 즉시 번역문, 미스는 원문 후 도착 시 교체(교체 시점부터 최소 3s 노출, 8s 이후 도착분 무시). 토스트는 `h.mtSource`(키 없는 자유문)만 MT — 키 템플릿 문장 재번역 금지. 주민 이름은 `TF_I18N.setAgentNames`로 주입해 `{name}` MT에서 제외. 단위 테스트 `node tools/e2e/i18n_chat_unit.cjs`, 라이브 프로브 `tools/e2e/chat_mt_live.cjs`.
