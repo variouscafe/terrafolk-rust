@@ -72,6 +72,8 @@
     '을': function (s) { return hasBatchim(s) ? '을' : '를'; },
     '은': function (s) { return hasBatchim(s) ? '은' : '는'; },
     '와': function (s) { return hasBatchim(s) ? '과' : '와'; },
+    '과': function (s) { return hasBatchim(s) ? '과' : '와'; },   // §17.121 — ev.talk.agreed {a과}
+    '의': function () { return '의'; },                            // ev.home.claimed {x의} — 불변 조사
     '으로': function (s) { return hasBatchim(s) ? '으로' : '로'; },
     '이': function (s) { return hasBatchim(s) ? '이' : '가'; },
   };
