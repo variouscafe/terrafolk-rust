@@ -271,3 +271,8 @@ build-apk.sh 빌드 전에 강제**한다. 복구 후 실측: 프라임 3초·�
 - **글로브 소형 소품 숨김(2026-11-06, `world/globe_cull.rs`)**: 줌아웃 가시 메시 −68%(5355→1710). 킬스위치 `?tfdbg=no_globe_cull`(기능 전체 끔), `?tfdbg=globe_cull_s_only`(S단계만: target_h<0.7 @zoom≥5.0). 임계=`CULL_S_MAX_H`/`CULL_M_MAX_H`(target_h), 모닥불·유물 제외, occlusion과 Visibility 경합은 `hides()`로 회피. 게이트 `tools/e2e/globe_cull_gate.cjs`(G1/G2).
 - **글로브 정적 소품 워프 캐시(2026-11-06, `world/globe_static.rs`)**: 움직이지 않는 PropRoot는 프레임 키 동일 시 Transform 미기입(전파 스킵). 킬스위치 `?tfdbg=no_globe_static`, 정합 프로브 `?tfdbg=gstatchk`(`[gstatchk]` 위치·회전 오차), 평면 소비자는 `flat_pos`/`flat_tf`(W2 예외: GlobeStatic는 Update에도 구면). 게이트 `tools/e2e/globe_static_gate.cjs`.
 - **perf 교차 A/B 모드**: `node tools/e2e/perf.cjs ab <tag> <flagsA> <flagsB> [pairs=5]` — 최대 줌아웃 15s(앞 3s 버림) ABAB 교차, 쌍별 p50/p95/가시 메시·부호 일관성 출력(`/tmp/perf_ab_<tag>.json`). `[perf]` 콘솔 파싱은 첫 `}`에서 절단.
+
+## 네이티브 MT (§17.118)
+- 서버 데이터는 영문 정본(주민 이름만 한글 고유명사). 네이티브 bevy_ui 패널의 자유 텍스트(발명 이름·purpose, goal, 채팅, 기억, 기록)는 `src/net/mt.rs` `MtCache`로 화면 로케일(`ui::i18n::ui_locale()`, 현재 ko 고정)에 번역해 표시한다.
+- 자유 텍스트는 반드시 `i18n::free()`(전역 MT) 또는 `i18n::chat_body`·`item_label`을 경유한다. 주민 이름에는 쓰지 않는다. 캐시 미스는 원문 즉시 표시 + 백그라운드 배치 요청(250ms 디바운스·40개·지수 백오프).
+- 패널 재빌드는 `Res<MtCache>::generation()` 변화로만(서명에 섞기) — 매 프레임 재빌드 금지. wasm은 DOM(`tf-i18n.js`)이 담당하므로 mt.rs는 네이티브 전용.

@@ -282,7 +282,7 @@
             return '<div class="tf-histrow"><span class="ts">' + esc(fmtTime(h.ts)) + '</span>' +
               '<span class="ty" style="color:' + (HIST_COLOR[h.type] || 'var(--ink-300,#8d97a8)') + '">' +
               esc(tOr('hist.' + h.type, h.type)) + '</span>' +
-              '<span class="tx">' + esc(h.text || '') + '</span></div>';
+              '<span class="tx">' + esc(mt(h.text || '')) + '</span></div>';
           }).join('')
         : '<span class="tf-sempty">' + esc(t('panel.history.empty', null, '—')) + '</span>';
     } else if (d.key === 'relations') {
