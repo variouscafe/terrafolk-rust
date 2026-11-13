@@ -73,5 +73,12 @@ Object.assign(win, { fetch: ctx.fetch });
   eq(free && free.mtSource, 'An idea about boats', '키 없는 자유문 토스트는 mtSource');
   const keyed = I.highlightOf({ kind: 'result', agent_id: 'a', payload: { action: 'store', ok: true, key: 'ev.store.ok', params: { bld: 'HUT', item: 'meat', n: 4 }, text: 'Stored 4 meat in the HUT' } }, o);
   eq(keyed && keyed.mtSource, null, '템플릿 토스트는 mtSource 없음(재번역 금지)');
+  // 조사 토큰 과·의 — 미해결 {a과}/{x의} 노출 회귀(라이브 토스트 2026-11-14)
+  const agreed = I.renderEventKey('ev.talk.agreed', { a: '아라', b: '테린', topic: 'Wood' }, 'ko', '', tm);
+  ok(agreed.indexOf('{') < 0 && agreed.indexOf('아라와') >= 0, 'ev.talk.agreed 과/와 해소: ' + agreed);
+  const agreed2 = I.renderEventKey('ev.talk.agreed', { a: '테린', b: '아라', topic: 'Wood' }, 'ko', '', tm);
+  ok(agreed2.indexOf('테린과') >= 0, '받침 뒤 과: ' + agreed2);
+  const claimed = I.renderEventKey('ev.home.claimed', { name: '아라', bld: 'HUT', x: 1, y: 2, who: '아라' }, 'ko', '', tm);
+  ok(claimed.indexOf('의}') < 0, 'ev.home.claimed 의 해소: ' + claimed);
   console.log('OK ' + n + ' checks');
 })();
