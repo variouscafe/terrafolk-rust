@@ -38,10 +38,10 @@ pub(super) fn spawn_detail(
             ..default()
         },
     )).with_children(|h| {
-        h.spawn((Text::new(r.name.clone()), theme.title(12.0)));
+        h.spawn((Text::new(i18n::free(&r.name)), theme.title(12.0)));
         if let Some(base) = r.based_on.as_deref().filter(|b| !b.is_empty()) {
             h.spawn((
-                Text::new(i18n::t_fmt("relic.card.improved", &[("x", base)])),
+                Text::new(i18n::t_fmt("relic.card.improved", &[("x", &i18n::free(base))])),
                 theme.text(8.5, amber),
             ));
         }
@@ -82,7 +82,7 @@ pub(super) fn spawn_detail(
     {
         let line = mats
             .iter()
-            .map(|(it, q)| format!("{} ×{q}", i18n::vocab_label("item", it)))
+            .map(|(it, q)| format!("{} ×{q}", i18n::item_label(it)))
             .collect::<Vec<_>>()
             .join(" · ");
         commands.entity(body).with_child((
@@ -91,12 +91,12 @@ pub(super) fn spawn_detail(
             theme.text(9.0, theme::INK200),
         ));
     }
-    // 발명가의 설명(자유문 — 원문 표시)
+    // 발명가의 설명(자유문 — 화면 로케일로 MT, §17.118)
     let desc = r
         .purpose
         .as_deref()
         .filter(|p| !p.trim().is_empty())
-        .map(str::to_owned)
+        .map(i18n::free)
         .unwrap_or_else(|| i18n::t_or("relic.card.desc.empty", "설명이 남지 않았다"));
     commands.entity(body).with_child((
         TextLine,

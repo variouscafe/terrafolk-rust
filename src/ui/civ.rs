@@ -164,6 +164,7 @@ pub(crate) fn refresh_civ(
     theme: Res<UiTheme>,
     net: Res<NetState>,
     evlog: Res<EventLog>,
+    mt: Res<crate::net::mt::MtCache>,
     mut detail: ResMut<CivDetail>,
     mut q_root: Query<&mut Visibility, (With<CivPopupRoot>, Without<super::res::ResPopupRoot>)>,
     q_body: Query<(Entity, Option<&Children>), (With<CivBody>, Without<CivPopupRoot>)>,
@@ -224,11 +225,12 @@ pub(crate) fn refresh_civ(
         })
         .unwrap_or((0, 0));
     let sig = format!(
-        "{}:{:?}|{:?}|{}|{huts}+{agents}",
+        "{}:{:?}|{:?}|{}|{huts}+{agents}|mt{}",
         rows.len(),
         rows.first().map(|r| &r.name),
         detail.0,
         chronicle.len(),
+        mt.generation(), // 번역 도착 시 재빌드(§17.118)
     );
     if sig == sigs.civ {
         return;
@@ -355,7 +357,7 @@ pub(crate) fn refresh_civ(
                     let d = (n / 4).min(3);
                     format!(
                         "{} {}",
-                        r.name,
+                        i18n::free(&r.name),
                         i18n::t_fmt("civ.living.holds", &[("n", &n.to_string()), ("d", &d.to_string())])
                     )
                 })
@@ -407,7 +409,7 @@ pub(crate) fn refresh_civ(
             .observe(on_inv_click)
             .with_children(|t| {
                 t.spawn((
-                    Text::new(format!("{} — {}{day}", r.name, by)),
+                    Text::new(format!("{} — {}{day}", i18n::free(&r.name), by)),
                     theme.label(10.5),
                 ));
             })

@@ -8,6 +8,7 @@
 use bevy::picking::Pickable;
 use bevy::prelude::*;
 
+use super::i18n;
 use super::theme::UiTheme;
 use super::world_overlay_badges::BadgeCanvas;
 use crate::net::apply::LiveAgentTag;
@@ -70,6 +71,9 @@ pub struct AnchorCol {
 #[derive(Component)]
 pub struct BubbleNode {
     text: String,
+    /// 화자 접두·원본 행 — MT 도착 시 본문 재구성(§17.118)
+    tag: String,
+    row: Option<crate::net::feed::ChatRow>,
     life: f32,
 }
 
@@ -121,6 +125,8 @@ pub fn sync_overlay_nodes(
                 SlotMark(Slot::Bubble),
                 BubbleNode {
                     text: String::new(),
+                    tag: String::new(),
+                    row: None,
                     life: 0.0,
                 },
                 Pickable::IGNORE,
@@ -257,6 +263,14 @@ pub fn sync_overlay_nodes(
     }
 }
 
+/// 말풍선 본문 — 로케일 규칙 선택 + MT 후 60자 절단.
+fn bubble_body(row: &crate::net::feed::ChatRow) -> String {
+    i18n::chat_body(&row.text, row.text_en.as_deref(), &row.lang)
+        .chars()
+        .take(60)
+        .collect()
+}
+
 /// 말풍선 — ChatLog watermark 뒤 새 행만. 60자, 사용자 발화 ⟪이름⟫ 전체 금색,
 /// 동일 텍스트 재수신 스킵(에코 확정 재방송 방지). 수명 3.4s + 페이드 0.7s.
 #[allow(clippy::type_complexity)]
@@ -267,7 +281,26 @@ pub fn update_bubbles(
     villagers: Query<&Villager>,
     mut q_bubble: Query<(&mut BubbleNode, &mut Visibility, &mut BackgroundColor), Without<AnchorCol>>,
     mut q_bubble_text: Query<(&mut Text, &mut TextColor), Without<AnchorCol>>,
+    mt: Res<crate::net::mt::MtCache>,
+    mut mt_gen: Local<u64>,
 ) {
+    // 번역 도착 — 표시 중 말풍선 본문을 다시 고른다(§17.118)
+    if *mt_gen != mt.generation() {
+        *mt_gen = mt.generation();
+        for col in &q_cols {
+            let Ok((mut bubble, vis, _)) = q_bubble.get_mut(col.bubble) else { continue };
+            let Some(row) = bubble.row.clone().filter(|_| *vis == Visibility::Visible) else {
+                continue;
+            };
+            let text = format!("{}{}", bubble.tag, bubble_body(&row));
+            if text != bubble.text {
+                bubble.text = text.clone();
+                if let Ok((mut t, _)) = q_bubble_text.get_mut(col.bubble_text) {
+                    **t = text;
+                }
+            }
+        }
+    }
     if chat.seen < chat.rows.len() {
         let fresh: Vec<_> = chat.rows.iter().skip(chat.seen).cloned().collect();
         chat.seen = chat.rows.len();
@@ -287,17 +320,14 @@ pub fn update_bubbles(
                 } else {
                     String::new()
                 };
-                let body: String = if row.text.is_empty() {
-                    row.text_en.clone().unwrap_or_default()
-                } else {
-                    row.text.clone()
-                };
-                let text = format!("{tag}{}", body.chars().take(60).collect::<String>());
+                let text = format!("{tag}{}", bubble_body(&row));
                 if let Ok((mut bubble, mut vis, mut bg)) = q_bubble.get_mut(col.bubble) {
                     if bubble.text == text {
                         break; // 무변화 — 다음 행으로
                     }
                     bubble.text = text.clone();
+                    bubble.tag = tag;
+                    bubble.row = Some(row.clone());
                     bubble.life = BUBBLE_LIFE + BUBBLE_FADE;
                     *vis = Visibility::Visible;
                     *bg = BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.8));
@@ -320,6 +350,7 @@ pub fn update_bubbles(
             if bubble.life <= 0.0 {
                 *vis = Visibility::Hidden;
                 bubble.text.clear();
+                bubble.row = None;
             } else if bubble.life < BUBBLE_FADE {
                 let a = (bubble.life / BUBBLE_FADE).clamp(0.0, 1.0) * 0.8;
                 *bg = BackgroundColor(Color::srgba(0.0, 0.0, 0.0, a));

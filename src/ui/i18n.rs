@@ -27,7 +27,44 @@ fn find3(tbl: &'static [(&'static str, &'static str, &'static str)], key: &str) 
     }
 }
 
-/// 로케일 확정값 — 네이티브는 한국어 고정(설정 언어 기능 추가 시 확장).
+/// 화면 로케일 — 단일 지점(pick·MT 공용). 네이티브는 ko 고정, 설정 언어 기능 추가 시 확장.
+pub fn ui_locale() -> &'static str {
+    "ko"
+}
+
+/// 자유 텍스트(발명 이름·purpose·goal·채팅·기억 등) 표시 변환 — 캐시 미스면 원문
+/// 즉시 반환 + 백그라운드 번역 요청(§17.118). 주민 이름에는 쓰지 말 것. wasm은 원문.
+pub fn free(text: &str) -> String {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        crate::net::mt::global_mt(text)
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        text.to_owned()
+    }
+}
+
+/// 채팅 본문 선택 + MT — 웹 ui.js 규칙: 발화 언어=화면 로케일이면 원문, en 화면이면
+/// text_en 우선, 그 외는 원문을 MT(§17.67·§17.118).
+pub fn chat_body(text: &str, text_en: Option<&str>, lang: &str) -> String {
+    let src = if text.is_empty() { text_en.unwrap_or("") } else { text };
+    let loc = ui_locale();
+    if loc == lang {
+        src.to_owned()
+    } else if loc == "en" && text_en.is_some() {
+        text_en.unwrap_or("").to_owned()
+    } else {
+        free(src)
+    }
+}
+
+/// 품목 라벨 — 어휘 사전 우선, 없으면 발명품 이름이므로 MT(§17.118).
+pub fn item_label(id: &str) -> String {
+    find3(VOCAB, &format!("item.{id}")).map(pick).unwrap_or_else(|| free(id))
+}
+
+/// 로케일 확정값 — ko 우선(ui_locale과 동일 정책).
 fn pick((ko, en): (&'static str, &'static str)) -> String {
     if !ko.is_empty() {
         fx(ko)
@@ -201,7 +238,7 @@ fn resolve_params(tmpl: &str, params: &serde_json::Map<String, Value>) -> String
     for (name, raw) in params {
         let s = val_str(raw);
         let val = match name.as_str() {
-            "item" | "item2" => label4("item", &s),
+            "item" | "item2" => item_label(&s),
             "species" => label4("sp", &s),
             "dir" => label4("dir", &s),
             "skill" => t(&format!("act.{s}")).unwrap_or_else(|| s.clone()),
@@ -232,7 +269,7 @@ fn resolve_params(tmpl: &str, params: &serde_json::Map<String, Value>) -> String
                 if trimmed.is_empty() {
                     String::new()
                 } else {
-                    format!(" — {trimmed}")
+                    format!(" — {}", free(trimmed))
                 }
             }
             "acts" => s
@@ -262,6 +299,8 @@ fn resolve_params(tmpl: &str, params: &serde_json::Map<String, Value>) -> String
                 })
                 .collect::<Vec<_>>()
                 .join(", "),
+            // 자유 텍스트 파라미터(발명·목표·사유 등) — MT(§17.118)
+            "name" | "inv" | "what" | "goal" | "purpose" | "design" | "invention" => free(&s),
             _ => s.clone(),
         };
         for tag in ["이가", "을", "은", "와", "으로", "이"] {
@@ -305,11 +344,13 @@ pub fn event_text(p: &Value) -> String {
             return out;
         }
     }
-    p.get("text")
-        .or_else(|| p.get("goal"))
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .into()
+    // 키 없는 자유 문장(영문 정본) — 화면 로케일로 MT(§17.118)
+    free(
+        p.get("text")
+            .or_else(|| p.get("goal"))
+            .and_then(Value::as_str)
+            .unwrap_or(""),
+    )
 }
 
 #[cfg(test)]
@@ -363,9 +404,5 @@ pub fn goal_text(goal_key: &str, goal_text: &str) -> String {
             return out;
         }
     }
-    if goal_text.is_empty() {
-        String::new()
-    } else {
-        goal_text.into()
-    }
+    free(goal_text) // 영문 정본 폴백 — MT(§17.118)
 }

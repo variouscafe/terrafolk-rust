@@ -125,7 +125,7 @@
               return '<span class="tf-chipbox"' +
                 (i.last_perform_day != null ? ' title="' + esc(t('civ.living.last', { d: i.last_perform_day })) + '"' : '') + '>' +
                 '<span style="font-size:14px;line-height:1">' + (i.icon && i.icon.tpl ? chipIconHtml(i.name, 20) : invCatEmoji(i.category)) + '</span>' +
-                '<span class="tf-chipbox-nm">' + esc(i.name) + '</span>' +
+                '<span class="tf-chipbox-nm">' + esc(mt(i.name)) + '</span>' +
                 '<span class="tf-qty" style="color:#fcd34d">' + esc(t('civ.living.holds', { n: n, d: depth })) + '</span>' +
                 '</span>';
             }).join('') + '</div>') +
@@ -178,7 +178,7 @@
       '<span class="tf-invrow-icon">' + invIconHtml(i, 22) + '</span>' +
       '<span class="tf-invrow-main">' +
         '<span class="tf-invrow-line1">' +
-          '<span class="tf-invrow-name">' + esc(i.name) + '</span>' +
+          '<span class="tf-invrow-name">' + esc(mt(i.name)) + '</span>' +
           (i.based_on ? '<span class="tf-amber-up" title="' + esc(t('relic.card.improved', { x: i.based_on })) + '">↑</span>' : '') +
           '<span class="tf-invrow-year">' + esc(t('civ.inv.year', { y: year })) + '</span>' +
         '</span>' +
@@ -213,7 +213,7 @@
         '<div class="tf-invdetail-icon">' + invIconHtml(sel, 32) + '</div>' +
         '<div style="min-width:0;flex:1 1 0%">' +
           '<div style="display:flex;align-items:center;gap:.375rem">' +
-            '<h3 class="tf-invdetail-name">' + esc(sel.name) + '</h3>' +
+            '<h3 class="tf-invdetail-name">' + esc(mt(sel.name)) + '</h3>' +
             (sel.based_on ? '<span class="tf-improved">' + esc(t('relic.card.improved', { x: sel.based_on })) + '</span>' : '') +
           '</div>' +
           '<div class="tf-invdetail-meta">' +

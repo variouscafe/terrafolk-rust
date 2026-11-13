@@ -118,6 +118,7 @@ pub fn refresh_rail(
     sel: Res<Selection>,
     store: Res<PollStore>,
     chat: Res<ChatLog>,
+    mt: Res<crate::net::mt::MtCache>,
     villagers: Query<(&LiveAgentTag, &Villager)>,
     net: Res<crate::net::NetState>,
     mut commands: Commands,
@@ -150,13 +151,14 @@ pub fn refresh_rail(
     let rels = store.relations.lock().unwrap_or_else(|e| e.into_inner());
     // 서명 — 패널 종류·선택·데이터 버전(행 수·끝 ts)
     let sig = format!(
-        "{kind}|{}|{}|{}|{}|{}|{}",
+        "{kind}|{}|{}|{}|{}|{}|{}|mt{}",
         sel.id.clone().unwrap_or_default(),
         hist.len(),
         hist.last().map(|h| h.ts.clone()).unwrap_or_default(),
         rels.len(),
         chat.rows.len(),
         chat.rows.back().map(|c| (c.gmin.unwrap_or(0), c.text.clone())).map(|(g, t)| format!("{g}{t}")).unwrap_or_default(),
+        mt.generation(), // 번역 도착 시 재빌드(§17.118)
     );
     if sig == state.sig {
         return;
@@ -208,7 +210,7 @@ pub fn refresh_rail(
                             r.spawn((Text::new(hm.clone()), theme.text(8.0, theme::INK400)));
                         }
                         r.spawn((Text::new(label.clone()), theme.text(8.5, color)));
-                        r.spawn((Text::new(h.text.clone()), theme.text(8.5, theme::INK200)));
+                        r.spawn((Text::new(i18n::free(&h.text)), theme.text(8.5, theme::INK200)));
                     })
                     .id();
                 commands.entity(body_e).add_child(row);
@@ -392,7 +394,7 @@ pub fn refresh_rail(
                         c.spawn((
                             Text::new(format!(
                                 "{} ×{}",
-                                i18n::vocab_label("item", id),
+                                i18n::item_label(id),
                                 qty.as_f64().map(|v| v as u32).unwrap_or(0)
                             )),
                             theme.text(8.5, theme::INK200),
@@ -418,11 +420,7 @@ pub fn refresh_rail(
                     i18n::agent_color(&row.agent_id)
                 };
                 let stamp = row.gmin.map(i18n::fmt_gmin).unwrap_or_default();
-                let text = if row.text.is_empty() {
-                    row.text_en.clone().unwrap_or_default()
-                } else {
-                    row.text.clone()
-                };
+                let text = i18n::chat_body(&row.text, row.text_en.as_deref(), &row.lang);
                 let line = commands
                     .spawn(Node {
                         flex_direction: FlexDirection::Row,

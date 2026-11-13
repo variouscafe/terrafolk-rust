@@ -223,7 +223,7 @@ fn res_tip(net: &NetState, gx: f32, gz: f32) -> Option<String> {
                 ],
             );
             if let Some(ep) = st.epitaph.as_deref().filter(|e| !e.is_empty()) {
-                s.push_str(&format!("\n「{ep}」"));
+                s.push_str(&format!("\n「{}」", i18n::free(ep))); // 비문 — MT(§17.118)
             }
             Some(s)
         }
@@ -231,11 +231,11 @@ fn res_tip(net: &NetState, gx: f32, gz: f32) -> Option<String> {
             // 발명품 — 이름(species) + 발명가 + 설명(§17.38 FE 툴팁 직역)
             let mut s = format!(
                 "{}\n{}",
-                r.species,
+                i18n::free(&r.species), // 발명품 이름 — MT(§17.118)
                 i18n::t_fmt("tip.relic", &[("by", st.by.as_deref().unwrap_or("?"))])
             );
             if let Some(p) = st.purpose.as_deref().filter(|p| !p.is_empty()) {
-                s.push_str(&format!("\n{}", i18n::fx(p)));
+                s.push_str(&format!("\n{}", i18n::fx(&i18n::free(p))));
             }
             Some(s)
         }
