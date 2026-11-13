@@ -75,7 +75,9 @@ fn res_rows(net: &NetState, world: &WorldData) -> Vec<(String, usize, String)> {
     };
     if let Some(frame) = net.frame.as_ref() {
         for r in &frame.resources {
-            feed(r.kind.clone(), r.species.clone());
+            // 발명 흔적의 species는 발명품 이름 — MT(§17.118)
+            let sp = if r.kind == "relic" { super::i18n::free(&r.species) } else { r.species.clone() };
+            feed(r.kind.clone(), sp);
         }
     } else {
         for p in world.decorative_props() {

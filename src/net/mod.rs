@@ -190,6 +190,9 @@ impl Plugin for NetPlugin {
         // 외형 편집 동기화 자원 — 네이티브 전용 모듈(wasm은 DOM 편집기).
         #[cfg(not(target_arch = "wasm32"))]
         app.init_resource::<look_sync::LookStore>();
+        // 자유 텍스트 기계번역 캐시·워커(§17.118) — 네이티브 전용(웹은 tf-i18n.js).
+        #[cfg(not(target_arch = "wasm32"))]
+        app.add_plugins(mt::MtPlugin);
         app.add_systems(Startup, (connect_bridge, apply::prime_live_world).chain())
             .add_plugins(inventions::plugin)
             .add_systems(
@@ -344,6 +347,9 @@ pub mod feed;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod http_poll;
 pub mod inventions;
+/// 자유 텍스트 기계번역 캐시(§17.118) — 네이티브 전용
+#[cfg(not(target_arch = "wasm32"))]
+pub mod mt;
 /// 외형 편집 동기화(/me 폴·look 저장) — 네이티브 전용
 #[cfg(not(target_arch = "wasm32"))]
 pub mod look_sync;
